@@ -45,23 +45,33 @@ cd wuzpay-pos
 
 ### 2. Konfigurasi Environment
 Buat file .env di folder root dan backend, lalu masukkan:
+```bash
 MONGODB_URI=your_mongodb_connection_string
 PORT=8000
 JWT_SECRET=seblak_mledak_rahasia_2026
+```
 
 ### 3. Install Dependencies
-# Root directory (Frontend)
+# Frontend directory
+```bash
 npm install
+```
 
 # Backend directory
+```bash
 cd backend && npm install
+```
 
 ### 4. Jalankan Aplikasi
 # Jalankan Frontend (Vite)
+```
 npm run dev
+```
 
 # Jalankan Backend (Deno/Node)
+```
 npm run dev
+```
 
 ### 5. Tim Pengembang
 Ali, Dani, Farhan, Raja, Reyhan, Zacky
