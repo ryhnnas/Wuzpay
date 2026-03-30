@@ -59,10 +59,10 @@ export function AIInsights() {
   const [businessMetrics, setBusinessMetrics] = useState<MetricItem[]>([]);
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
   const [narrativeReport, setNarrativeReport] = useState<NarrativeReport>({
-    summary: 'Belum ada data transaksi yang cukup untuk dianalisis.',
-    topProduct: 'Belum ada data produk terlaris.',
-    peakHours: 'Belum ada data jam ramai transaksi.',
-    strategy: 'Mulai kumpulkan data transaksi agar rekomendasi AI semakin akurat.',
+    summary: 'Menganalisis data WuzPay...',
+    topProduct: 'Menghitung performa produk...',
+    peakHours: 'Mempelajari pola transaksi...',
+    strategy: 'Menyiapkan rekomendasi bisnis...',
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -88,12 +88,13 @@ export function AIInsights() {
       const txWithDate = transactions
         .map((tx: any) => ({
           ...tx,
-          createdDate: tx.created_at ? new Date(tx.created_at) : null,
+          // MongoDB menggunakan string ISO, pastikan konversi date aman
+          createdDate: tx.created_at ? new Date(tx.created_at) : new Date(),
           dateKey: tx.created_at ? format(new Date(tx.created_at), 'yyyy-MM-dd') : null,
           amount: Number(tx.total_amount ?? tx.total ?? 0),
           items: Array.isArray(tx.items) ? tx.items : [],
         }))
-        .filter((tx: any) => tx.createdDate && !Number.isNaN(tx.createdDate.getTime()));
+        .filter((tx: any) => tx.dateKey);
 
       const todayTx = txWithDate.filter((tx: any) => tx.dateKey === todayStr);
       const weekTx = txWithDate.filter((tx: any) => tx.dateKey >= sevenDaysAgoStr && tx.dateKey <= todayStr);
@@ -110,19 +111,21 @@ export function AIInsights() {
       const prevMonthRevenue = sumRevenue(prevMonthTx);
       const avgTransaction = monthTx.length > 0 ? monthRevenue / monthTx.length : 0;
 
-      const productLookup = new Map(products.map((product: any) => [product.id, product.name]));
+      // Mapping produk menggunakan _id (MongoDB)
+      const productLookup = new Map(products.map((p: any) => [p._id || p.id, p.name]));
       const productStats = new Map<string, { qty: number; revenue: number; name: string }>();
 
       monthTx.forEach((tx: any) => {
         tx.items.forEach((item: any) => {
-          const productId = item.product_id;
+          const productId = item.product_id?._id || item.product_id; // Support populated object atau string ID
           const qty = Number(item.quantity || 0);
           const price = Number(item.price_at_sale || 0);
-          const key = productId || item.product_name || 'unknown';
+          const key = productId || 'unknown';
+          
           const existing = productStats.get(key) || {
             qty: 0,
             revenue: 0,
-            name: productLookup.get(productId) || item.product_name || 'Produk Tidak Dikenal',
+            name: productLookup.get(key) || item.name || 'Produk Tidak Dikenal',
           };
           existing.qty += qty;
           existing.revenue += qty * price;
@@ -133,15 +136,17 @@ export function AIInsights() {
       const sortedProducts = Array.from(productStats.values()).sort((a, b) => b.revenue - a.revenue);
       const topProduct = sortedProducts[0];
 
+      // Filter stok kritis berdasarkan stock_quantity (Nama kolom di backend baru)
       const lowStockProducts = products
-        .filter((p: any) => Number(p.stock_quantity || p.stock || 0) < 5)
-        .sort((a: any, b: any) => Number(a.stock_quantity || 0) - Number(b.stock_quantity || 0));
+        .filter((p: any) => Number(p.stock_quantity || 0) < 5)
+        .sort((a: any, b: any) => Number(a.stock_quantity) - Number(b.stock_quantity));
 
       const hourCount = new Map<number, number>();
       txWithDate.forEach((tx: any) => {
         const hour = tx.createdDate.getHours();
         hourCount.set(hour, (hourCount.get(hour) || 0) + 1);
       });
+      
       const topHours = Array.from(hourCount.entries())
         .sort((a, b) => b[1] - a[1])
         .slice(0, 2)
@@ -151,36 +156,24 @@ export function AIInsights() {
       generatedInsights.push({
         id: 'weekly-trend',
         type: weekRevenue >= prevWeekRevenue ? 'trend' : 'warning',
-        title: 'Performa 7 Hari Terakhir',
-        description: `${formatCurrency(weekRevenue)} dari ${weekTx.length} transaksi (${formatPercentChange(weekRevenue, prevWeekRevenue)} vs 7 hari sebelumnya)`,
-        action: 'Buka laporan penjualan',
+        title: 'Tren Penjualan Mingguan',
+        description: `${formatCurrency(weekRevenue)} dari ${weekTx.length} transaksi (${formatPercentChange(weekRevenue, prevWeekRevenue)} vs pekan lalu)`,
       });
 
       generatedInsights.push({
         id: 'today-sales',
         type: 'success',
-        title: 'Penjualan Hari Ini',
-        description: `${todayTx.length} transaksi dengan total ${formatCurrency(todayRevenue)}`,
-        action: 'Pantau transaksi live',
+        title: 'Status Hari Ini',
+        description: `${todayTx.length} transaksi WuzPay berhasil diproses dengan total ${formatCurrency(todayRevenue)}`,
       });
 
       if (lowStockProducts.length > 0) {
         generatedInsights.push({
           id: 'low-stock',
           type: 'warning',
-          title: 'Peringatan Stok Menipis',
-          description: `${lowStockProducts.length} produk di bawah stok aman. Kritis: ${lowStockProducts.slice(0, 2).map((p: any) => p.name).join(', ')}`,
-          action: 'Buka manajemen stok',
-        });
-      }
-
-      if (topProduct) {
-        generatedInsights.push({
-          id: 'top-product',
-          type: 'trend',
-          title: 'Produk Paling Laris (30 Hari)',
-          description: `${topProduct.name} terjual ${topProduct.qty} pcs dengan omzet ${formatCurrency(topProduct.revenue)}`,
-          action: 'Optimalkan stok produk ini',
+          title: 'Perhatian Stok!',
+          description: `${lowStockProducts.length} produk di bawah stok aman. Segera restock secepatnya.`,
+          action: 'Lihat Daftar Stok',
         });
       }
 
@@ -188,81 +181,63 @@ export function AIInsights() {
 
       setBusinessMetrics([
         {
-          title: 'Total Penjualan 30 Hari',
+          title: 'Omzet (30 Hari)',
           value: formatCurrency(monthRevenue),
           trend: formatPercentChange(monthRevenue, prevMonthRevenue),
           description: 'Dibandingkan 30 hari sebelumnya',
         },
         {
-          title: 'Jumlah Transaksi 30 Hari',
+          title: 'Volume Transaksi',
           value: `${monthTx.length}`,
           trend: formatPercentChange(monthTx.length, prevMonthTx.length),
-          description: 'Volume transaksi terbaru',
+          description: 'Total transaksi berhasil',
         },
         {
-          title: 'Rata-rata Nilai Transaksi',
+          title: 'Rata-rata Keranjang',
           value: formatCurrency(avgTransaction),
           trend: weekTx.length ? formatPercentChange(weekRevenue / weekTx.length, prevWeekTx.length ? prevWeekRevenue / prevWeekTx.length : 0) : '0%',
-          description: 'Average ticket size per transaksi',
+          description: 'Nilai belanja per transaksi',
         },
         {
-          title: 'Produk Stok Kritis',
+          title: 'Item Kritis',
           value: `${lowStockProducts.length}`,
-          trend: lowStockProducts.length > 0 ? 'Perlu aksi' : 'Aman',
-          description: 'Produk dengan stok di bawah 5 unit',
+          trend: lowStockProducts.length > 0 ? 'Urgent' : 'Aman',
+          description: 'Produk stok di bawah 5 unit',
         },
       ]);
 
       const generatedRecommendations: RecommendationItem[] = [];
-
       if (lowStockProducts.length > 0) {
         generatedRecommendations.push({
-          title: 'Restock Produk Kritis',
-          description: `Segera isi ulang stok untuk ${lowStockProducts.slice(0, 3).map((p: any) => p.name).join(', ')} agar tidak kehilangan penjualan.`,
+          title: 'Restock Produk Prioritas',
+          description: `Stok ${lowStockProducts.slice(0, 2).map((p: any) => p.name).join(' & ')} sudah kritis. Segera hubungi supplier.`,
           impact: 'High',
         });
       }
 
       if (topProduct) {
         generatedRecommendations.push({
-          title: 'Optimalkan Produk Terlaris',
-          description: `${topProduct.name} adalah penyumbang omzet tertinggi. Pertahankan ketersediaan stok dan pertimbangkan upsell/bundling.`,
+          title: 'Eksploitasi Produk Terlaris',
+          description: `${topProduct.name} adalah sumber cuan utama. Pertimbangkan paket bundling dengan minuman.`,
           impact: 'High',
-        });
-      }
-
-      if (topHours.length > 0) {
-        generatedRecommendations.push({
-          title: 'Fokus Jam Ramai',
-          description: `Jam paling ramai ada di ${topHours.join(' dan ')}. Pastikan staffing dan persiapan stok lebih optimal pada jam tersebut.`,
-          impact: 'Medium',
-        });
-      }
-
-      if (avgTransaction < 30000) {
-        generatedRecommendations.push({
-          title: 'Naikkan Nilai Transaksi',
-          description: 'Nilai transaksi rata-rata masih relatif rendah. Coba strategi bundling atau add-on untuk menaikkan basket size.',
-          impact: 'Medium',
         });
       }
 
       setRecommendations(generatedRecommendations.slice(0, 4));
 
       setNarrativeReport({
-        summary: `Dalam 30 hari terakhir tercatat ${monthTx.length} transaksi dengan total penjualan ${formatCurrency(monthRevenue)} (${formatPercentChange(monthRevenue, prevMonthRevenue)} dibanding periode sebelumnya).`,
+        summary: `Performa WuzPay dalam 30 hari terakhir menghasilkan ${formatCurrency(monthRevenue)} (${formatPercentChange(monthRevenue, prevMonthRevenue)}).`,
         topProduct: topProduct
-          ? `${topProduct.name} menjadi kontributor utama dengan penjualan ${topProduct.qty} pcs dan omzet ${formatCurrency(topProduct.revenue)}.`
-          : 'Belum ada produk dominan karena data item transaksi masih terbatas.',
+          ? `${topProduct.name} mendominasi pasar dengan kontribusi ${formatCurrency(topProduct.revenue)}.`
+          : 'Data produk belum cukup dominan untuk dianalisis.',
         peakHours: topHours.length > 0
-          ? `Puncak transaksi terjadi pada ${topHours.join(' dan ')}. Fokuskan staf dan kesiapan operasional pada jam tersebut.`
-          : 'Belum ada pola jam ramai yang konsisten dari data saat ini.',
-        strategy: lowStockProducts.length > 0
-          ? 'Prioritas utama adalah menjaga ketersediaan produk kritis sambil memaksimalkan produk terlaris melalui strategi promo dan bundling.'
-          : 'Pertahankan performa saat ini, lanjutkan optimasi produk terlaris dan evaluasi promosi berbasis jam transaksi tertinggi.',
+          ? `Waktu tersibuk tokomu adalah pukul ${topHours.join(' & ')}. Pastikan stok siap sebelum jam ini.`
+          : 'Pola jam ramai belum terbentuk secara konsisten.',
+        strategy: 'Optimalkan ketersediaan bahan baku pada jam sibuk dan lakukan upsell pada produk terlaris.',
       });
+
     } catch (error) {
-      toast.error('Gagal memuat insights');
+      toast.error('Gagal memproses data WuzPay AI');
     } finally {
       setIsLoading(false);
     }
@@ -270,176 +245,112 @@ export function AIInsights() {
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'warning':
-        return <AlertTriangle className="size-6 text-yellow-600" />;
-      case 'trend':
-        return <TrendingUp className="size-6 text-blue-600" />;
-      case 'success':
-        return <CheckCircle className="size-6 text-green-600" />;
-      default:
-        return <Info className="size-6 text-gray-600" />;
-    }
-  };
-
-  const getBadgeColor = (type: string) => {
-    switch (type) {
-      case 'warning':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'trend':
-        return 'bg-blue-100 text-blue-800';
-      case 'success':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'warning': return <AlertTriangle className="size-6 text-orange-600" />;
+      case 'trend': return <TrendingUp className="size-6 text-gray-900" />;
+      case 'success': return <CheckCircle className="size-6 text-green-600" />;
+      default: return <Info className="size-6 text-blue-600" />;
     }
   };
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-6 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="flex items-center gap-2 font-bold text-2xl">
-            <Brain className="size-8 text-purple-600" />
-            AI Business Insights
+          <h2 className="font-black text-3xl uppercase tracking-tighter text-gray-900 italic">
+            Business <span className="text-orange-600">Insights</span>
           </h2>
-          <p className="text-gray-500 text-sm">Analisis bisnis berbasis kecerdasan buatan</p>
+          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">Analisis Data Otomatis WuzPay</p>
         </div>
-        <Button onClick={loadInsights} disabled={isLoading}>
+        <Button onClick={loadInsights} disabled={isLoading} className="bg-gray-900 text-white rounded-2xl font-black px-6 h-12 shadow-xl shadow-gray-200 uppercase text-[10px] tracking-widest">
           <RefreshCw className={`mr-2 size-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh Insights
+          Generate Report
         </Button>
       </div>
 
-      {/* AI Insights Cards */}
-      <div>
-        <h3 className="mb-4 font-semibold text-lg">AI Insights Terbaru</h3>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {insights.length === 0 && !isLoading && (
-            <Card className="md:col-span-2 lg:col-span-3">
-              <CardContent className="pt-6">
-                <p className="text-gray-600 text-sm">Belum ada data insight. Pastikan transaksi sudah tersedia di sistem.</p>
-              </CardContent>
-            </Card>
-          )}
-          {insights.map(insight => (
-            <Card key={insight.id} className="border-l-4 border-l-blue-600">
-              <CardContent className="pt-6">
-                <div className="mb-4 flex items-start justify-between">
-                  {getIcon(insight.type)}
-                  <Badge className={getBadgeColor(insight.type)}>
-                    {insight.type}
-                  </Badge>
-                </div>
-                <h4 className="mb-2 font-semibold">{insight.title}</h4>
-                <p className="text-gray-600 text-sm">{insight.description}</p>
-                {insight.action && (
-                  <Button variant="link" className="mt-2 h-auto p-0" disabled>
-                    {insight.action} →
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* Business Metrics */}
-      <div>
-        <h3 className="mb-4 font-semibold text-lg">Metrik Bisnis</h3>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {businessMetrics.map((metric, index) => (
-            <Card key={index}>
-              <CardContent className="pt-6">
-                <p className="mb-2 text-gray-600 text-sm">{metric.title}</p>
-                <p className="mb-1 break-words font-bold text-3xl">{metric.value}</p>
-                <p className={`mb-2 text-sm ${metric.trend.startsWith('-') ? 'text-red-600' : 'text-green-600'}`}>
-                  {metric.trend} vs periode lalu
-                </p>
-                <p className="text-xs text-gray-500">{metric.description}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* AI Recommendations */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="size-5 text-yellow-500" />
-            Rekomendasi AI
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {recommendations.map((rec, index) => (
-            <div
-              key={index}
-              className="flex items-start gap-4 rounded-lg border p-4 hover:bg-gray-50"
-            >
-              <div className="flex-1">
-                <div className="mb-2 flex items-center gap-2">
-                  <h4 className="font-semibold">{rec.title}</h4>
-                  <Badge
-                    variant={rec.impact === 'High' ? 'default' : 'outline'}
-                    className={rec.impact === 'High' ? 'bg-red-600' : ''}
-                  >
-                    Impact: {rec.impact}
-                  </Badge>
-                </div>
-                <p className="text-gray-600 text-sm">{rec.description}</p>
+      {/* Metrics Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {businessMetrics.map((metric, index) => (
+          <Card key={index} className="rounded-[32px] border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white p-2">
+            <CardContent className="pt-6">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">{metric.title}</p>
+              <p className="mb-1 font-black text-2xl tracking-tighter text-gray-900">{metric.value}</p>
+              <div className="flex items-center gap-2">
+                 <Badge className={`text-[9px] font-black px-2 py-0.5 rounded-full ${metric.trend.startsWith('-') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                   {metric.trend}
+                 </Badge>
+                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">vs Last Month</span>
               </div>
-              <Button size="sm">Terapkan</Button>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Insights Column */}
+        <div className="space-y-4">
+          <h3 className="font-black text-xs uppercase tracking-[0.2em] text-gray-400 ml-2">AI Findings</h3>
+          <div className="grid gap-4">
+            {insights.map(insight => (
+              <Card key={insight.id} className="rounded-[24px] border-none shadow-sm bg-white hover:shadow-md transition-shadow">
+                <CardContent className="pt-6 flex gap-4">
+                  <div className="bg-gray-50 p-3 rounded-2xl h-fit">{getIcon(insight.type)}</div>
+                  <div className="flex-1">
+                    <h4 className="font-black text-sm uppercase tracking-tight text-gray-900 mb-1">{insight.title}</h4>
+                    <p className="text-xs font-medium text-gray-500 leading-relaxed">{insight.description}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Recommendations Column */}
+        <div className="space-y-4">
+           <h3 className="font-black text-xs uppercase tracking-[0.2em] text-gray-400 ml-2">Strategic Moves</h3>
+           <Card className="rounded-[32px] border-none shadow-xl bg-gray-900 text-white overflow-hidden">
+             <CardHeader className="border-b border-white/10 pb-4">
+               <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                 <Zap className="size-4 text-orange-500" /> WuzPay Engine Recommendation
+               </CardTitle>
+             </CardHeader>
+             <CardContent className="p-6 space-y-4">
+               {recommendations.map((rec, index) => (
+                 <div key={index} className="bg-white/5 rounded-2xl p-4 border border-white/5 hover:bg-white/10 transition-colors">
+                   <div className="flex items-center justify-between mb-2">
+                     <h4 className="font-bold text-xs uppercase text-orange-500">{rec.title}</h4>
+                     <Badge className="bg-orange-600 text-[8px] font-black text-white px-2 py-0">IMPACT: {rec.impact}</Badge>
+                   </div>
+                   <p className="text-[11px] text-gray-400 font-medium leading-relaxed">{rec.description}</p>
+                 </div>
+               ))}
+             </CardContent>
+           </Card>
+        </div>
+      </div>
 
       {/* Narrative Report */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Laporan Naratif AI</CardTitle>
+      <Card className="rounded-[40px] border-none shadow-[0_20px_60px_rgba(0,0,0,0.03)] bg-white overflow-hidden">
+        <CardHeader className="bg-orange-50/50 p-8 border-b border-orange-100/50">
+          <CardTitle className="font-black text-xl uppercase tracking-tighter text-gray-900 italic flex items-center gap-2">
+            <Brain className="size-6 text-orange-600" /> Laporan Eksekutif WuzPay
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4 text-gray-700">
-            <p>
-              <strong>Ringkasan Performa Bisnis:</strong> {narrativeReport.summary}
-            </p>
-            <p>
-              <strong>Produk Unggulan:</strong> {narrativeReport.topProduct}
-            </p>
-            <p>
-              <strong>Peak Hours:</strong> {narrativeReport.peakHours}
-            </p>
-            <p>
-              <strong>Rekomendasi Strategis:</strong> {narrativeReport.strategy}
-            </p>
+        <CardContent className="p-8">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: 'Ringkasan', text: narrativeReport.summary, icon: <Info /> },
+              { label: 'Top Product', text: narrativeReport.topProduct, icon: <TrendingUp /> },
+              { label: 'Puncak Jam', text: narrativeReport.peakHours, icon: <RefreshCw /> },
+              { label: 'Strategi', text: narrativeReport.strategy, icon: <Zap /> }
+            ].map((item, i) => (
+              <div key={i} className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 block">{item.label}</span>
+                <p className="text-xs font-bold text-gray-700 leading-relaxed italic">"{item.text}"</p>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
-
-      {/* Integration Info
-      <Card className="border-purple-200 bg-purple-50">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-4">
-            <Brain className="size-12 text-purple-600" />
-            <div>
-              <h3 className="mb-2 font-semibold">Integrasi AI API</h3>
-              <p className="mb-2 text-sm text-gray-700">
-                Untuk mengaktifkan AI insights real-time, hubungkan dengan:
-              </p>
-              <ul className="list-inside list-disc space-y-1 text-sm text-gray-700">
-                <li>Google Gemini API - untuk analisis bisnis dan chat assistant</li>
-                <li>OpenAI API - alternatif untuk AI processing</li>
-                <li>n8n Automation - untuk notifikasi dan laporan otomatis</li>
-              </ul>
-              <p className="mt-3 text-xs text-gray-600">
-                Tambahkan API key di file konfigurasi backend Anda
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card> */}
     </div>
   );
 }

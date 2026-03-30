@@ -33,7 +33,6 @@ export function CashDrawer() {
   const [activeNote, setActiveNote] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   
-  // --- STATE MODAL HAPUS ---
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [drawerToDelete, setDrawerToDelete] = useState<any>(null);
 
@@ -55,7 +54,7 @@ export function CashDrawer() {
       const data = await cashDrawerAPI.getAll();
       setDrawers(data || []);
     } catch (error) {
-      toast.error('Gagal memuat data kas');
+      toast.error('Gagal memuat rekap kas WuzPay');
     }
   };
 
@@ -72,16 +71,16 @@ export function CashDrawer() {
   };
 
   const handleEdit = (drawer: any) => {
-    setEditingId(drawer.id);
+    // Mapping ID MongoDB (_id)
+    setEditingId(drawer._id || drawer.id);
     setFormData({
       openingBalance: (drawer.starting_cash || "0").toString(),
-      actualCash: (drawer.ending_cash || "").toString(),
+      actualCash: drawer.ending_cash !== null ? (drawer.ending_cash).toString() : '',
       notes: drawer.notes || '',
     });
     setShowDialog(true);
   };
 
-  // Fungsi untuk buka modal konfirmasi
   const confirmDelete = (drawer: any) => {
     setDrawerToDelete(drawer);
     setShowDeleteConfirm(true);
@@ -90,29 +89,29 @@ export function CashDrawer() {
   const handleSaveDrawer = async () => {
     try {
       const rawUserData = localStorage.getItem('user_data');
-      if (!rawUserData) return toast.error('Silakan login ulang');
+      if (!rawUserData) return toast.error('Sesi berakhir, silakan login ulang');
       
       const userData = JSON.parse(rawUserData);
       const payload = {
-        starting_cash: formData.openingBalance,
-        ending_cash: formData.actualCash === '' ? null : formData.actualCash,
+        starting_cash: Number(formData.openingBalance),
+        ending_cash: formData.actualCash === '' ? null : Number(formData.actualCash),
         notes: formData.notes,
-        staffname: userData.email,
+        staffname: userData.name || userData.email,
         status: formData.actualCash !== '' ? 'closed' : 'open'
       };
 
       if (editingId) {
         await cashDrawerAPI.update(editingId, payload);
-        toast.success('Laporan diperbarui');
+        toast.success('Rekap kas diperbarui');
       } else {
         await cashDrawerAPI.create(payload);
-        toast.success('Kas berhasil dibuka');
+        toast.success('Sesi kasir berhasil dibuka');
       }
 
       setShowDialog(false);
       loadDrawers();
     } catch (error) {
-      toast.error('Gagal memproses data');
+      toast.error('Gagal menyimpan laporan kas');
     }
   };
 
@@ -123,89 +122,100 @@ export function CashDrawer() {
 
   const filteredDrawers = drawers.filter(d => {
     const search = searchQuery.toLowerCase();
-    const email = (d.staffname || "").toLowerCase();
+    const staff = (d.staffname || "").toLowerCase();
     const date = d.start_time ? new Date(d.start_time).toLocaleDateString('id-ID') : "";
-    return email.includes(search) || date.includes(search);
+    return staff.includes(search) || date.includes(search);
   });
 
   const totalPages = Math.ceil(filteredDrawers.length / rowsPerPage);
   const currentRows = filteredDrawers.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-black text-2xl uppercase tracking-tighter italic text-gray-900">Cash Drawer</h2>
-          <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest italic opacity-50">Manajemen kas harian staff</p>
+          <h2 className="font-black text-3xl uppercase tracking-tighter italic text-gray-900">
+            Cash <span className="text-orange-600">Drawer</span>
+          </h2>
+          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Laporan Arus Kas Harian WuzPay</p>
         </div>
-        <Button onClick={handleOpenDrawer} className="bg-orange-600 hover:bg-orange-700 font-black rounded-2xl shadow-lg shadow-orange-100 uppercase tracking-tighter h-12 px-6 transition-all active:scale-95">
-          <Plus className="mr-2 size-5" /> BUKA KAS
+        <Button onClick={handleOpenDrawer} className="bg-orange-600 hover:bg-orange-700 font-black rounded-2xl shadow-lg shadow-orange-100 uppercase tracking-widest text-[10px] h-12 px-8 transition-all active:scale-95 text-white">
+          <Plus className="mr-2 size-5" /> BUKA SESI KAS
         </Button>
       </div>
 
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-          <Input placeholder="Cari email atau tanggal..." className="pl-10 h-11 rounded-2xl border-gray-100 bg-white shadow-sm" value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} />
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="relative flex-1 max-w-md group">
+          <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-gray-300 group-focus-within:text-orange-500 transition-colors" />
+          <Input 
+            placeholder="Cari nama staff atau tanggal..." 
+            className="pl-12 h-12 rounded-2xl border-gray-100 bg-white shadow-sm font-bold focus-visible:ring-2 focus-visible:ring-orange-500" 
+            value={searchQuery} 
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} 
+          />
         </div>
         
-        <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border shadow-sm">
+        <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
            <Button variant="ghost" size="icon" className="size-8 rounded-xl" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}><ChevronLeft className="size-4"/></Button>
-           <span className="text-[10px] font-black text-gray-400 uppercase px-2">Hal {currentPage} / {totalPages || 1}</span>
+           <span className="text-[10px] font-black text-gray-400 uppercase px-4">Halaman {currentPage} / {totalPages || 1}</span>
            <Button variant="ghost" size="icon" className="size-8 rounded-xl" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0}><ChevronRight className="size-4"/></Button>
         </div>
       </div>
 
-      <div className="rounded-[32px] border-none bg-white shadow-2xl shadow-gray-100 overflow-hidden">
+      <div className="rounded-[40px] border-none bg-white shadow-[0_8px_40px_rgba(0,0,0,0.04)] overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/50 border-none hover:bg-gray-50/50">
-              <TableHead className="font-black text-[10px] uppercase tracking-widest text-gray-400 py-6">Waktu</TableHead>
-              <TableHead className="font-black text-[10px] uppercase tracking-widest text-gray-400">Email Staff</TableHead>
-              <TableHead className="font-black text-[10px] uppercase tracking-widest text-gray-400">Opening</TableHead>
-              <TableHead className="font-black text-[10px] uppercase tracking-widest text-gray-400">Closing</TableHead>
-              <TableHead className="font-black text-[10px] uppercase tracking-widest text-gray-400">Status</TableHead>
-              <TableHead className="text-right font-black text-[10px] uppercase tracking-widest text-gray-400 pr-8">Aksi</TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-widest text-gray-400 py-6 pl-10">Waktu Mulai</TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-widest text-gray-400">Nama Staff</TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-widest text-gray-400">Modal Awal</TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-widest text-gray-400">Uang Fisik Akhir</TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-widest text-gray-400 text-center">Status</TableHead>
+              <TableHead className="text-right font-black text-[10px] uppercase tracking-widest text-gray-400 pr-10">Kontrol</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {currentRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-20 text-gray-400 text-[10px] font-bold uppercase tracking-[0.3em] italic">
-                  Belum ada riwayat cash drawer...
+                <TableCell colSpan={6} className="text-center py-24 text-gray-300 text-[10px] font-black uppercase tracking-[0.4em] italic">
+                  Belum ada riwayat aktivitas kasir...
                 </TableCell>
               </TableRow>
             ) : (
               currentRows.map((drawer) => (
-                <TableRow key={drawer.id} className="border-b border-gray-50 hover:bg-orange-50/30 transition-colors">
-                  <TableCell className="text-[10px] font-bold text-gray-500 py-5 pl-8">
+                <TableRow key={drawer._id || drawer.id} className="border-b border-gray-50 hover:bg-orange-50/20 transition-colors group">
+                  <TableCell className="text-[11px] font-bold text-gray-500 py-6 pl-10">
                     {drawer.start_time ? new Date(drawer.start_time).toLocaleString('id-ID') : '-'}
                   </TableCell>
-                  <TableCell className="text-[11px] font-black text-blue-600 lowercase tracking-tight">{drawer.staffname || 'admin'}</TableCell>
-                  <TableCell className="text-[11px] font-black text-gray-900">{formatRupiah(drawer.starting_cash)}</TableCell>
-                  <TableCell className="text-[11px] font-black text-orange-600 italic">
-                    {drawer.ending_cash !== null ? formatRupiah(drawer.ending_cash) : 'MASIH OPEN'}
+                  <TableCell className="text-[11px] font-black text-blue-600 uppercase tracking-tight italic">
+                    {drawer.staffname || 'Sistem'}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-[12px] font-black text-gray-900">{formatRupiah(drawer.starting_cash)}</TableCell>
+                  <TableCell className={cn(
+                    "text-[12px] font-black italic",
+                    drawer.ending_cash !== null ? "text-emerald-600" : "text-orange-400"
+                  )}>
+                    {drawer.ending_cash !== null ? formatRupiah(drawer.ending_cash) : 'BELUM TUTUP KAS'}
+                  </TableCell>
+                  <TableCell className="text-center">
                     <Badge className={cn(
-                      "text-[9px] font-black px-3 py-1 rounded-full border-none shadow-sm uppercase tracking-tighter",
-                      drawer.status === 'open' ? 'bg-blue-500 text-white' : 'bg-green-600 text-white'
+                      "text-[9px] font-black px-4 py-1.5 rounded-full border-none shadow-sm uppercase tracking-widest",
+                      drawer.status === 'open' ? 'bg-orange-500 text-white animate-pulse' : 'bg-gray-900 text-white'
                     )}>
                       {drawer.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right pr-8">
-                    <div className="flex justify-end gap-1">
+                  <TableCell className="text-right pr-10">
+                    <div className="flex justify-end gap-2 group-hover:opacity-100 transition-opacity">
                       {drawer.notes && (
-                        <Button variant="ghost" size="icon" className="rounded-xl hover:bg-blue-50 hover:text-blue-600" onClick={() => { setActiveNote(drawer.notes); setShowNoteDialog(true); }}>
+                        <Button variant="ghost" size="icon" className="rounded-xl hover:bg-blue-50 text-blue-600" onClick={() => { setActiveNote(drawer.notes); setShowNoteDialog(true); }}>
                           <Eye className="size-4" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="icon" className="rounded-xl hover:bg-orange-50 hover:text-orange-600 text-orange-500" onClick={() => handleEdit(drawer)}>
+                      <Button variant="ghost" size="icon" className="rounded-xl hover:bg-orange-50 text-orange-600" onClick={() => handleEdit(drawer)}>
                         <Edit2 className="size-4" />
                       </Button>
-                      {/* Cukup panggil confirmDelete di sini */}
-                      <Button variant="ghost" size="icon" className="rounded-xl hover:bg-red-50 hover:text-red-600 text-red-500" onClick={() => confirmDelete(drawer)}>
+                      <Button variant="ghost" size="icon" className="rounded-xl hover:bg-red-50 text-red-500" onClick={() => confirmDelete(drawer)}>
                         <Trash2 className="size-4" />
                       </Button>
                     </div>
@@ -217,32 +227,27 @@ export function CashDrawer() {
         </Table>
       </div>
 
-      {/* ========================================================== */}
-      {/* DIALOG AREA (DITARUH DI LUAR TABLE AGAR RINGAN) */}
-      {/* ========================================================== */}
-
-      {/* MODAL HAPUS (GAYA KAMU) */}
+      {/* --- MODAL HAPUS --- */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent className="sm:max-w-[400px] p-8 text-center rounded-[32px] border-none shadow-2xl">
-          <DialogHeader className="sr-only"><DialogTitle>Konfirmasi Hapus</DialogTitle></DialogHeader>
-          <div className="size-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+        <DialogContent className="sm:max-w-[400px] p-8 text-center rounded-[40px] border-none shadow-2xl">
+          <div className="size-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
             <Trash2 className="size-10" />
           </div>
-          <h2 className="font-black text-xl uppercase tracking-tighter text-gray-800">Hapus Rekap Kas?</h2>
-          <p className="text-sm text-gray-500 mt-2 leading-relaxed">
-            Data rekap pada tanggal <span className="font-bold text-gray-800">"{drawerToDelete ? new Date(drawerToDelete.start_time).toLocaleDateString('id-ID') : ''}"</span> akan dihapus permanen.
+          <h2 className="font-black text-2xl uppercase tracking-tighter text-gray-900">Hapus Laporan?</h2>
+          <p className="text-sm text-gray-400 mt-2 leading-relaxed font-medium">
+            Rekap kas tanggal <span className="text-gray-900 font-bold">"{drawerToDelete ? new Date(drawerToDelete.start_time).toLocaleDateString('id-ID') : ''}"</span> akan dihapus permanen dari sistem WuzPay.
           </p>
-          <div className="grid grid-cols-2 gap-3 mt-8">
-            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} className="h-12 rounded-2xl font-black uppercase tracking-widest text-[10px]">BATAL</Button>
-            <Button className="h-12 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black shadow-lg shadow-red-100 transition-all active:scale-95 uppercase tracking-widest text-[10px]"
+          <div className="grid grid-cols-2 gap-4 mt-10">
+            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)} className="h-14 rounded-2xl font-black uppercase tracking-widest text-[10px]">Batal</Button>
+            <Button className="h-14 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black shadow-lg shadow-red-100 transition-all active:scale-95 uppercase tracking-widest text-[10px]"
               onClick={async () => {
                 try {
-                  await cashDrawerAPI.delete(drawerToDelete.id);
-                  toast.success("REKAP BERHASIL DIHAPUS");
+                  await cashDrawerAPI.delete(drawerToDelete._id || drawerToDelete.id);
+                  toast.success("REKAP KAS DIHAPUS");
                   loadDrawers();
                   setShowDeleteConfirm(false);
                 } catch (err) {
-                  toast.error("GAGAL MENGHAPUS DATA");
+                  toast.error("GAGAL MENGHAPUS");
                 }
               }}
             >
@@ -252,35 +257,51 @@ export function CashDrawer() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL LIHAT CATATAN */}
+      {/* --- MODAL LIHAT CATATAN --- */}
       <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
-        <DialogContent className="sm:max-w-[400px] border-l-8 border-l-blue-500 rounded-[32px] p-8">
-          <DialogHeader><DialogTitle className="text-sm font-black uppercase tracking-widest text-gray-400">Catatan Laporan</DialogTitle></DialogHeader>
-          <div className="py-6 text-center"><p className="text-lg font-black text-gray-700 italic tracking-tight">"{activeNote}"</p></div>
-          <Button onClick={() => setShowNoteDialog(false)} className="w-full h-12 rounded-2xl bg-gray-900 font-black uppercase tracking-widest text-[10px]">Tutup</Button>
+        <DialogContent className="sm:max-w-[400px] rounded-[32px] p-10 border-none shadow-2xl">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-600 text-center">Internal Notes</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-center">
+            <p className="text-xl font-black text-gray-800 italic tracking-tight leading-relaxed">"{activeNote}"</p>
+          </div>
+          <Button onClick={() => setShowNoteDialog(false)} className="w-full h-14 mt-6 rounded-2xl bg-gray-900 text-white font-black uppercase tracking-widest text-[10px]">Tutup Catatan</Button>
         </DialogContent>
       </Dialog>
 
-      {/* FORM INPUT DIALOG */}
+      {/* --- FORM INPUT DIALOG --- */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="border-t-8 border-orange-600 rounded-[32px] p-8 shadow-2xl">
-          <DialogHeader><DialogTitle className="font-black italic uppercase underline text-xl tracking-tighter">Data Kasir</DialogTitle></DialogHeader>
-          <div className="space-y-6 py-4">
+        <DialogContent className="sm:max-w-[460px] rounded-[40px] p-10 shadow-2xl border-none">
+          <DialogHeader className="mb-8">
+            <DialogTitle className="font-black italic uppercase text-3xl tracking-tighter text-center">
+              Laporan <span className="text-orange-600">Sesi Kasir</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">MODAL AWAL</Label>
-              <Input type="text" className="font-black text-xl h-14 rounded-2xl bg-gray-50 border-none px-6" value={formData.openingBalance} onChange={(e) => setFormData({ ...formData, openingBalance: handleNumberInput(e.target.value) })} />
+              <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-4">Modal Awal Toko</Label>
+              <div className="relative group">
+                <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-gray-300">Rp</span>
+                <Input type="text" className="font-black text-2xl h-16 rounded-3xl bg-gray-50 border-none pl-14 pr-6 focus:ring-2 focus:ring-orange-500 transition-all shadow-sm" value={formData.openingBalance} onChange={(e) => setFormData({ ...formData, openingBalance: handleNumberInput(e.target.value) })} />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">UANG FISIK AKHIR (TUTUP KAS)</Label>
-              <Input type="text" className="font-black text-xl h-14 rounded-2xl bg-orange-50 border-none text-orange-600 px-6" value={formData.actualCash} onChange={(e) => setFormData({ ...formData, actualCash: handleNumberInput(e.target.value) })} placeholder="ISI JIKA TUTUP KAS..." />
+              <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-600 ml-4">Uang Fisik Akhir (Closing)</Label>
+              <div className="relative group">
+                <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-orange-300">Rp</span>
+                <Input type="text" className="font-black text-2xl h-16 rounded-3xl bg-orange-50/50 border-none text-orange-600 pl-14 pr-6 focus:ring-2 focus:ring-orange-500 transition-all placeholder:text-orange-200" value={formData.actualCash} onChange={(e) => setFormData({ ...formData, actualCash: handleNumberInput(e.target.value) })} placeholder="ISI UNTUK TUTUP KAS..." />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">CATATAN TAMBAHAN</Label>
-              <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="text-xs font-bold rounded-2xl min-h-[100px] bg-gray-50 border-none p-4" placeholder="Ketik catatan di sini..." />
+              <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-4">Catatan Performa / Kendala</Label>
+              <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="text-sm font-bold rounded-3xl min-h-[120px] bg-gray-50 border-none p-6 resize-none focus:ring-2 focus:ring-orange-500" placeholder="Contoh: Selisih Rp 500 karena pembulatan..." />
             </div>
           </div>
-          <DialogFooter>
-            <Button onClick={handleSaveDrawer} className="bg-orange-600 hover:bg-orange-700 w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-orange-100 transition-all active:scale-95">SIMPAN LAPORAN</Button>
+          <DialogFooter className="mt-10">
+            <Button onClick={handleSaveDrawer} className="bg-orange-600 hover:bg-orange-700 text-white w-full h-16 rounded-3xl font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-100 transition-all active:scale-95">
+              KONFIRMASI & SIMPAN DATA
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

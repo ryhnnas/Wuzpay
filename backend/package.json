@@ -3,14 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "deno run -A --env-file=.env --watch index.tsx",
-    "transform-csv": "deno run -A ../temp_transform_csv.ts"
+    "dev": "deno run -A --env-file=.env --unstable-detect-cjs --watch index.tsx"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "deno": "^2.6.8"
+    "mongoose": "^8.0.0"
   }
 }

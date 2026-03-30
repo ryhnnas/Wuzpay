@@ -1,9 +1,83 @@
-import { API_ENDPOINTS, SUPABASE_ANON_KEY } from '@/config/database';
-import {
-  Product, Category, Customer, Supplier, Transaction, Discount, CashDrawer, User,
-} from '@/types';
-import { API_BASE_URL } from '../config/database';
-import { supabase } from '../services/supabaseClient';
+import { Product, Category, Customer, Supplier, Transaction, Discount, CashDrawer, User } from '@/types';
+
+// Ambil Base URL dari .env atau fallback ke localhost
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+// ==================== ENDPOINT CONFIGURATION ====================
+const API_ENDPOINTS = {
+  auth: {
+    login: '/api/auth/login',
+    signup: '/api/auth/register',
+    getUsers: '/api/auth/users',
+    getCurrentUser: '/api/auth/me',
+    createUser: '/api/auth/register',
+    deleteUser: (id: string) => `/api/auth/users/${id}`,
+  },
+  products: {
+    getAll: '/api/products',
+    getById: (id: string) => `/api/products/${id}`,
+    create: '/api/products',
+    update: (id: string) => `/api/products/${id}`,
+    delete: (id: string) => `/api/products/${id}`,
+    addStock: (id: string) => `/api/products/${id}/add-stock`,
+    getStockLogs: '/api/products/stock/logs',
+    importExcel: '/api/products/import',
+    exportExcel: '/api/products/export',
+  },
+  categories: {
+    getAll: '/api/categories',
+    create: '/api/categories',
+    update: (id: string) => `/api/categories/${id}`,
+    delete: (id: string) => `/api/categories/${id}`,
+  },
+  transactions: {
+    getAll: '/api/transactions',
+    getById: (id: string) => `/api/transactions/${id}`,
+    create: '/api/transactions',
+    update: (id: string) => `/api/transactions/${id}/items`,
+    summary: '/api/transactions/summary',
+  },
+  entities: {
+    customers: {
+      base: '/api/entities/customers',
+      byId: (id: string) => `/api/entities/customers/${id}`,
+    },
+    suppliers: {
+      base: '/api/entities/suppliers',
+      byId: (id: string) => `/api/entities/suppliers/${id}`,
+    },
+    discounts: {
+      base: '/api/entities/discounts',
+      byId: (id: string) => `/api/entities/discounts/${id}`,
+    }
+  },
+  analytics: {
+    summary: '/api/analytics/reports/summary',
+    productSales: '/api/analytics/reports/product-sales',
+    categorySales: '/api/analytics/reports/category-sales',
+    qris: '/api/analytics/reports/qris',
+  },
+  cashDrawer: {
+    base: '/api/cash-drawer',
+    byId: (id: string) => `/api/cash-drawer/${id}`,
+  },
+  pendingOrders: {
+    base: '/api/pending-orders',
+    byId: (id: string) => `/api/pending-orders/${id}`,
+  },
+  permissions: {
+    base: '/api/permissions',
+    update: (role: string) => `/api/permissions/${role}`,
+  },
+  receipt_settings: {
+    base: '/api/receipt-settings'
+  },
+  ai: {
+    chat: '/api/ai/chat',
+    insights: '/api/ai/insights',
+    processReceipt: '/api/ai/process-receipt'
+  }
+};
 
 // ==================== AUTH & SESSION HANDLING ====================
 const getAuthToken = (): string | null => localStorage.getItem('auth_token');
@@ -15,6 +89,7 @@ export const setSessionId = (id: string) => localStorage.setItem('session_id', i
 export const clearAuthSession = () => {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('session_id');
+  localStorage.removeItem('user_data');
 };
 
 // ==================== CORE REQUEST HANDLER ====================
@@ -23,7 +98,6 @@ async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T>
   const sessionId = getSessionId();
   
   const headers: HeadersInit = {
-    'apiKey': SUPABASE_ANON_KEY,
     ...options.headers,
   };
 
@@ -39,58 +113,30 @@ async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T>
     headers['X-Session-ID'] = sessionId;
   }
 
-  // 1. Bersihkan domain (hapus "/" di akhir kalau ada)
+  // URL Handling: Pastikan domain bersih
   const base = API_BASE_URL.replace(/\/$/, ''); 
-
-  // 2. Bersihkan path (hapus "/" di awal kalau ada)
   const path = url.replace(/^\//, ''); 
-
-  // 3. Gabungkan jadi alamat lengkap ke Azure
   const finalUrl = url.startsWith('http') ? url : `${base}/${path}`;
 
-  // 4. Panggil fetch pakai finalUrl yang sudah "pintar"
   const response = await fetch(finalUrl, { ...options, headers });
 
   if (!response.ok) {
-    // BAGIAN DALAM IF 401/403 (Versi Bersih)
+    // Jika 401 (Unauthorized), user harus login ulang (Mongo Auth)
     if (response.status === 401 || response.status === 403) {
-      console.warn("Sesi expired, mencoba refresh...");
-
-      try {
-        // Mintalah session baru ke Supabase
-        const { data, error } = await supabase.auth.refreshSession();
-        
-        if (data?.session && !error) {
-          const newToken = data.session.access_token;
-          
-          // Simpan ke local storage biar request berikutnya gak expired lagi
-          setAuthToken(newToken); 
-
-          const retryResponse = await fetch(finalUrl, { ...options, headers: newHeaders });
-          
-          if (retryResponse.ok) {
-            console.log("Retry berhasil dengan token baru!");
-            return retryResponse.json();
-          }
-        }
-      } catch (e) {
-        console.error("Refresh session gagal total:", e);
-      }
-
-      // Jika benar-benar gagal (misal: user sudah logout dari device lain)
-      console.error("Sesi benar-benar habis. Silakan login kembali.");
       clearAuthSession();
-      window.location.href = '/login';
-      return; // Hentikan eksekusi
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+      throw new Error("Sesi Berakhir");
     }
 
-    const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+    const errorData = await response.json().catch(() => ({ error: 'Server Error' }));
+    throw new Error(errorData.error || errorData.message || `HTTP error! status: ${response.status}`);
   }
   return response.json();
 }
 
-// ==================== AUTH ====================
+// ==================== AUTH API ====================
 export const authAPI = {
   signup: async (email: string, password: string, name: string, role: string): Promise<User> => {
     const data = await apiRequest<{ user: User }>(API_ENDPOINTS.auth.signup, {
@@ -106,17 +152,13 @@ export const authAPI = {
       body: JSON.stringify({ email, password }),
     });
     
-    // SIMPAN SEMUA KE LOCALSTORAGE BIAR AWET
     if (data.access_token) setAuthToken(data.access_token);
     if (data.session_id) setSessionId(data.session_id);
-    if (data.user) {
-      localStorage.setItem('user_data', JSON.stringify(data.user));
-    }
+    if (data.user) localStorage.setItem('user_data', JSON.stringify(data.user));
     
     return data;
   },
 
-  // Fungsi baru untuk ambil data user yang tersimpan tanpa ngetik email lagi
   getCachedUser: (): User | null => {
     const saved = localStorage.getItem('user_data');
     if (!saved || saved === "undefined") return null;
@@ -129,16 +171,14 @@ export const authAPI = {
 
   getCurrentUser: async () => {
     const data = await apiRequest<{ user: User }>(API_ENDPOINTS.auth.getCurrentUser);
-    // Update data di storage kalau ada perubahan di server
-    if (data.user) {
-      localStorage.setItem('user_data', JSON.stringify(data.user));
-    }
+    if (data.user) localStorage.setItem('user_data', JSON.stringify(data.user));
     return data.user;
   },
 
   getUsers: async () => {
     const response: any = await apiRequest(API_ENDPOINTS.auth.getUsers);
-    return Array.isArray(response) ? response : (response.users || response.data || []);
+    const raw = Array.isArray(response) ? response : (response.users || response.data || []);
+    return raw.map((u: any) => ({ ...u, id: u._id }));
   },
 
   createUser: async (payload: { name: string; email: string; password: string; role: string }) => {
@@ -157,37 +197,22 @@ export const authAPI = {
   
   logout: () => {
     clearAuthSession();
-    localStorage.removeItem('user_data');
-    // Tambahkan redirect manual jika perlu agar aplikasi bersih
-    window.location.href = '/'; 
+    window.location.href = '/login'; 
   },
 };
 
-// ==================== PRODUCTS ====================
+// ==================== PRODUCTS API ====================
 export const productsAPI = {
   getAll: async (): Promise<Product[]> => {
     const response: any = await apiRequest(API_ENDPOINTS.products.getAll);
-    // FIX: Unwrapping data yang lebih aman
     const rawProducts = Array.isArray(response) ? response : (response.products || response.data || []);
 
     return rawProducts.map((p: any) => ({
       ...p,
+      id: p._id,
       stock: p.stock_quantity,
-      categoryName: p.categories?.name || 'Umum'
+      categoryName: p.category_id?.name || 'Umum'
     }));
-  },
-
-  addStock: async (id: string, amount: number) => {
-    return apiRequest(API_ENDPOINTS.products.addStock(id), {
-      method: 'POST',
-      body: JSON.stringify({ amount }),
-    });
-  },
-
-  getStockLogs: async () => {
-    const response: any = await apiRequest(API_ENDPOINTS.products.getStockLogs);
-    // FIX: Unwrapping data logs
-    return Array.isArray(response) ? response : (response.logs || response.data || []);
   },
 
   getById: async (id: string) => apiRequest<{ product: any }>(API_ENDPOINTS.products.getById(id)),
@@ -204,6 +229,18 @@ export const productsAPI = {
 
   delete: async (id: string) => apiRequest(API_ENDPOINTS.products.delete(id), { method: 'DELETE' }),
 
+  addStock: async (id: string, amount: number) => {
+    return apiRequest(API_ENDPOINTS.products.addStock(id), {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    });
+  },
+
+  getStockLogs: async () => {
+    const response: any = await apiRequest(API_ENDPOINTS.products.getStockLogs);
+    return Array.isArray(response) ? response : (response.logs || response.data || []);
+  },
+
   import: async (formData: FormData) => {
     return apiRequest<any>(API_ENDPOINTS.products.importExcel, {
       method: 'POST',
@@ -212,17 +249,17 @@ export const productsAPI = {
   },
 
   export: () => {
-    const url = API_ENDPOINTS.products.exportExcel;
-    window.open(url, '_blank');
+    const base = API_BASE_URL.replace(/\/$/, '');
+    window.open(`${base}${API_ENDPOINTS.products.exportExcel}`, '_blank');
   },
 };
 
-// ==================== CATEGORIES ====================
+// ==================== CATEGORIES API ====================
 export const categoriesAPI = {
-  // FIX: Unwrapping data categories
-  getAll: async () => {
+  getAll: async (): Promise<Category[]> => {
     const response: any = await apiRequest(API_ENDPOINTS.categories.getAll);
-    return Array.isArray(response) ? response : (response.categories || response.data || []);
+    const raw = Array.isArray(response) ? response : (response.categories || response.data || []);
+    return raw.map((c: any) => ({ ...c, id: c._id }));
   },
 
   create: async (category: any) => apiRequest(API_ENDPOINTS.categories.create, {
@@ -238,291 +275,185 @@ export const categoriesAPI = {
   }),
 };
 
-// ==================== TRANSACTIONS ====================
+// ==================== TRANSACTIONS API ====================
 export const transactionsAPI = {
   getAll: async (filters?: { startDate?: any; endDate?: any }) => {
     let url = API_ENDPOINTS.transactions.getAll;
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', typeof filters.startDate === 'string' ? filters.startDate : filters.startDate.toISOString());
+    if (filters?.endDate) params.append('endDate', typeof filters.endDate === 'string' ? filters.endDate : filters.endDate.toISOString());
     
-    if (filters?.startDate && filters?.endDate) {
-      // KALAU SUDAH STRING, LANGSUNG TEMPEL AJA MANG!
-      // Gak perlu di-new Date() lagi biar jamnya gak lari-lari
-      const sStr = typeof filters.startDate === 'string' 
-        ? filters.startDate 
-        : filters.startDate.toISOString();
-        
-      const eStr = typeof filters.endDate === 'string' 
-        ? filters.endDate 
-        : filters.endDate.toISOString();
-
-      url += `?startDate=${sStr}&endDate=${eStr}`;
-    }
+    const query = params.toString();
+    if (query) url += `?${query}`;
     
     const response: any = await apiRequest(url);
-    const rawTransactions = Array.isArray(response) ? response : (response.transactions || response.data || []);
-    return rawTransactions.map((t: any) => ({ ...t, total: t.total_amount }));
+    const raw = Array.isArray(response) ? response : (response.transactions || response.data || []);
+    return raw.map((t: any) => ({ ...t, id: t._id, total: t.total_amount }));
   },
 
-  getById: async (id: string) => {
-    // Kita panggil endpoint detail. 
-    // Pastikan di API_ENDPOINTS sudah ada konfigurasi buat getById
-    return apiRequest<any>(API_ENDPOINTS.transactions.getById(id));
-  },
+  getById: async (id: string) => apiRequest<any>(API_ENDPOINTS.transactions.getById(id)),
 
-  updateItems: async (transactionId: string, data: any[]) => {
-    return apiRequest(API_ENDPOINTS.transactions.update(transactionId), {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    });
-  },
-
-  getSummary: async (startDate: string, endDate: string) => {
-    const s = startDate.includes('T') ? startDate : `${startDate}T00:00:00.000Z`;
-    const e = endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`;
-
-    // Hilangkan tanda '/' di awal kalau apiRequest sudah punya base URL
-    const url = `api/analytics/reports/summary?startDate=${s}&endDate=${e}`;
-    
-    const response: any = await apiRequest(url);
-    return response; 
-  },
-  
   create: async (tx: any) => apiRequest(API_ENDPOINTS.transactions.create, {
     method: 'POST',
     body: JSON.stringify({
-      // 1. DATA TOTAL & PEMBAYARAN
+      ...tx,
       total_amount: tx.total_amount || tx.total,
-      subtotal: tx.subtotal,                      
       payment_method: tx.payment_method || tx.paymentMethod,
-      paid_amount: tx.paid_amount,
-      change_amount: tx.change_amount,
-
-      // 2. DATA DISKON & PELANGGAN (KUNCI UTAMA)
-      discount_amount: tx.discount_amount || 0,   
-      discount_name: tx.discount_name || '',      
-      customer_name: tx.customer_name || 'Pelanggan Umum', 
-
-      // 3. DATA ITEM
-      items: tx.items.map((i: any) => ({ 
+      items: tx.items.map((i: any) => ({
         product_id: String(i.product_id || i.id).trim(),
-        quantity: i.quantity, 
-        price_at_sale: i.price_at_sale || i.price
+        quantity: i.quantity,
+        price_at_sale: i.price_at_sale || i.price,
+        cost_at_sale: i.cost_at_sale || i.cost || 0
       }))
     }),
   }),
+
+  updateItems: async (id: string, payload: any) => apiRequest(API_ENDPOINTS.transactions.update(id), {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  }),
+
+  getSummary: async (start: string, end: string) => {
+    const s = start.includes('T') ? start : `${start}T00:00:00.000Z`;
+    const e = end.includes('T') ? end : `${end}T23:59:59.999Z`;
+    return apiRequest(`${API_ENDPOINTS.transactions.summary}?startDate=${s}&endDate=${e}`);
+  },
 };
 
-// ==================== REPORTS & ANALYTICS ====================
-export const reportsAPI = {
-  getSales: async (start: Date, end: Date) => {
-    const response: any = await apiRequest(`${API_ENDPOINTS.reports.sales}?startDate=${start.toISOString()}&endDate=${end.toISOString()}`);
-    return Array.isArray(response) ? response : (response.report || response.data || []);
-  },
-  
-  getProducts: async (start: Date, end: Date) => {
-    const response: any = await apiRequest(`${API_ENDPOINTS.reports.products}?startDate=${start.toISOString()}&endDate=${end.toISOString()}`);
-    return Array.isArray(response) ? response : (response.report || response.data || []);
-  },
-
-  getQrisReports: async (start: Date, end: Date, limit: number = 10) => {
-    const url = `${API_ENDPOINTS.analytics.qris}?startDate=${start.toISOString()}&endDate=${end.toISOString()}&limit=${limit}`;
-    return await apiRequest(url);
-  },
-    
-  getProductSales: async (start: Date, end: Date) => {
-    const url = `${API_ENDPOINTS.analytics.productSales}?startDate=${start.toISOString()}&endDate=${end.toISOString()}`;
-    return await apiRequest(url);
-  },
-
-  // Di services/api.ts
-  getSummary: async (start: Date, end: Date) => {
-    // Tambahkan /analytics sebelum /reports
-    const url = `api/analytics/reports/summary?startDate=${start.toISOString()}&endDate=${end.toISOString()}`;
-    
-    const response: any = await apiRequest(url);
-    return response.data || response || { totalProfit: 0, totalRevenue: 0, totalGrossRevenue: 0, totalDiscount: 0 }; 
-  },
-
-  getCategorySales: async (start: Date, end: Date) => {
-    const url = `${API_ENDPOINTS.analytics.categorySales}?startDate=${start.toISOString()}&endDate=${end.toISOString()}`;
-    return await apiRequest(url);
-  }
-};
-
-// ==================== ENTITIES ====================
+// ==================== ENTITIES (CUSTOMERS/SUPPLIERS/DISCOUNTS) ====================
 export const customersAPI = {
   getAll: async () => {
-    const response: any = await apiRequest(API_ENDPOINTS.customers.getAll);
-    return Array.isArray(response) ? response : (response.customers || response.data || []);
+    const res: any = await apiRequest(API_ENDPOINTS.entities.customers.base);
+    const data = Array.isArray(res) ? res : (res.customers || res.data || []);
+    return data.map((c: any) => ({ ...c, id: c._id }));
   },
-  create: async (c: any) => apiRequest(API_ENDPOINTS.customers.create, { method: 'POST', body: JSON.stringify(c) }),
-  update: async (id: string, c: any) => apiRequest(API_ENDPOINTS.customers.update(id), { method: 'PUT', body: JSON.stringify(c) }),
-  delete: async (id: string) => apiRequest(API_ENDPOINTS.customers.delete(id), { method: 'DELETE' }),
+  create: async (c: any) => apiRequest(API_ENDPOINTS.entities.customers.base, { method: 'POST', body: JSON.stringify(c) }),
+  update: async (id: string, c: any) => apiRequest(API_ENDPOINTS.entities.customers.byId(id), { method: 'PUT', body: JSON.stringify(c) }),
+  delete: async (id: string) => apiRequest(API_ENDPOINTS.entities.customers.byId(id), { method: 'DELETE' }),
 };
 
 export const suppliersAPI = {
   getAll: async () => {
-    const response: any = await apiRequest(API_ENDPOINTS.suppliers.getAll);
-    return Array.isArray(response) ? response : (response.suppliers || response.data || []);
+    const res: any = await apiRequest(API_ENDPOINTS.entities.suppliers.base);
+    const data = Array.isArray(res) ? res : (res.suppliers || res.data || []);
+    return data.map((s: any) => ({ ...s, id: s._id }));
   },
-  create: async (s: any) => apiRequest(API_ENDPOINTS.suppliers.create, { method: 'POST', body: JSON.stringify(s) }),
-  update: async (id: string, s: any) => apiRequest(API_ENDPOINTS.suppliers.update(id), { method: 'PUT', body: JSON.stringify(s) }),
-  delete: async (id: string) => apiRequest(API_ENDPOINTS.suppliers.delete(id), { method: 'DELETE' }),
+  create: async (s: any) => apiRequest(API_ENDPOINTS.entities.suppliers.base, { method: 'POST', body: JSON.stringify(s) }),
+  update: async (id: string, s: any) => apiRequest(API_ENDPOINTS.entities.suppliers.byId(id), { method: 'PUT', body: JSON.stringify(s) }),
+  delete: async (id: string) => apiRequest(API_ENDPOINTS.entities.suppliers.byId(id), { method: 'DELETE' }),
 };
 
 export const discountsAPI = {
   getAll: async () => {
-    const response: any = await apiRequest(API_ENDPOINTS.discounts.getAll);
-    return Array.isArray(response) ? response : (response.discounts || response.data || []);
+    const res: any = await apiRequest(API_ENDPOINTS.entities.discounts.base);
+    const data = Array.isArray(res) ? res : (res.discounts || res.data || []);
+    return data.map((d: any) => ({ ...d, id: d._id }));
   },
-  create: async (d: any) => apiRequest(API_ENDPOINTS.discounts.create, { method: 'POST', body: JSON.stringify(d) }),
-  update: async (id: string, d: any) => apiRequest(API_ENDPOINTS.discounts.update(id), { method: 'PUT', body: JSON.stringify(d) }),
-  delete: async (id: string) => apiRequest(API_ENDPOINTS.discounts.delete(id), { method: 'DELETE' }),
+  create: async (d: any) => apiRequest(API_ENDPOINTS.entities.discounts.base, { method: 'POST', body: JSON.stringify(d) }),
+  update: async (id: string, d: any) => apiRequest(API_ENDPOINTS.entities.discounts.byId(id), { method: 'PUT', body: JSON.stringify(d) }),
+  delete: async (id: string) => apiRequest(API_ENDPOINTS.entities.discounts.byId(id), { method: 'DELETE' }),
 };
 
-// ==================== CASH DRAWER ====================
-export const cashDrawerAPI = {
-  getAll: async () => {
-    const response: any = await apiRequest(API_ENDPOINTS.cashDrawer.getAll);
-    return Array.isArray(response) ? response : (response.cashDrawers || response.data || []);
+// ==================== REPORTS & ANALYTICS API ====================
+export const reportsAPI = {
+  getProductSales: async (start: Date | string, end: Date | string) => {
+    const s = typeof start === 'string' ? new Date(start).toISOString() : start.toISOString();
+    const e = typeof end === 'string' ? new Date(end).toISOString() : end.toISOString();
+    return apiRequest(`${API_ENDPOINTS.analytics.productSales}?startDate=${s}&endDate=${e}`);
   },
-  create: async (drawer: any) => {
-    return apiRequest(API_ENDPOINTS.cashDrawer.create, { method: 'POST', body: JSON.stringify(drawer) });
+  
+  getCategorySales: async (start: Date | string, end: Date | string) => {
+    // PROTEKSI: Cek tipe data, kalau string konversi dulu mang!
+    const s = typeof start === 'string' ? new Date(start).toISOString() : start.toISOString();
+    const e = typeof end === 'string' ? new Date(end).toISOString() : end.toISOString();
+    return apiRequest(`${API_ENDPOINTS.analytics.categorySales}?startDate=${s}&endDate=${e}`);
   },
-  update: async (id: string, drawer: any) => {
-    return apiRequest(API_ENDPOINTS.cashDrawer.update(id), { method: 'PUT', body: JSON.stringify(drawer) });
+  
+  getQrisReports: async (start: Date | string, end: Date | string, limit: number = 20) => {
+    const s = typeof start === 'string' ? new Date(start).toISOString() : start.toISOString();
+    const e = typeof end === 'string' ? new Date(end).toISOString() : end.toISOString();
+    return apiRequest(`${API_ENDPOINTS.analytics.qris}?startDate=${s}&endDate=${e}&limit=${limit}`);
   },
-  delete: async (id: string) => {
-    return apiRequest(API_ENDPOINTS.cashDrawer.delete(id), { method: 'DELETE' });
-  },
-};
-
-// ==================== AI ====================
-export const aiAPI = {
-  chat: async (message: string, history: any[]) => 
-    (await apiRequest<{ response: string }>(API_ENDPOINTS.ai.chat, { method: 'POST', body: JSON.stringify({ message, history }) })).response,
-  getInsights: async () => {
-    const response: any = await apiRequest(API_ENDPOINTS.ai.insights);
-    return Array.isArray(response) ? response : (response.insights || response.data || []);
-  },
-  processReceipt: async (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return apiRequest<any>(API_ENDPOINTS.ai.processReceipt, { method: 'POST', body: formData });
-  },
-};
-
-// ==================== SETTINGS (STRUK & TOKO) ====================
-export const settingsAPI = {
-  /**
-   * MENGAMBIL PENGATURAN DARI DATABASE (PUSAT)
-   */
-  getReceiptSettings: async () => {
-      try {
-        const response = await apiRequest<any>(API_ENDPOINTS.receipt_settings.base);
-
-        // JAGA-JAGA: Kalau response adalah Array, ambil elemen pertama
-        const data = Array.isArray(response) ? response[0] : response;
-
-        if (data) {
-          return {
-            // Gunakan Nilai dari DB, tapi kasih FALLBACK (Cadangan) kalau kolomnya null/tidak ada
-            store_name: data.store_name || 'SEBLAK MLEDAK',
-            address: data.address || 'Alamat Belum Diatur',
-            footer_text: data.footer_text || 'Terima Kasih!',
-            logo_url: data.logo_url || null,
-            show_logo: data.show_logo ?? false,
-            paper_size: data.paper_size || '58mm',
-            
-            // DATA ADVANCE (Kasih default angka/string kalau kolom belum dibuat di PostgreSQL)
-            auto_print: data.auto_print ?? true,
-            max_chars: data.max_chars || 32,
-            font_family: data.font_family || 'monospace',
-            font_size: data.font_size || 10,
-            margin_h: data.margin_h || 0,
-            margin_b: data.margin_b || 20
-          };
-        }
-        
-        // Jika data benar-benar kosong (null/undefined), lempar ke catch
-        throw new Error("Data Kosong");
-
-      } catch (error) {
-        console.error("Gagal sinkronisasi settings pusat, menggunakan default.");
-        return {
-          store_name: 'SEBLAK MLEDAK',
-          address: 'Alamat Belum Diatur',
-          footer_text: 'Terima Kasih!',
-          show_logo: false,
-          logo_url: null,
-          paper_size: '58mm',
-          auto_print: true,
-          max_chars: 32,
-          font_family: 'monospace',
-          font_size: 10,
-          margin_h: 0,
-          margin_b: 20
-        };
-      }
-    },
-
-  /**
-   * MENYIMPAN PENGATURAN KE DATABASE (PUSAT)
-   */
-  updateReceiptSettings: async (config: any) => {
-    return apiRequest(API_ENDPOINTS.receipt_settings.base, {
-      method: 'PUT',
-      body: JSON.stringify({
-        // Menyesuaikan kiriman body dengan nama kolom di PostgreSQL kamu
-        store_name: config.store_name || config.storeName,
-        address: config.address,
-        footer_text: config.footer_text || config.footer,
-        logo_url: config.logo_url || config.logo,
-        show_logo: config.show_logo ?? config.showLogo,
-        paper_size: config.paper_size || config.paperSize,
-        
-        // DATA ADVANCE (KIRIM KE DATABASE)
-        auto_print: config.auto_print ?? config.autoPrint,
-        max_chars: config.max_chars || config.maxChars,
-        font_family: config.font_family || config.fontFamily,
-        font_size: config.font_size || config.fontSize,
-        margin_h: config.margin_h || config.marginHorizontal,
-        margin_b: config.margin_b || config.marginBottom
-      }),
-    });
+  
+  getSummary: async (start: Date | string, end: Date | string) => {
+    const s = typeof start === 'string' ? new Date(start).toISOString() : start.toISOString();
+    const e = typeof end === 'string' ? new Date(end).toISOString() : end.toISOString();
+    const res: any = await apiRequest(`${API_ENDPOINTS.analytics.summary}?startDate=${s}&endDate=${e}`);
+    return res.data || res || { totalProfit: 0, totalRevenue: 0, totalGrossRevenue: 0, totalDiscount: 0 };
   }
 };
 
+// ==================== CASH DRAWER API ====================
+export const cashDrawerAPI = {
+  getAll: async () => {
+    const res: any = await apiRequest(API_ENDPOINTS.cashDrawer.base);
+    const data = Array.isArray(res) ? res : (res.cashDrawers || res.data || []);
+    return data.map((d: any) => ({ ...d, id: d._id }));
+  },
+  create: async (d: any) => apiRequest(API_ENDPOINTS.cashDrawer.base, { method: 'POST', body: JSON.stringify(d) }),
+  update: async (id: string, d: any) => apiRequest(API_ENDPOINTS.cashDrawer.byId(id), { method: 'PUT', body: JSON.stringify(d) }),
+  delete: async (id: string) => apiRequest(API_ENDPOINTS.cashDrawer.byId(id), { method: 'DELETE' }),
+};
 
-// ==================== PENDING ORDER ====================
+// ==================== PENDING ORDERS API ====================
 export const pendingOrdersAPI = {
-  // Ambil semua antrean
-  getAll: () => apiRequest(API_ENDPOINTS.pendingOrders.base),
+  getAll: async () => {
+    const res: any = await apiRequest(API_ENDPOINTS.pendingOrders.base);
+    const data = Array.isArray(res) ? res : (res.pendingOrders || res.data || []);
+    return data.map((o: any) => ({ ...o, id: o._id }));
+  },
+  save: (data: any) => apiRequest(API_ENDPOINTS.pendingOrders.base, { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: any) => apiRequest(API_ENDPOINTS.pendingOrders.byId(id), { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string) => apiRequest(API_ENDPOINTS.pendingOrders.byId(id), { method: 'DELETE' }),
+};
 
-  // Simpan antrean baru
-  save: (data: any) => apiRequest(API_ENDPOINTS.pendingOrders.base, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
+// ==================== AI & SETTINGS ====================
+export const aiAPI = {
+  chat: async (prompt: string, history: any[]) => {
+    const res = await apiRequest<{ response: string }>(API_ENDPOINTS.ai.chat, { 
+      method: 'POST', body: JSON.stringify({ prompt, history }) 
+    });
+    return res.response;
+  },
+  getInsights: async () => apiRequest(API_ENDPOINTS.ai.insights),
+  processReceipt: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiRequest(API_ENDPOINTS.ai.processReceipt, { method: 'POST', body: formData });
+  }
+};
 
-  // Update antrean (diedit kasir)
-  update: (id: string, data: any) => apiRequest(API_ENDPOINTS.pendingOrders.getById(id), {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
-
-  // Hapus antrean (setelah dibayar atau dicancel)
-  delete: (id: string) => apiRequest(API_ENDPOINTS.pendingOrders.getById(id), {
-    method: 'DELETE',
+export const settingsAPI = {
+  getReceiptSettings: async () => {
+    try {
+      const res: any = await apiRequest(API_ENDPOINTS.receipt_settings.base);
+      const data = Array.isArray(res) ? res[0] : res;
+      return {
+        store_name: data?.store_name || 'WUZPAY SINDANGSARI',
+        address: data?.address || 'Jl. Sindangsari No. 01',
+        footer_text: data?.footer_text || 'Terima Kasih!',
+        logo_url: data?.logo_url || null,
+        show_logo: data?.show_logo ?? false,
+        paper_size: data?.paper_size || '58mm',
+        auto_print: data?.auto_print ?? true,
+        max_chars: data?.max_chars || 32,
+        font_family: data?.font_family || 'monospace',
+        font_size: data?.font_size || 10,
+        margin_h: data?.margin_h || 0,
+        margin_b: data?.margin_b || 20
+      };
+    } catch (e) {
+      return { store_name: 'WUZPAY SINDANGSARI', paper_size: '58mm' };
+    }
+  },
+  updateReceiptSettings: async (config: any) => apiRequest(API_ENDPOINTS.receipt_settings.base, { 
+    method: 'PUT', body: JSON.stringify(config) 
   }),
 };
 
-// ==================== PERMISSIONS ====================
 export const permissionsAPI = {
   getAll: () => apiRequest(API_ENDPOINTS.permissions.base),
-  
-  update: (roleName: string, allowedMenus: string[]) => 
-    apiRequest(API_ENDPOINTS.permissions.update(roleName), {
-      method: 'PUT',
-      body: JSON.stringify({ allowed_menus: allowedMenus }),
-    }),
+  update: (role: string, menus: string[]) => apiRequest(API_ENDPOINTS.permissions.update(role), {
+    method: 'PUT', body: JSON.stringify({ allowed_menus: menus })
+  }),
 };

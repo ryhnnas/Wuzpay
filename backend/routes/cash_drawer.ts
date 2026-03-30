@@ -1,5 +1,5 @@
 import { Hono } from "npm:hono";
-import { getSupabase } from "../supabaseClient.ts";
+import { CashDrawer } from "../models/CashDrawer.ts";
 import { verifyAuth } from "../middleware/auth.ts";
 
 const cashDrawer = new Hono();
@@ -12,13 +12,8 @@ cashDrawer.get("/", async (c) => {
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
 
-    const db = getSupabase();
-    const { data, error } = await db
-      .from('cash_drawer_sessions')
-      .select('*')
-      .order('start_time', { ascending: false });
+    const data = await CashDrawer.find().sort({ start_time: -1 });
 
-    if (error) throw error;
     return c.json({ cashDrawers: data || [] });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -26,7 +21,6 @@ cashDrawer.get("/", async (c) => {
 });
 
 // 2. BUKA KAS BARU (POST)
-// ==================== OPEN/CREATE DRAWER (FIXED) ====================
 cashDrawer.post("/", async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
@@ -34,33 +28,21 @@ cashDrawer.post("/", async (c) => {
     const { user, error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
     
-    const db = getSupabase();
     const body = await c.req.json();
     
-    // CEK: Apakah user ngisi closing di inputan pertama?
     const hasClosing = body.ending_cash !== null && body.ending_cash !== undefined && body.ending_cash !== "";
 
-    const sessionData = {
+    const session = await CashDrawer.create({
       user_id: user.id,
-      start_time: new Date().toISOString(),
+      start_time: new Date(),
       starting_cash: Number(body.starting_cash) || 0,
-      // SEKARANG KITA MASUKIN ENDING_CASH-NYA MANG!
       ending_cash: hasClosing ? Number(body.ending_cash) : null,
-      // STATUSNYA JANGAN DIPAKSA 'OPEN', TAPI TERGANTUNG ADA CLOSING ATAU ENGGAK
       status: hasClosing ? 'closed' : 'open',
-      staffname: body.staffname || user.email,
+      staffname: body.staffname || user.name || user.email,
       notes: body.notes || null,
-      // Kalau langsung tutup, kasih end_time juga
-      end_time: hasClosing ? new Date().toISOString() : null 
-    };
+      end_time: hasClosing ? new Date() : null 
+    });
 
-    const { data: session, error: insertError } = await db
-      .from('cash_drawer_sessions')
-      .insert(sessionData)
-      .select()
-      .single();
-
-    if (insertError) throw insertError;
     return c.json({ drawer: session });
   } catch (error: any) {
     console.error('Open drawer error:', error);
@@ -76,7 +58,6 @@ cashDrawer.put("/:id", async (c) => {
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
 
-    const db = getSupabase();
     const id = c.req.param('id');
     const body = await c.req.json();
 
@@ -84,14 +65,15 @@ cashDrawer.put("/:id", async (c) => {
     if (body.starting_cash !== undefined) updateData.starting_cash = Number(body.starting_cash);
     if (body.ending_cash !== undefined) {
       updateData.ending_cash = body.ending_cash === null ? null : Number(body.ending_cash);
-      updateData.end_time = updateData.ending_cash !== null ? new Date().toISOString() : null;
+      updateData.end_time = updateData.ending_cash !== null ? new Date() : null;
       updateData.status = updateData.ending_cash !== null ? 'closed' : 'open';
     }
     if (body.notes !== undefined) updateData.notes = body.notes;
     if (body.staffname !== undefined) updateData.staffname = body.staffname;
 
-    const { data, error } = await db.from('cash_drawer_sessions').update(updateData).eq('id', id).select().single();
-    if (error) throw error;
+    const data = await CashDrawer.findByIdAndUpdate(id, updateData, { new: true });
+    
+    if (!data) return c.json({ error: "Data tidak ditemukan" }, 404);
     return c.json({ drawer: data });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -106,10 +88,7 @@ cashDrawer.delete("/:id", async (c) => {
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
 
-    const db = getSupabase();
-    const id = c.req.param('id');
-    const { error } = await db.from('cash_drawer_sessions').delete().eq('id', id);
-    if (error) throw error;
+    await CashDrawer.findByIdAndDelete(c.req.param('id'));
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);

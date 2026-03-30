@@ -1,9 +1,10 @@
 {
   "imports": {
-    "jsr:@supabase/supabase-js@2.49.8": "jsr:@supabase/supabase-js@2.49.8",
     "npm:hono": "npm:hono",
     "npm:hono/cors": "npm:hono/cors",
-    "npm:hono/logger": "npm:hono/logger"
+    "npm:hono/logger": "npm:hono/logger",
+    "npm:mongoose": "npm:mongoose",
+    "bcryptjs": "npm:bcryptjs@^2.4.3"
   },
   "nodeModulesDir": "auto",
   "compilerOptions": {

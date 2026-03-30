@@ -1,8 +1,18 @@
 {
+  "name": "wuzpay",
+  "version": "1.0.0",
+  "description": "Point of Sale System for University Project",
+  "main": "index.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js"
+  },
   "devDependencies": {
-    "supabase": "^2.82.0"
+    "nodemon": "^3.0.0"
   },
   "dependencies": {
-    "html-to-image": "^1.11.13"
+    "dotenv": "^16.6.1",
+    "html-to-image": "^1.11.13",
+    "mongoose": "^8.23.0"
   }
 }

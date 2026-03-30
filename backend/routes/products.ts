@@ -1,27 +1,18 @@
 import { Hono } from "npm:hono";
-import { getSupabase } from "../supabaseClient.ts";
+import { Product, StockLog } from "../models/Product.ts";
 import { verifyAuth } from "../middleware/auth.ts";
 import * as XLSX from "npm:xlsx";
+import mongoose from "npm:mongoose";
 
 const products = new Hono();
 
 // ==================== GET ALL PRODUCTS ====================
 products.get("/", async (c) => {
   try {
-    const db = getSupabase();
-    const { data: productsData, error } = await db
-      .from('products')
-      .select(`
-        *,
-        categories (name) 
-      `)
-      .order('stock_quantity', { ascending: true }) 
-      .order('name', { ascending: true });
-
-    if (error) {
-      console.error('Supabase Error:', error);
-      return c.json({ error: error.message }, 500);
-    }
+    // .populate menggantikan JOIN di SQL
+    const productsData = await Product.find()
+      .populate('category_id', 'name') 
+      .sort({ stock_quantity: 1, name: 1 });
 
     return c.json({ products: productsData || [] });
   } catch (error) {
@@ -32,15 +23,9 @@ products.get("/", async (c) => {
 // ==================== EXPORT TO EXCEL ====================
 products.get("/export", async (c) => {
   try {
-    const db = getSupabase();
-    const { data: productsData, error } = await db
-      .from('products')
-      .select('id, name, description, sku, price, cost, stock_quantity, category_id, image_url')
-      .order('name', { ascending: true });
+    const productsData = await Product.find().lean();
 
-    if (error) throw error;
-
-    const worksheet = XLSX.utils.json_to_sheet(productsData || []);
+    const worksheet = XLSX.utils.json_to_sheet(productsData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
 
@@ -49,7 +34,7 @@ products.get("/export", async (c) => {
     return new Response(excelBuffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": 'attachment; filename="data_produk_seblak.xlsx"',
+        "Content-Disposition": 'attachment; filename="data_produk_wuzpay.xlsx"',
       },
     });
   } catch (error) {
@@ -62,10 +47,9 @@ products.post("/import", async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
     const sessionId = c.req.header('X-Session-ID') || null;
-    const { error: authError } = await verifyAuth(authHeader, sessionId);
+    const { user, error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
 
-    const db = getSupabase();
     const formData = await c.req.formData();
     const file = formData.get("file");
 
@@ -81,33 +65,30 @@ products.post("/import", async (c) => {
 
     for (const row of sheetData) {
       try {
-        const { id, name, sku, price, cost, stock_quantity, category_id } = row;
+        const { name, sku, price, cost, stock_quantity, category_id } = row;
         if (!name) continue;
 
-        let existingProduct = null;
-        if (id) {
-          const { data } = await db.from('products').select('*').eq('id', id).maybeSingle();
-          existingProduct = data;
-        } else if (sku) {
-          const { data } = await db.from('products').select('*').eq('sku', sku).maybeSingle();
-          existingProduct = data;
-        }
-
+        // Logika Upsert: Cari berdasarkan SKU (karena ID MongoDB beda format dengan SQL lama)
+        const filter = sku ? { sku } : { name };
         const payload = {
           name,
           sku: sku || "",
           price: Number(price) || 0,
           cost: Number(cost) || 0,
           stock_quantity: Number(stock_quantity) || 0,
-          category_id: category_id || null,
-          updated_at: new Date().toISOString()
+          category_id: mongoose.Types.ObjectId.isValid(category_id) ? category_id : null,
+          userId: user?.id
         };
 
-        if (existingProduct) {
-          await db.from('products').update(payload).eq('id', existingProduct.id);
+        const updatedProduct = await Product.findOneAndUpdate(
+          filter, 
+          payload, 
+          { upsert: true, new: true, rawResult: true }
+        );
+
+        if (updatedProduct.lastErrorObject?.updatedExisting) {
           results.updated++;
         } else {
-          await db.from('products').insert({ ...payload, created_at: new Date().toISOString() });
           results.added++;
         }
       } catch (err: any) {
@@ -117,6 +98,7 @@ products.post("/import", async (c) => {
 
     return c.json({ success: true, results });
   } catch (error) {
+    console.error(error);
     return c.json({ error: "Gagal memproses excel" }, 500);
   }
 });
@@ -124,14 +106,11 @@ products.post("/import", async (c) => {
 // ==================== STOCK MANAGEMENT ====================
 products.get("/stock/logs", async (c) => {
   try {
-    const db = getSupabase();
-    const { data: logs, error } = await db
-      .from('stock_logs')
-      .select('*, products (name)')
-      .order('created_at', { ascending: false })
+    const logs = await StockLog.find()
+      .populate('product_id', 'name')
+      .sort({ createdAt: -1 })
       .limit(50);
 
-    if (error) throw error;
     return c.json({ logs: logs || [] });
   } catch (error) {
     return c.json({ error: 'Failed to fetch logs' }, 500);
@@ -145,20 +124,22 @@ products.post("/:id/add-stock", async (c) => {
     const { user, error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
 
-    const db = getSupabase();
     const id = c.req.param("id");
     const { amount } = await c.req.json();
 
-    const { data: product } = await db.from('products').select('stock_quantity').eq('id', id).single();
+    const product = await Product.findById(id);
     if (!product) return c.json({ error: "Produk tidak ditemukan" }, 404);
 
-    const newStock = (product.stock_quantity || 0) + Number(amount);
+    const previousStock = product.stock_quantity || 0;
+    const newStock = previousStock + Number(amount);
 
-    await db.from('products').update({ stock_quantity: newStock }).eq('id', id);
-    await db.from('stock_logs').insert({
+    product.stock_quantity = newStock;
+    await product.save();
+
+    await StockLog.create({
       product_id: id,
-      user_id: user.id,
-      previous_stock: product.stock_quantity,
+      user_id: user?.id || "system",
+      previous_stock: previousStock,
       added_stock: Number(amount),
       current_stock: newStock,
       type: 'addition'
@@ -173,34 +154,25 @@ products.post("/:id/add-stock", async (c) => {
 // ==================== CRUD BASIC ====================
 products.get("/:id", async (c) => {
   try {
-    const db = getSupabase();
-    const { data: product, error } = await db.from('products').select('*').eq('id', c.req.param('id')).single();
-    if (error || !product) return c.json({ error: 'Not found' }, 404);
+    const product = await Product.findById(c.req.param('id')).populate('category_id');
+    if (!product) return c.json({ error: 'Not found' }, 404);
     return c.json({ product });
   } catch (error) {
-    return c.json({ error: 'Error' }, 500);
+    return c.json({ error: 'Format ID salah' }, 400);
   }
 });
 
 products.post("/", async (c) => {
   try {
-    const authHeader = c.req.header('Authorization') || null;
-    const sessionId = c.req.header('X-Session-ID') || null;
-    const { error: authError } = await verifyAuth(authHeader, sessionId);
-    if (authError) return c.json({ error: authError }, 401);
-
-    const db = getSupabase();
     const body = await c.req.json();
-    const { data, error } = await db.from('products').insert({
+    const product = await Product.create({
       ...body,
       price: Number(body.price),
       cost: Number(body.cost),
-      stock_quantity: Number(body.stock_quantity),
-      created_at: new Date().toISOString()
-    }).select().single();
+      stock_quantity: Number(body.stock_quantity)
+    });
 
-    if (error) throw error;
-    return c.json({ product: data });
+    return c.json({ product });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -208,39 +180,29 @@ products.post("/", async (c) => {
 
 products.put("/:id", async (c) => {
   try {
-    const authHeader = c.req.header('Authorization') || null;
-    const sessionId = c.req.header('X-Session-ID') || null;
-    const { error: authError } = await verifyAuth(authHeader, sessionId);
-    if (authError) return c.json({ error: authError }, 401);
-
-    const db = getSupabase();
     const body = await c.req.json();
-    const { data, error } = await db.from('products').update({
-      ...body,
-      price: Number(body.price),
-      cost: Number(body.cost),
-      stock_quantity: Number(body.stock_quantity),
-      updated_at: new Date().toISOString()
-    }).eq('id', c.req.param('id')).select().single();
+    const product = await Product.findByIdAndUpdate(
+      c.req.param('id'),
+      {
+        ...body,
+        price: Number(body.price),
+        cost: Number(body.cost),
+        stock_quantity: Number(body.stock_quantity)
+      },
+      { new: true }
+    );
 
-    if (error) throw error;
-    return c.json({ product: data });
+    if (!product) return c.json({ error: "Produk tidak ditemukan" }, 404);
+    return c.json({ product });
   } catch (error) {
-    console.log('Update product error:', error);
     return c.json({ error: 'Failed to update product' }, 500);
   }
 });
 
-// Delete product
 products.delete("/:id", async (c) => {
   try {
-    const authHeader = c.req.header('Authorization') || null;
-    const sessionId = c.req.header('X-Session-ID') || null;
-    const { error: authError } = await verifyAuth(authHeader, sessionId);
-    if (authError) return c.json({ error: authError }, 401);
-
-    const db = getSupabase();
-    await db.from('products').delete().eq('id', c.req.param('id'));
+    const product = await Product.findByIdAndDelete(c.req.param('id'));
+    if (!product) return c.json({ error: "Produk tidak ditemukan" }, 404);
     return c.json({ success: true });
   } catch (error) {
     return c.json({ error: 'Delete failed' }, 500);

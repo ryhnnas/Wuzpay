@@ -1,5 +1,5 @@
 import { Hono } from "npm:hono";
-import { getSupabase } from "../supabaseClient.ts";
+import { Category } from "../models/Category.ts"; // Import Model MongoDB
 import { verifyAuth } from "../middleware/auth.ts";
 
 const categories = new Hono();
@@ -7,15 +7,9 @@ const categories = new Hono();
 // ==================== GET ALL CATEGORIES ====================
 categories.get("/", async (c) => {
   try {
-    // Gunakan instance fresh
-    const db = getSupabase();
-    
-    const { data, error } = await db
-      .from('categories')
-      .select('*')
-      .order('name', { ascending: true });
+    // find() tanpa filter untuk ambil semua, sort by name ascending (1)
+    const data = await Category.find().sort({ name: 1 });
 
-    if (error) throw error;
     return c.json({ categories: data || [] });
   } catch (error) {
     console.error('Get categories error:', error);
@@ -32,23 +26,21 @@ categories.post("/", async (c) => {
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
     
-    const db = getSupabase();
     const body = await c.req.json();
     
-    const { data: category, error: insertError } = await db
-      .from('categories')
-      .insert({
-        name: body.name,
-        description: body.description || "",
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
+    // Mongoose handle create_at otomatis lewat timestamps: true
+    const category = await Category.create({
+      name: body.name,
+      description: body.description || "",
+    });
 
-    if (insertError) throw insertError;
     return c.json({ category });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create category error:', error);
+    // Cek jika error karena nama kategori sudah ada (Unique Constraint)
+    if (error.code === 11000) {
+        return c.json({ error: 'Nama kategori sudah ada!' }, 400);
+    }
     return c.json({ error: error.message || 'Failed to create category' }, 500);
   }
 });
@@ -62,21 +54,21 @@ categories.put("/:id", async (c) => {
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
     
-    const db = getSupabase();
     const id = c.req.param('id');
     const body = await c.req.json();
 
-    const { data: category, error: updateError } = await db
-      .from('categories')
-      .update({
+    // findByIdAndUpdate dengan opsi { new: true } agar mengembalikan data terbaru
+    const category = await Category.findByIdAndUpdate(
+      id,
+      {
         name: body.name,
         description: body.description,
-      })
-      .eq('id', id)
-      .select()
-      .single();
+      },
+      { new: true }
+    );
 
-    if (updateError) throw updateError;
+    if (!category) return c.json({ error: 'Category not found' }, 404);
+
     return c.json({ category });
   } catch (error) {
     console.error('Update category error:', error);
@@ -93,15 +85,12 @@ categories.delete("/:id", async (c) => {
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
     
-    const db = getSupabase();
     const id = c.req.param('id');
     
-    const { error: deleteError } = await db
-      .from('categories')
-      .delete()
-      .eq('id', id);
+    const result = await Category.findByIdAndDelete(id);
 
-    if (deleteError) throw deleteError;
+    if (!result) return c.json({ error: 'Category not found' }, 404);
+
     return c.json({ success: true });
   } catch (error) {
     console.error('Delete category error:', error);

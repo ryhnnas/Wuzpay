@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Pencil, Trash2, Check, Printer, Save, Download, Eye } from 'lucide-react';
+import { X, Pencil, Trash2, Check, Printer, Save, Download, Eye, Loader2 } from 'lucide-react';
 import { toJpeg } from 'html-to-image';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { ReceiptTemplate } from '../utils/ReceiptTemplate';
 import { handleGlobalPrint } from '../utils/printHandler';
 import { cn } from '@/app/components/ui/utils';
+import { Badge } from "@/app/components/ui/badge";
 
 export function EditStruk({ transactionId, onClose }: { transactionId: string, onClose: () => void }) {
   const receiptRef = useRef<HTMLDivElement>(null);
@@ -17,72 +18,70 @@ export function EditStruk({ transactionId, onClose }: { transactionId: string, o
   const [editingId, setEditingId] = useState<string | null>(null);
   const [receiptConfig, setReceiptConfig] = useState<any>({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // ==================== 1. LOAD SETTING DARI DATABASE (BIAR SINKRON) ====================
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const data = await settingsAPI.getReceiptSettings();
-        if (data) {
-          setReceiptConfig(data);
-        }
-      } catch (err) {
-        console.error("Gagal sinkronisasi setting pusat");
-      }
-    };
-    loadSettings();
-  }, []);
-
-  // ==================== 2. LOAD DATA TRANSAKSI & PRODUK ====================
+  // ==================== 1. LOAD SETTING & DATA ====================
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true);
       try {
-        const [transData, prodData] = await Promise.all([
+        const [transData, prodData, settingsData] = await Promise.all([
           transactionsAPI.getById(transactionId),
           productsAPI.getAll(),
+          settingsAPI.getReceiptSettings()
         ]);
 
-        // MAPPING ULANG: Kita isi product_name yang NULL itu pake nama asli dari tabel produk
+        // MAPPING ULANG UNTUK MONGODB SCHEMA
         const mappedItems = (transData.items || []).map((item: any) => {
-          // Cari produk yang ID-nya sama di daftar produk (prodData)
-          const findProduct = (prodData || []).find((p: any) => p.id === item.product_id);
-          
+          const findProduct = (prodData || []).find((p: any) => (p._id || p.id) === item.product_id);
           return {
             ...item,
-            // Kalo product_name di DB null, ambil p.name dari daftar produk
-            product_name: item.product_name || findProduct?.name || 'Menu Tidak Terdaftar'
+            id: item._id || item.id, // Pastikan ada ID untuk key React
+            product_name: item.product_name || findProduct?.name || 'Menu WuzPay'
           };
         });
 
         setTransaction(transData);
-        setItems(mappedItems); // <--- Sekarang items udah ada namanya!
+        setItems(mappedItems);
         setProducts(prodData || []);
+        if (settingsData) setReceiptConfig(settingsData);
       } catch (e) {
-        toast.error("Gagal memuat data transaksi");
+        toast.error("Gagal sinkronisasi data struk");
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchData();
   }, [transactionId]);
 
+  if (isLoading) return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="size-12 text-orange-600 animate-spin" />
+        <p className="font-black text-white uppercase text-xs tracking-widest animate-pulse">Mengambil Data Struk...</p>
+      </div>
+    </div>
+  );
+
   if (!transaction) return null;
 
-  // Hitung total belanja secara real-time saat item diubah
+  // Hitung total belanja secara real-time
   const currentTotal = items.reduce((sum, it) => sum + (it.quantity * (it.price_at_sale || 0)), 0);
 
-  // ==================== 3. FUNGSI DOWNLOAD STRUK JPG ====================
+  // ==================== 2. DOWNLOAD JPG ====================
   const downloadReceipt = async () => {
     if (receiptRef.current === null) return;
-    const toastId = toast.loading("MENGONVERSI STRUK...");
+    const toastId = toast.loading("MENYIAPKAN GAMBAR...");
     setIsProcessing(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 400));
+      await new Promise(resolve => setTimeout(resolve, 500));
       const dataUrl = await toJpeg(receiptRef.current, { 
         quality: 1.0, 
         backgroundColor: '#ffffff', 
-        pixelRatio: 2 
+        pixelRatio: 3 // Kualitas lebih tajam untuk WuzPay
       });
       const link = document.createElement('a');
-      link.download = `STRUK-${transaction.receipt_number}.jpg`;
+      link.download = `WUZPAY-${transaction.receipt_number}.jpg`;
       link.href = dataUrl;
       link.click();
       toast.success("STRUK BERHASIL DIUNDUH", { id: toastId });
@@ -93,185 +92,175 @@ export function EditStruk({ transactionId, onClose }: { transactionId: string, o
     }
   };
 
-  // ==================== 4. FUNGSI SIMPAN PERUBAHAN KE DATABASE ====================
+  // ==================== 3. SIMPAN KE DATABASE ====================
   const handleSave = async () => {
-    const toastId = toast.loading("MENYIMPAN PERUBAHAN...");
+    const toastId = toast.loading("MENYIMPAN KE CLOUD...");
     try {
-      // 1. Siapkan payload lengkap
       const updatedPayload = {
         ...transaction,           
-        items: items,             
+        items: items.map(it => ({
+          product_id: it.product_id,
+          product_name: it.product_name,
+          quantity: it.quantity,
+          price_at_sale: it.price_at_sale,
+          subtotal: it.quantity * it.price_at_sale
+        })),             
         total_amount: currentTotal 
       };
 
-      // 2. Kirim ke API (Panggil fungsi .update yang baru kita ganti namanya)
       await transactionsAPI.updateItems(transactionId, updatedPayload);
       
-      toast.success("BERHASIL DISIMPAN KE DATABASE", { id: toastId });
+      toast.success("DATA WUZPAY BERHASIL DIPERBARUI", { id: toastId });
       setTimeout(() => onClose(), 500);
     } catch (err) {
-      console.error("Detail Error Simpan:", err); 
-      toast.error("GAGAL MENYIMPAN", { id: toastId });
+      toast.error("GAGAL UPDATE DATABASE", { id: toastId });
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300 font-sans">
-      <div className="bg-white w-full max-w-6xl h-[90vh] rounded-[40px] overflow-hidden flex shadow-2xl border border-white/20">
+    <div className="fixed inset-0 bg-gray-900/90 backdrop-blur-lg z-[100] flex items-center justify-center p-6 animate-in fade-in duration-500 font-sans">
+      <div className="bg-white w-full max-w-6xl h-[85vh] rounded-[48px] overflow-hidden flex shadow-2xl border border-white/10">
         
-        {/* ================= PANEL KIRI: EDITOR & KONTROL ================= */}
-        <div className="flex-[1.4] flex flex-col border-r border-gray-100 bg-gray-50/50 relative">
-          {/* Header Panel Kiri */}
-          <div className="p-8 border-b bg-white flex justify-between items-center">
+        {/* PANEL KIRI: LIST ITEM EDITOR */}
+        <div className="flex-[1.2] flex flex-col border-r border-gray-100 bg-white relative">
+          <div className="p-10 border-b flex justify-between items-center bg-gray-50/50">
             <div>
-              <h3 className="font-black text-2xl uppercase tracking-tighter italic text-gray-900">Editor Struk</h3>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="bg-orange-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest italic shadow-sm shadow-orange-100 animate-pulse">Live</span>
-                <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">{transaction.receipt_number}</p>
-              </div>
+              <h3 className="font-black text-3xl uppercase tracking-tighter italic text-gray-900">Editor <span className="text-orange-600">Struk</span></h3>
+              <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.3em] mt-2 italic">Ref: {transaction.receipt_number || 'WUZ-NEW'}</p>
             </div>
-            <Button variant="ghost" onClick={onClose} className="rounded-full size-12 hover:bg-red-50 hover:text-red-600 transition-all active:scale-90 p-0">
+            <Button variant="ghost" onClick={onClose} className="rounded-2xl size-12 hover:bg-red-50 hover:text-red-600 transition-all">
               <X className="size-6" />
             </Button>
           </div>
 
-          {/* Area Tabel Item */}
-          <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+          <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
             <table className="w-full text-left">
-              <thead className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-100">
+              <thead className="text-[10px] font-black text-gray-300 uppercase tracking-widest border-b border-gray-50">
                 <tr>
-                  <th className="pb-4 text-left">Nama Menu</th>
-                  <th className="pb-4 w-20 text-center">Qty</th>
-                  <th className="pb-4 text-right">Subtotal</th>
-                  <th className="pb-4 text-right px-4">Aksi</th>
+                  <th className="pb-6">NAMA MENU</th>
+                  <th className="pb-6 w-24 text-center">QTY</th>
+                  <th className="pb-6 text-right">SUBTOTAL</th>
+                  <th className="pb-6 text-right pr-4">AKSI</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-              {items.map((item) => (
-                <tr key={item.id} className="group bg-white/40 hover:bg-white transition-all">
-                  <td className="py-2.5 px-2"> 
-                    {editingId === item.id ? (
-                      <select 
-                        className="w-full h-10 rounded-xl border-none bg-white shadow-sm text-[11px] font-black uppercase px-3 focus:ring-2 focus:ring-orange-500"
-                        value={item.product_id}
-                        onChange={(e) => {
-                          const p = products.find(prod => prod.id === e.target.value);
-                          setItems(items.map(it => it.id === item.id ? { 
-                            ...it, product_id: p.id, product_name: p.name, price_at_sale: p.price 
-                          } : it));
-                        }}
-                      >
-                        {products.map(p => <option key={p.id} value={p.id}>{p.name.toUpperCase()}</option>)}
-                      </select>
-                    ) : (
-                      <p className="text-[11px] font-black uppercase text-gray-700 tracking-tight leading-none pl-2">{item.product_name || item.name || item.nama_produk || 'Menu Kosong'}</p>
-                    )}
-                  </td>
-                  
-                  <td className="py-2.5 text-center">
-                    {editingId === item.id ? (
-                      <Input 
-                        type="number" 
-                        className="h-10 w-16 mx-auto text-center font-black bg-white border-none rounded-xl focus:ring-2 focus:ring-orange-500 shadow-sm" 
-                        value={item.quantity}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 0;
-                          setItems(items.map(it => it.id === item.id ? { ...it, quantity: val } : it));
-                        }}
-                      />
-                    ) : (
-                      <span className="font-black text-orange-600 bg-orange-100/50 px-3 py-1.5 rounded-lg text-[9px]">{item.quantity}X</span>
-                    )}
-                  </td>
-                  
-                  <td className="py-2.5 text-right font-black text-gray-900 text-xs tracking-tighter italic">
-                    {new Intl.NumberFormat('id-ID').format(item.quantity * (item.price_at_sale || 0))}
-                  </td>
-                  
-                  <td className="py-2.5 text-right px-4">
-                    <div className="flex justify-end gap-1.5">
-                      {editingId === item.id ? (
-                        <Button 
-                          size="icon" 
-                          className="size-8 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition-all active:scale-90" 
-                          onClick={() => setEditingId(null)}
+              {items.map((item) => {
+                const itemId = item._id || item.id;
+                return (
+                  <tr key={itemId} className="group hover:bg-orange-50/30 transition-all">
+                    <td className="py-5"> 
+                      {editingId === itemId ? (
+                        <select 
+                          className="w-full h-12 rounded-2xl border-none bg-gray-100 text-[11px] font-black uppercase px-4 focus:ring-2 focus:ring-orange-500 transition-all"
+                          value={item.product_id}
+                          onChange={(e) => {
+                            const p = products.find(prod => (prod._id || prod.id) === e.target.value);
+                            setItems(items.map(it => (it._id || it.id) === itemId ? { 
+                              ...it, product_id: (p._id || p.id), product_name: p.name, price_at_sale: p.price 
+                            } : it));
+                          }}
                         >
-                          <Check className="size-4" />
-                        </Button>
+                          {products.map(p => <option key={p._id || p.id} value={p._id || p.id}>{p.name.toUpperCase()}</option>)}
+                        </select>
                       ) : (
-                        <>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="size-8 text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white rounded-lg transition-all" 
-                            onClick={() => setEditingId(item.id)}
-                          >
-                            <Pencil className="size-3.5" />
-                          </Button>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="size-8 text-red-600 bg-red-50 hover:bg-red-600 hover:text-white rounded-lg transition-all" 
-                            onClick={() => {
-                              if(confirm('Hapus menu ini dari struk?')) {
-                                setItems(items.filter(it => it.id !== item.id));
-                              }
-                            }}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        </>
+                        <div className="flex flex-col">
+                          <span className="font-black text-gray-800 uppercase text-xs tracking-tight italic">{item.product_name || 'Item WuzPay'}</span>
+                          <span className="text-[9px] text-gray-400 font-bold uppercase mt-1">ID: {String(item.product_id).substring(18)}</span>
+                        </div>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+                    </td>
+                    
+                    <td className="py-5 text-center">
+                      {editingId === itemId ? (
+                        <Input 
+                          type="number" 
+                          className="h-12 w-20 mx-auto text-center font-black bg-gray-100 border-none rounded-2xl focus:ring-2 focus:ring-orange-500" 
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setItems(items.map(it => (it._id || it.id) === itemId ? { ...it, quantity: val } : it));
+                          }}
+                        />
+                      ) : (
+                        <Badge className="bg-orange-600 text-white font-black text-[10px] px-3 py-1 rounded-lg italic">x{item.quantity}</Badge>
+                      )}
+                    </td>
+                    
+                    <td className="py-5 text-right font-black text-gray-900 text-sm tracking-tighter italic">
+                      {new Intl.NumberFormat('id-ID').format(item.quantity * (item.price_at_sale || 0))}
+                    </td>
+                    
+                    <td className="py-5 text-right pr-4">
+                      <div className="flex justify-end gap-2">
+                        {editingId === itemId ? (
+                          <Button size="icon" className="size-9 bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all" onClick={() => setEditingId(null)}>
+                            <Check className="size-4 stroke-[3px]" />
+                          </Button>
+                        ) : (
+                          <>
+                            <Button size="icon" variant="ghost" className="size-9 text-blue-500 bg-blue-50 hover:bg-blue-500 hover:text-white rounded-xl transition-all" onClick={() => setEditingId(itemId)}>
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="size-9 text-red-400 bg-red-50 hover:bg-red-500 hover:text-white rounded-xl transition-all" onClick={() => {
+                                if(confirm('Hapus menu ini dari struk?')) {
+                                  setItems(items.filter(it => (it._id || it.id) !== itemId));
+                                }
+                              }}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              </tbody>
             </table>
           </div>
 
-          {/* AREA 3 TOMBOL: CONTROL CENTER */}
-          <div className="p-8 bg-white border-t space-y-3 shadow-[0_-20px_40px_rgba(0,0,0,0.03)]">
-            <div className="grid grid-cols-2 gap-3">
+          {/* AREA KONTROL BAWAH */}
+          <div className="p-10 bg-gray-50/50 border-t space-y-4">
+            <div className="grid grid-cols-2 gap-4">
               <Button 
-                onClick={() => handleGlobalPrint(transaction)} // Kirim data transaksi terbaru
-                className="bg-orange-600 hover:bg-orange-700 text-white font-black rounded-[18px] h-14 uppercase tracking-[0.2em] text-[10px] shadow-lg shadow-orange-100 transition-all active:scale-95"
+                onClick={() => handleGlobalPrint({...transaction, items, total_amount: currentTotal})}
+                className="bg-orange-600 hover:bg-orange-700 text-white font-black rounded-[24px] h-16 uppercase tracking-widest text-[10px] shadow-xl shadow-orange-100 transition-all active:scale-95"
               >
-                <Printer className="mr-2 size-4" /> Cetak Thermal
+                <Printer className="mr-3 size-5" /> Cetak Thermal
               </Button>
 
               <Button 
                 variant="outline"
                 disabled={isProcessing}
                 onClick={downloadReceipt} 
-                className="border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white rounded-[18px] font-black h-14 uppercase tracking-[0.2em] text-[10px] transition-all"
+                className="border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white rounded-[24px] font-black h-16 uppercase tracking-widest text-[10px] transition-all"
               >
-                <Download className="mr-2 size-4" /> {isProcessing ? 'Proses...' : 'Unduh JPG'}
+                <Download className="mr-3 size-5" /> {isProcessing ? 'Processing...' : 'Simpan ke Galeri'}
               </Button>
             </div>
 
             <Button 
               onClick={handleSave}
-              className="w-full bg-gray-600 hover:bg-black text-white font-black rounded-[18px] h-16 shadow-2xl uppercase tracking-[0.3em] text-xs transition-all active:scale-95 flex items-center justify-center gap-3"
+              className="w-full bg-gray-900 hover:bg-orange-600 text-white font-black rounded-[24px] h-20 shadow-2xl uppercase tracking-[0.4em] text-xs transition-all active:scale-95 flex items-center justify-center gap-4"
             >
-              <Save className="size-5 text-orange-500" /> Simpan Perubahan
+              <Save className="size-6 text-orange-500" /> Sinkronkan Perubahan
             </Button>
           </div>
         </div>
 
-        {/* ================= PANEL KANAN: LIVE PREVIEW ================= */}
-        <div className="flex-1 bg-gray-200/50 p-12 flex flex-col items-center justify-start overflow-y-auto custom-scrollbar">
-          <div className="mb-6 flex items-center gap-2 bg-white/50 px-4 py-2 rounded-full border border-gray-200 shadow-sm backdrop-blur-sm">
-             <Eye className="size-3 text-gray-400" />
-             <span className="text-[8px] font-black uppercase text-gray-400 tracking-[0.3em]">Live Preview Area</span>
+        {/* PANEL KANAN: LIVE PREVIEW */}
+        <div className="flex-1 bg-gray-100 p-12 flex flex-col items-center justify-start overflow-y-auto custom-scrollbar">
+          <div className="mb-8 bg-gray-900 text-white px-6 py-2 rounded-full shadow-2xl flex items-center gap-3">
+             <Eye className="size-4 text-orange-500 animate-pulse" />
+             <span className="text-[9px] font-black uppercase tracking-[0.4em]">Live Struk Preview</span>
           </div>
 
-          {/* Receipt Preview */}
-          <div className="relative group transition-all duration-500 hover:scale-[1.02] origin-top h-fit">
-            <div className="absolute inset-0 bg-black/5 rounded-sm blur-2xl group-hover:bg-black/10 transition-colors" />
+          <div className="relative group transition-all duration-700 hover:scale-[1.03] origin-top h-fit">
+            <div className="absolute inset-0 bg-black/10 rounded-sm blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
             <div 
               ref={receiptRef} 
-              className="relative bg-white p-2 rounded-sm shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] ring-1 ring-black/5"
+              className="relative bg-white p-3 rounded-sm shadow-[0_40px_80px_-20px_rgba(0,0,0,0.15)]"
               style={{ width: 'fit-content' }}
             >
               <ReceiptTemplate 
@@ -281,10 +270,7 @@ export function EditStruk({ transactionId, onClose }: { transactionId: string, o
             </div>
           </div>
           
-          <div className="mt-10 opacity-30 flex flex-col items-center">
-             <div className="h-20 w-px bg-gradient-to-b from-gray-400 to-transparent" />
-             <p className="text-[9px] font-black text-gray-400 mt-2 uppercase tracking-[0.5em] italic">Seblak Mledak POS v3.0</p>
-          </div>
+          <p className="mt-12 text-[10px] font-black text-gray-300 uppercase tracking-[0.5em] italic">WuzPay Engine 2026</p>
         </div>
 
       </div>

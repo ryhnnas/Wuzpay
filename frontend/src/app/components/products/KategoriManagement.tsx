@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, Search, Edit2, Trash2, Layers, 
-  MoreVertical, Download, Upload, AlertCircle 
+  Loader2, AlertCircle 
 } from 'lucide-react';
 import { categoriesAPI } from '@/services/api';
 import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app//components/ui/input";
+import { Input } from "@/app/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/app/components/ui/table";
@@ -14,10 +14,12 @@ import {
 } from "@/app/components/ui/dialog";
 import { Label } from "@/app/components/ui/label";
 import { toast } from "sonner";
+import { cn } from "@/app/components/ui/utils";
 
 const KategoriManagement = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
   // State untuk Dialog Tambah/Edit
@@ -33,9 +35,10 @@ const KategoriManagement = () => {
     try {
       setLoading(true);
       const data = await categoriesAPI.getAll();
-      setCategories(data);
+      // Pastikan data yang masuk adalah array
+      setCategories(Array.isArray(data) ? data : []);
     } catch (error) {
-      toast.error("Gagal mengambil data kategori");
+      toast.error("Gagal sinkronisasi kategori WuzPay");
     } finally {
       setLoading(false);
     }
@@ -44,7 +47,10 @@ const KategoriManagement = () => {
   const handleOpenDialog = (category: any = null) => {
     if (category) {
       setEditingCategory(category);
-      setFormData({ name: category.name, description: category.description || '' });
+      setFormData({ 
+        name: category.name, 
+        description: category.description || '' 
+      });
     } else {
       setEditingCategory(null);
       setFormData({ name: '', description: '' });
@@ -55,26 +61,33 @@ const KategoriManagement = () => {
   const handleSubmit = async () => {
     if (!formData.name.trim()) return toast.error("Nama kategori wajib diisi");
 
+    setIsSaving(true);
     try {
       if (editingCategory) {
-        await categoriesAPI.update(editingCategory.id, formData);
-        toast.success("Kategori diperbarui");
+        // Gunakan _id untuk MongoDB
+        const targetId = editingCategory._id || editingCategory.id;
+        await categoriesAPI.update(targetId, formData);
+        toast.success("Kategori berhasil diperbarui");
       } else {
         await categoriesAPI.create(formData);
-        toast.success("Kategori berhasil ditambahkan");
+        toast.success("Kategori WuzPay berhasil ditambahkan");
       }
       setIsDialogOpen(false);
       fetchCategories();
-    } catch (error) {
-      toast.error("Terjadi kesalahan sistem");
+    } catch (error: any) {
+      toast.error(error.message || "Gagal menyimpan kategori");
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Hapus kategori ini? Produk dengan kategori ini mungkin akan terpengaruh.")) return;
+  const handleDelete = async (category: any) => {
+    const targetId = category._id || category.id;
+    if (!confirm(`Hapus kategori "${category.name}"? Produk di kategori ini mungkin akan kehilangan labelnya.`)) return;
+    
     try {
-      await categoriesAPI.delete(id);
-      toast.success("Kategori dihapus");
+      await categoriesAPI.delete(targetId);
+      toast.success("Kategori telah dihapus");
       fetchCategories();
     } catch (error) {
       toast.error("Gagal menghapus kategori");
@@ -82,68 +95,101 @@ const KategoriManagement = () => {
   };
 
   const filteredCategories = categories.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase())
+    c.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div className="p-8 space-y-6 bg-white min-h-screen">
+    <div className="p-8 space-y-8 bg-white min-h-screen animate-in fade-in duration-500">
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-black uppercase tracking-tighter text-gray-900 flex items-center gap-3">
-            <Layers className="size-8 text-orange-600" />
-            Manajemen Kategori
+          <h1 className="text-4xl font-black uppercase tracking-tighter text-gray-900 flex items-center gap-3 italic">
+            <Layers className="size-10 text-orange-600" />
+            Wuz<span className="text-orange-600">Categories</span>
           </h1>
-          <p className="text-gray-500 text-sm font-medium uppercase tracking-widest mt-1">
-            Kelola pengelompokan produk seblak kamu
+          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">
+            Pengelompokan Menu Produk WuzPay Sindangsari
           </p>
         </div>
         <Button 
           onClick={() => handleOpenDialog()}
-          className="bg-orange-600 hover:bg-orange-700 text-white rounded-2xl px-6 h-12 font-black transition-all active:scale-95 shadow-lg shadow-orange-100"
+          className="bg-orange-600 hover:bg-orange-700 text-white rounded-[20px] px-8 h-14 font-black transition-all active:scale-95 shadow-xl shadow-orange-100 uppercase tracking-widest text-xs"
         >
-          <Plus className="mr-2 size-5" /> TAMBAH KATEGORI
+          <Plus className="mr-2 size-5 stroke-[3px]" /> TAMBAH KATEGORI
         </Button>
       </div>
 
-      {/* FILTER & SEARCH */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
+      {/* SEARCH BAR */}
+      <div className="relative max-w-md group">
+        <Search className="absolute left-5 top-1/2 -translate-y-1/2 size-5 text-gray-300 group-focus-within:text-orange-600 transition-colors" />
         <Input 
-          placeholder="Cari kategori..." 
-          className="pl-12 h-12 bg-gray-50 border-none rounded-2xl font-bold focus-visible:ring-2 focus-visible:ring-orange-600"
+          placeholder="Cari kategori menu..." 
+          className="pl-14 h-14 bg-gray-50/50 border-gray-100 rounded-2xl font-bold focus-visible:ring-2 focus-visible:ring-orange-500 shadow-sm"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      {/* TABLE SECTION */}
-      <div className="border rounded-[32px] overflow-hidden shadow-sm">
+      {/* TABLE AREA */}
+      <div className="rounded-[40px] border border-gray-100 overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.03)] bg-white">
         <Table>
-          <TableHeader className="bg-gray-50">
-            <TableRow className="border-none">
-              <TableHead className="font-black uppercase text-xs tracking-widest p-6 text-gray-400">Nama Kategori</TableHead>
-              <TableHead className="font-black uppercase text-xs tracking-widest p-6 text-gray-400">Deskripsi</TableHead>
-              <TableHead className="font-black uppercase text-xs tracking-widest p-6 text-gray-400 text-right">Aksi</TableHead>
+          <TableHeader className="bg-gray-50/50">
+            <TableRow className="border-none hover:bg-transparent">
+              <TableHead className="font-black uppercase text-[10px] tracking-[0.2em] p-8 text-gray-400">Nama Kategori</TableHead>
+              <TableHead className="font-black uppercase text-[10px] tracking-[0.2em] p-8 text-gray-400">Deskripsi / Catatan</TableHead>
+              <TableHead className="font-black uppercase text-[10px] tracking-[0.2em] p-8 text-gray-400 text-right">Aksi Kontrol</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={3} className="text-center py-20 font-bold text-gray-300">Memuat data...</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={3} className="text-center py-32">
+                  <Loader2 className="size-10 text-orange-600 animate-spin mx-auto mb-4" />
+                  <p className="font-black text-[10px] uppercase tracking-widest text-gray-400 animate-pulse">Menghubungkan ke MongoDB...</p>
+                </TableCell>
+              </TableRow>
             ) : filteredCategories.length === 0 ? (
-              <TableRow><TableCell colSpan={3} className="text-center py-20 font-bold text-gray-300">Belum ada kategori</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={3} className="text-center py-32">
+                  <div className="size-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Layers className="size-8 text-gray-200" />
+                  </div>
+                  <p className="font-black text-[10px] uppercase tracking-widest text-gray-300 italic">Belum ada data kategori tersimpan</p>
+                </TableCell>
+              </TableRow>
             ) : (
               filteredCategories.map((category) => (
-                <TableRow key={category.id} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
-                  <TableCell className="p-6 font-black text-gray-800 uppercase text-sm">{category.name}</TableCell>
-                  <TableCell className="p-6 text-gray-500 font-medium">{category.description || '-'}</TableCell>
-                  <TableCell className="p-6 text-right space-x-2">
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(category)} className="rounded-xl hover:bg-orange-50 hover:text-orange-600">
-                      <Edit2 className="size-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(category.id)} className="rounded-xl hover:bg-red-50 hover:text-red-600">
-                      <Trash2 className="size-4" />
-                    </Button>
+                <TableRow key={category._id || category.id} className="hover:bg-orange-50/20 transition-colors border-b border-gray-50 group">
+                  <TableCell className="p-8">
+                    <div className="flex flex-col">
+                      <span className="font-black text-gray-900 uppercase text-sm italic group-hover:text-orange-600 transition-colors">{category.name}</span>
+                      <span className="text-[9px] text-gray-300 font-bold uppercase tracking-tighter mt-1">ID: {category._id?.substring(18) || 'AUTO'}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="p-8">
+                    <p className="text-xs text-gray-500 font-bold leading-relaxed max-w-md">
+                      {category.description || <span className="text-gray-200 italic font-medium">Tidak ada deskripsi tambahan...</span>}
+                    </p>
+                  </TableCell>
+                  <TableCell className="p-8 text-right">
+                    <div className="flex justify-end gap-2 group-hover:opacity-100 transition-all">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleOpenDialog(category)} 
+                        className="rounded-xl hover:bg-orange-100 text-orange-600 shadow-sm border border-gray-100 bg-white transition-all"
+                      >
+                        <Edit2 className="size-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleDelete(category)} 
+                        className="rounded-xl hover:bg-red-50 text-red-400 shadow-sm border border-gray-50 bg-white transition-all"
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -152,40 +198,51 @@ const KategoriManagement = () => {
         </Table>
       </div>
 
-      {/* MODAL TAMBAH/EDIT */}
+      {/* MODAL FORM */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[450px] rounded-[32px] border-none p-8">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-gray-900">
-              {editingCategory ? 'Edit Kategori' : 'Kategori Baru'}
+        <DialogContent className="sm:max-w-[480px] rounded-[40px] border-none p-10 shadow-2xl">
+          <DialogHeader className="mb-6">
+            <DialogTitle className="text-3xl font-black uppercase tracking-tighter text-gray-900 italic">
+              {editingCategory ? 'Update' : 'Buat'} <span className="text-orange-600">Kategori</span>
             </DialogTitle>
+            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">Master Data Produk WuzPay</p>
           </DialogHeader>
-          <div className="space-y-6 py-4">
+
+          <div className="space-y-6">
             <div className="space-y-2">
-              <Label className="font-black uppercase text-[10px] text-gray-400 ml-1">Nama Kategori</Label>
+              <Label className="font-black uppercase text-[10px] tracking-widest text-gray-400 ml-4">Nama Kategori Menu *</Label>
               <Input 
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
-                placeholder="Contoh: Seblak Pedas, Minuman..." 
-                className="h-14 bg-gray-50 border-none rounded-2xl font-black text-lg focus-visible:ring-2 focus-visible:ring-orange-600"
+                placeholder="MISAL: SEBLAK KUAH, DRINK..." 
+                className="h-16 bg-gray-50/50 border-gray-100 rounded-[24px] font-black text-lg focus-visible:ring-2 focus-visible:ring-orange-600 uppercase transition-all px-6"
               />
             </div>
             <div className="space-y-2">
-              <Label className="font-black uppercase text-[10px] text-gray-400 ml-1">Deskripsi (Opsional)</Label>
+              <Label className="font-black uppercase text-[10px] tracking-widest text-gray-400 ml-4">Deskripsi (Opsional)</Label>
               <Input 
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
-                placeholder="Keterangan singkat..." 
-                className="h-14 bg-gray-50 border-none rounded-2xl font-bold focus-visible:ring-2 focus-visible:ring-orange-600"
+                placeholder="Keterangan kategori..." 
+                className="h-16 bg-gray-50/50 border-gray-100 rounded-[24px] font-bold focus-visible:ring-2 focus-visible:ring-orange-600 px-6 transition-all"
               />
             </div>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="mt-10 flex gap-3">
+             <Button 
+              variant="ghost"
+              onClick={() => setIsDialogOpen(false)}
+              className="flex-1 h-16 rounded-[24px] font-black uppercase tracking-widest text-[10px] text-gray-400"
+            >
+              Batal
+            </Button>
             <Button 
               onClick={handleSubmit}
-              className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black uppercase tracking-widest transition-all active:scale-95"
+              disabled={isSaving}
+              className="flex-[2] h-16 bg-gray-900 hover:bg-orange-600 text-white rounded-[24px] font-black uppercase tracking-widest text-xs transition-all shadow-xl active:scale-95"
             >
-              {editingCategory ? 'Simpan Perubahan' : 'Buat Kategori'}
+              {isSaving ? <Loader2 className="mr-2 size-5 animate-spin" /> : editingCategory ? 'Update Data' : 'Simpan Kategori'}
             </Button>
           </DialogFooter>
         </DialogContent>

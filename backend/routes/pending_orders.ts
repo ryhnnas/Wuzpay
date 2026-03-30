@@ -1,82 +1,78 @@
-// backend/routes/pending_orders.ts
 import { Hono } from "npm:hono";
-import { getSupabase } from "../supabaseClient.ts";
+import { PendingOrder } from "../models/PendingOrder.ts";
 
 const pendingOrders = new Hono();
 
 // GET ALL PENDING ORDERS
 pendingOrders.get("/", async (c) => {
-  const db = getSupabase();
-  const { data, error } = await db
-    .from("pending_orders")
-    .select("*")
-    .order("created_at", { ascending: true });
-
-  if (error) return c.json({ error: error.message }, 400);
-  return c.json(data);
+  try {
+    const data = await PendingOrder.find().sort({ createdAt: 1 });
+    return c.json(data);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
 });
 
 // CREATE PENDING ORDER
 pendingOrders.post("/", async (c) => {
-  const db = getSupabase();
-  const body = await c.req.json();
-  
-  const { data, error } = await db
-    .from("pending_orders")
-    .insert([{
+  try {
+    const body = await c.req.json();
+    
+    const newOrder = await PendingOrder.create({
       customer_name: body.customer_name,
       items: body.items,
-      subtotal: body.subtotal,
-      discount_amount: body.discount_amount,
+      subtotal: Number(body.subtotal),
+      discount_amount: Number(body.discount_amount) || 0,
       discount_name: body.discount_name,
       selected_discount_id: body.selected_discount_id,
-      total_amount: body.total_amount
-    }])
-    .select();
+      total_amount: Number(body.total_amount)
+    });
 
-  if (error) return c.json({ error: error.message }, 400);
-  return c.json(data[0]);
+    return c.json(newOrder);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
 });
+
 // EDIT PENDING ORDER
 pendingOrders.put("/:id", async (c) => {
-  const db = getSupabase();
-  const id = c.req.param("id"); // Mengambil ID dari URL
-  const body = await c.req.json();
-  
-  const { data, error } = await db
-    .from("pending_orders")
-    .update({
-      customer_name: body.customer_name,
-      items: body.items,
-      subtotal: body.subtotal,
-      discount_amount: body.discount_amount,
-      discount_name: body.discount_name,
-      selected_discount_id: body.selected_discount_id,
-      total_amount: body.total_amount,
-      // created_at tidak perlu diupdate biar jam masuknya tetap sama
-    })
-    .eq("id", id) // Mencocokkan ID
-    .select();
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    
+    const updatedOrder = await PendingOrder.findByIdAndUpdate(
+      id,
+      {
+        customer_name: body.customer_name,
+        items: body.items,
+        subtotal: Number(body.subtotal),
+        discount_amount: Number(body.discount_amount),
+        discount_name: body.discount_name,
+        selected_discount_id: body.selected_discount_id,
+        total_amount: Number(body.total_amount)
+      },
+      { new: true } // Mengembalikan data yang sudah diupdate
+    );
 
-  if (error) return c.json({ error: error.message }, 400);
-  
-  if (data.length === 0) return c.json({ error: "Data tidak ditemukan" }, 404);
-  
-  return c.json(data[0]);
+    if (!updatedOrder) return c.json({ error: "Data tidak ditemukan" }, 404);
+    
+    return c.json(updatedOrder);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
 });
 
 // DELETE PENDING ORDER
 pendingOrders.delete("/:id", async (c) => {
-  const db = getSupabase();
-  const id = c.req.param("id");
-  
-  const { error } = await db
-    .from("pending_orders")
-    .delete()
-    .eq("id", id);
+  try {
+    const id = c.req.param("id");
+    const result = await PendingOrder.findByIdAndDelete(id);
 
-  if (error) return c.json({ error: error.message }, 400);
-  return c.json({ success: true });
+    if (!result) return c.json({ error: "Data tidak ditemukan" }, 404);
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
 });
 
 export default pendingOrders;

@@ -6,7 +6,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
-    title: "SEBLAK MLEDAK POS",
+    title: "WUZPAY",
     icon: path.join(__dirname, 'public/logo.jpeg'), // Opsional kalau ada icon
     webPreferences: {
       nodeIntegration: true,

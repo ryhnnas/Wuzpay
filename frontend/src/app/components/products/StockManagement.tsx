@@ -7,7 +7,7 @@ import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
-import { productsAPI, categoriesAPI } from '@/services/api'; // Pastikan categoriesAPI ada
+import { productsAPI, categoriesAPI } from '@/services/api';
 import { cn } from '@/app/components/ui/utils';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -43,29 +43,29 @@ export function StockManagement() {
         productsAPI.getStockLogs(),
         categoriesAPI.getAll()
       ]);
-      setProducts(productsData || []);
-      setStockLogs(logsData || []);
-      setCategories(categoriesData || []);
+      setProducts(Array.isArray(productsData) ? productsData : []);
+      setStockLogs(Array.isArray(logsData) ? logsData : []);
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
     } catch (error) {
-      console.error("Gagal mengambil data:", error);
-      toast.error("Gagal sinkronisasi data stok");
+      toast.error("Gagal sinkronisasi data stok WuzPay");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleUpdateStock = async (id: string) => {
+  const handleUpdateStock = async (product: any) => {
+    const id = product._id || product.id;
     const amount = addAmounts[id] || 0;
     if (amount === 0) return;
 
     setUpdateLoading(id);
     try {
       await productsAPI.addStock(id, amount);
-      toast.success('Stok berhasil diperbarui');
+      toast.success(`Stok ${product.name} berhasil diperbarui`);
       setAddAmounts(prev => ({ ...prev, [id]: 0 }));
       await fetchData(); 
     } catch (error) {
-      toast.error('Gagal update stok');
+      toast.error('Gagal update stok ke server');
     } finally {
       setUpdateLoading(null);
     }
@@ -79,8 +79,9 @@ export function StockManagement() {
   // --- LOGIKA FILTER INVENTARIS ---
   const filteredProducts = products
     .filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === 'all' || p.category_id === selectedCategory;
+      const catId = p.category_id?._id || p.category_id;
+      const matchesSearch = p.name?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'all' || catId === selectedCategory;
       return matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
@@ -88,170 +89,192 @@ export function StockManagement() {
       return a.name.localeCompare(b.name);
     });
 
-  // PAGINATION INVENTARIS
+  // PAGINATION LOGIC
   const invTotalPages = Math.ceil(filteredProducts.length / invItemsPerPage);
   const currentInventory = filteredProducts.slice((inventoryPage - 1) * invItemsPerPage, inventoryPage * invItemsPerPage);
 
-  // PAGINATION LOGS
   const logsTotalPages = Math.ceil(stockLogs.length / logsItemsPerPage);
   const currentLogs = stockLogs.slice((logsPage - 1) * logsItemsPerPage, logsPage * logsItemsPerPage);
 
-  // Reset page ke 1 jika filter berubah
   useEffect(() => { setInventoryPage(1); }, [selectedCategory, searchQuery]);
 
   if (isLoading) {
     return (
       <div className="h-[80vh] w-full flex flex-col items-center justify-center gap-4">
-        <Loader2 className="size-10 text-orange-600 animate-spin" />
-        <p className="font-bold text-gray-400 uppercase text-xs tracking-widest animate-pulse">Sinkronisasi Inventaris...</p>
+        <Loader2 className="size-12 text-orange-600 animate-spin" />
+        <p className="font-black text-gray-400 uppercase text-xs tracking-widest animate-pulse">Checking Inventory WuzPay...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6 animate-in fade-in duration-500">
+    <div className="space-y-6 p-8 animate-in fade-in duration-500 font-sans">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-bold text-2xl uppercase tracking-tighter text-gray-800">Inventaris & Stok</h2>
-          <p className="text-gray-500 text-sm">Monitoring persediaan bahan baku Seblak Mledak</p>
+          <h2 className="font-black text-3xl uppercase tracking-tighter italic text-gray-900">
+            Stock <span className="text-orange-600">Inventory</span>
+          </h2>
+          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Manajemen Persediaan WuzPay Sindangsari</p>
         </div>
-        <Button variant="outline" onClick={fetchData} className="rounded-xl font-bold text-xs shadow-sm border-orange-200 text-orange-600 hover:bg-orange-50">
-          <RefreshCw className="mr-2 size-4" /> REFRESH DATA
+        <Button variant="outline" onClick={fetchData} className="rounded-2xl font-black text-[10px] uppercase tracking-widest border-gray-200 h-12 px-6 hover:bg-orange-50 hover:text-orange-600 transition-all">
+          <RefreshCw className="mr-2 size-4" /> Sync Database
         </Button>
       </div>
 
       <Tabs defaultValue="inventory" className="w-full">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
-          <TabsList className="bg-gray-100 p-1 rounded-xl w-fit">
-            <TabsTrigger value="inventory" className="text-xs font-bold uppercase px-6">Daftar Inventaris</TabsTrigger>
-            <TabsTrigger value="history" className="text-xs font-bold uppercase px-6">Log Perubahan</TabsTrigger>
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+          <TabsList className="bg-gray-100 p-1.5 rounded-2xl w-fit">
+            <TabsTrigger value="inventory" className="text-[10px] font-black uppercase tracking-widest px-8 h-10 data-[state=active]:bg-white data-[state=active]:text-orange-600 rounded-xl shadow-sm transition-all">Daftar Stok</TabsTrigger>
+            <TabsTrigger value="history" className="text-[10px] font-black uppercase tracking-widest px-8 h-10 data-[state=active]:bg-white data-[state=active]:text-orange-600 rounded-xl shadow-sm transition-all">History Log</TabsTrigger>
           </TabsList>
           
-          {/* FILTER KATEGORI (Pills Style) */}
           <div className="flex flex-wrap gap-2">
             <Button 
               variant={selectedCategory === 'all' ? 'default' : 'outline'}
               size="sm" onClick={() => setSelectedCategory('all')}
-              className={cn("rounded-full text-[10px] font-black uppercase px-4 h-8", selectedCategory === 'all' && "bg-orange-600")}
+              className={cn("rounded-full text-[10px] font-black uppercase px-6 h-10", selectedCategory === 'all' ? "bg-orange-600 shadow-lg shadow-orange-100" : "bg-white text-gray-400 border-gray-100")}
             >Semua</Button>
             {categories.map(cat => (
               <button 
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
+                key={cat._id || cat.id}
+                onClick={() => setSelectedCategory(cat._id || cat.id)}
                 className={cn(
-                  "px-4 h-8 rounded-full text-[10px] font-black uppercase transition-all border",
-                  selectedCategory === cat.id ? "bg-orange-600 text-white border-orange-600 shadow-md" : "bg-white text-gray-400 border-gray-200 hover:border-orange-300"
+                  "px-6 h-10 rounded-full text-[10px] font-black uppercase transition-all border",
+                  selectedCategory === (cat._id || cat.id) ? "bg-orange-600 text-white border-orange-600 shadow-lg shadow-orange-100" : "bg-white text-gray-400 border-gray-100 hover:border-orange-200"
                 )}
               >{cat.name}</button>
             ))}
           </div>
         </div>
 
-        <TabsContent value="inventory" className="animate-in slide-in-from-bottom-2 duration-300">
-          <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white border border-gray-100">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between bg-white">
-              <CardTitle className="text-sm font-black uppercase tracking-tight">Ketersediaan Barang</CardTitle>
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-                <Input placeholder="Cari produk..." className="pl-9 h-9 bg-gray-50 border-none rounded-xl text-xs" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+        <TabsContent value="inventory" className="mt-0">
+          <Card className="rounded-[40px] border-none shadow-[0_8px_40px_rgba(0,0,0,0.04)] overflow-hidden bg-white">
+            <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between border-b border-gray-50">
+              <CardTitle className="text-sm font-black uppercase tracking-[0.2em] text-gray-400">Status Ketersediaan</CardTitle>
+              <div className="relative w-80 group">
+                <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-gray-300 group-focus-within:text-orange-500 transition-colors" />
+                <Input placeholder="Cari item produk..." className="pl-12 h-12 bg-gray-50 border-none rounded-2xl text-xs font-bold" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                  <thead className="bg-gray-50/50 text-gray-500 font-bold uppercase text-[10px] tracking-widest border-b border-gray-100">
+                  <thead className="bg-gray-50/50 text-gray-400 font-black uppercase text-[10px] tracking-widest">
                     <tr>
-                      <th className="px-6 py-4">Nama Produk</th>
-                      <th className="px-6 py-4">Kategori</th>
-                      <th className="px-6 py-4">Stok Saat Ini</th>
-                      <th className="px-6 py-4">Input Perubahan</th>
-                      <th className="px-6 py-4 text-right">Aksi</th>
+                      <th className="px-10 py-6">Nama Produk</th>
+                      <th className="px-6 py-6">Kategori</th>
+                      <th className="px-6 py-6 text-center">Stok Fisik</th>
+                      <th className="px-6 py-6">Input Penyesuaian</th>
+                      <th className="px-10 py-6 text-right">Update</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {currentInventory.map((product) => (
-                      <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-5">
-                          <p className="font-black text-gray-800 uppercase text-xs">{product.name}</p>
-                          <p className="text-[10px] text-gray-400 font-mono tracking-tighter">{product.sku || 'NO-SKU'}</p>
-                        </td>
-                        <td className="px-6 py-5">
-                          <Badge variant="secondary" className="text-[9px] font-bold uppercase tracking-tighter">
-                            {product.categories?.name || 'UMUM'}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-5">
-                          <div className={cn("font-black text-lg", product.stock_quantity <= 5 ? "text-red-600" : "text-gray-700")}>
-                            {product.stock_quantity}
-                          </div>
-                        </td>
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-1 max-w-[140px]">
-                            <Button variant="outline" size="icon" className="size-8 rounded-xl bg-gray-50 border-none hover:bg-red-50 hover:text-red-600" onClick={() => handleInputChange(product.id, ((addAmounts[product.id] || 0) - 1).toString())}><Minus className="size-3" /></Button>
-                            <Input type="number" className="h-8 w-14 border-none bg-white text-center font-black text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={addAmounts[product.id] || 0} onChange={(e) => handleInputChange(product.id, e.target.value)} />
-                            <Button variant="outline" size="icon" className="size-8 rounded-xl bg-gray-50 border-none hover:bg-green-50 hover:text-green-600" onClick={() => handleInputChange(product.id, ((addAmounts[product.id] || 0) + 1).toString())}><Plus className="size-3" /></Button>
-                          </div>
-                          <p className="text-[9px] font-bold text-orange-500 mt-1 pl-1">{(addAmounts[product.id] || 0) !== 0 ? `UPDATE KE: ${product.stock_quantity + (addAmounts[product.id] || 0)}` : ''}</p>
-                        </td>
-                        <td className="px-6 py-5 text-right">
-                          <Button size="sm" className="bg-orange-600 hover:bg-orange-700 rounded-xl font-bold text-[10px] px-6 shadow-md" onClick={() => handleUpdateStock(product.id)} disabled={!addAmounts[product.id] || updateLoading === product.id}>
-                            {updateLoading === product.id ? <Loader2 className="animate-spin size-3" /> : 'SIMPAN'}
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                    {currentInventory.map((product) => {
+                      const pId = product._id || product.id;
+                      return (
+                        <tr key={pId} className="hover:bg-orange-50/20 transition-all group">
+                          <td className="px-10 py-6">
+                            <p className="font-black text-gray-900 uppercase text-xs italic tracking-tight">{product.name}</p>
+                            <p className="text-[9px] text-gray-300 font-mono mt-1">{product.sku || 'WUZ-ITEM'}</p>
+                          </td>
+                          <td className="px-6 py-6">
+                            <Badge variant="outline" className="text-[9px] font-black uppercase tracking-tighter border-gray-200 text-gray-400">
+                              {product.category_id?.name || 'UMUM'}
+                            </Badge>
+                          </td>
+                          <td className="px-6 py-6 text-center">
+                            <div className={cn("text-xl font-black italic", (product.stock_quantity || 0) <= 5 ? "text-red-600 animate-pulse" : "text-gray-900")}>
+                              {product.stock_quantity || 0}
+                            </div>
+                          </td>
+                          <td className="px-6 py-6">
+                            <div className="flex items-center gap-2 bg-gray-100/50 p-1.5 rounded-[20px] w-fit border border-gray-100">
+                              <Button variant="ghost" size="icon" className="size-8 rounded-xl hover:bg-white text-gray-400" onClick={() => handleInputChange(pId, ((addAmounts[pId] || 0) - 1).toString())}><Minus className="size-4" /></Button>
+                              <Input type="number" className="h-8 w-16 border-none bg-transparent text-center font-black text-sm p-0 focus-visible:ring-0" value={addAmounts[pId] || 0} onChange={(e) => handleInputChange(pId, e.target.value)} />
+                              <Button variant="ghost" size="icon" className="size-8 rounded-xl hover:bg-white text-gray-400" onClick={() => handleInputChange(pId, ((addAmounts[pId] || 0) + 1).toString())}><Plus className="size-4" /></Button>
+                            </div>
+                            <p className="text-[9px] font-black text-orange-600 mt-2 ml-2 uppercase">
+                              {(addAmounts[pId] || 0) !== 0 ? `Target: ${(product.stock_quantity || 0) + (addAmounts[pId] || 0)}` : ''}
+                            </p>
+                          </td>
+                          <td className="px-10 py-6 text-right">
+                            <Button 
+                              onClick={() => handleUpdateStock(product)} 
+                              disabled={!addAmounts[pId] || updateLoading === pId}
+                              className="bg-gray-900 hover:bg-orange-600 text-white rounded-2xl font-black text-[10px] tracking-widest px-8 h-11 transition-all shadow-xl active:scale-95"
+                            >
+                              {updateLoading === pId ? <Loader2 className="animate-spin size-4" /> : 'SAVE'}
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
-              {/* PAGINATION INVENTORY */}
-              <div className="p-4 bg-gray-50/50 border-t flex items-center justify-between">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Halaman {inventoryPage} dari {invTotalPages || 1}</span>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled={inventoryPage === 1} onClick={() => setInventoryPage(p => p - 1)} className="h-8 rounded-lg text-[10px] font-black"><ChevronLeft className="size-3 mr-1" /> PREV</Button>
-                  <Button variant="outline" size="sm" disabled={inventoryPage === invTotalPages} onClick={() => setInventoryPage(p => p + 1)} className="h-8 rounded-lg text-[10px] font-black">NEXT <ChevronRight className="size-3 ml-1" /></Button>
+              
+              <div className="p-8 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em]">Halaman {inventoryPage} / {invTotalPages || 1}</span>
+                <div className="flex gap-3">
+                  <Button variant="ghost" size="sm" disabled={inventoryPage === 1} onClick={() => setInventoryPage(p => p - 1)} className="h-10 px-6 rounded-xl text-[10px] font-black bg-white border border-gray-100 shadow-sm transition-all"><ChevronLeft className="size-4 mr-2" /> PREV</Button>
+                  <Button variant="ghost" size="sm" disabled={inventoryPage === invTotalPages} onClick={() => setInventoryPage(p => p + 1)} className="h-10 px-6 rounded-xl text-[10px] font-black bg-white border border-gray-100 shadow-sm transition-all">NEXT <ChevronRight className="size-4 ml-2" /></Button>
                 </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="history" className="animate-in slide-in-from-bottom-2 duration-300">
-          <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white border border-gray-100">
-            <CardHeader className="bg-white"><CardTitle className="text-sm font-black uppercase tracking-tight">Log Aktivitas Stok</CardTitle></CardHeader>
+        <TabsContent value="history" className="mt-0">
+          <Card className="rounded-[40px] border-none shadow-[0_8px_40px_rgba(0,0,0,0.04)] overflow-hidden bg-white">
+            <CardHeader className="p-8 pb-4 border-b border-gray-50"><CardTitle className="text-sm font-black uppercase tracking-[0.2em] text-gray-400">Jejak Digital Perubahan Stok</CardTitle></CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                  <thead className="bg-gray-50/50 text-gray-500 font-bold uppercase text-[10px] tracking-widest border-b border-gray-100">
+                  <thead className="bg-gray-50/50 text-gray-400 font-black uppercase text-[10px] tracking-widest">
                     <tr>
-                      <th className="px-6 py-4">Waktu Kejadian</th>
-                      <th className="px-6 py-4">Petugas</th>
-                      <th className="px-6 py-4">Item Produk</th>
-                      <th className="px-6 py-4">Status Perubahan</th>
-                      <th className="px-6 py-4">Stok Akhir</th>
+                      <th className="px-10 py-6">Waktu Kejadian</th>
+                      <th className="px-6 py-6">Petugas</th>
+                      <th className="px-6 py-6">Item Produk</th>
+                      <th className="px-6 py-6">Aksi Stok</th>
+                      <th className="px-10 py-6 text-right">Saldo Akhir</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {currentLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-5 text-gray-400 font-medium text-[10px]">{format(new Date(log.created_at), 'dd MMM yyyy, HH:mm')}</td>
-                        <td className="px-6 py-5"><div className="flex items-center gap-2"><div className="size-6 rounded-full bg-blue-100 flex items-center justify-center"><User className="size-3 text-blue-600" /></div><span className="font-bold text-[10px] text-gray-600 uppercase">Admin System</span></div></td>
-                        <td className="px-6 py-5 font-black text-gray-700 uppercase text-xs">{log.products?.name}</td>
-                        <td className="px-6 py-5">
-                          <span className={cn("font-black text-xs px-2 py-1 rounded-lg bg-green-50", log.added_stock > 0 ? "text-green-600" : "text-red-600 bg-red-50")}>{log.added_stock > 0 ? `+${log.added_stock}` : log.added_stock}</span>
-                          <span className="text-gray-400 text-[9px] ml-1 uppercase font-bold">(Asal: {log.previous_stock})</span>
-                        </td>
-                        <td className="px-6 py-5"><Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100 border-none font-black text-xs">{log.current_stock}</Badge></td>
-                      </tr>
-                    ))}
+                    {currentLogs.map((log) => {
+                      const isAddition = (log.added_stock ?? 0) > 0;
+                      return (
+                        <tr key={log._id || log.id} className="hover:bg-orange-50/10 transition-all group">
+                          <td className="px-10 py-6 text-gray-400 font-black text-[10px] tracking-tighter italic">
+                            {log.created_at ? format(new Date(log.created_at), 'dd MMM yyyy, HH:mm') : '-'}
+                          </td>
+                          <td className="px-6 py-6">
+                            <div className="flex items-center gap-3">
+                              <div className="size-8 rounded-2xl bg-orange-50 flex items-center justify-center"><User className="size-4 text-orange-600" /></div>
+                              <span className="font-black text-[10px] text-gray-600 uppercase tracking-tight">WuzPay System</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-6 font-black text-gray-900 uppercase text-xs italic">{log.product_id?.name || 'Menu Terhapus'}</td>
+                          <td className="px-6 py-6">
+                            <div className="flex items-center">
+                               <Badge className={cn("font-black text-[10px] border-none px-3 py-1 rounded-lg shadow-sm", isAddition ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600")}>
+                                {isAddition ? `+${log.added_stock}` : log.added_stock}
+                              </Badge>
+                              <span className="text-gray-300 text-[9px] ml-2 uppercase font-bold italic">(Awal: {log.previous_stock})</span>
+                            </div>
+                          </td>
+                          <td className="px-10 py-6 text-right"><Badge className="bg-gray-900 text-white border-none font-black text-[11px] px-4 py-1.5 rounded-xl">{log.current_stock}</Badge></td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
-              {/* PAGINATION LOGS */}
-              <div className="p-4 bg-gray-50/50 border-t flex items-center justify-between">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Halaman {logsPage} dari {logsTotalPages || 1}</span>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled={logsPage === 1} onClick={() => setLogsPage(p => p - 1)} className="h-8 rounded-lg text-[10px] font-black"><ChevronLeft className="size-3 mr-1" /> PREV</Button>
-                  <Button variant="outline" size="sm" disabled={logsPage === logsTotalPages} onClick={() => setLogsPage(p => p + 1)} className="h-8 rounded-lg text-[10px] font-black">NEXT <ChevronRight className="size-3 ml-1" /></Button>
+              
+              <div className="p-8 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em]">Halaman {logsPage} / {logsTotalPages || 1}</span>
+                <div className="flex gap-3">
+                  <Button variant="ghost" size="sm" disabled={logsPage === 1} onClick={() => setLogsPage(p => p - 1)} className="h-10 px-6 rounded-xl text-[10px] font-black bg-white border border-gray-100 shadow-sm transition-all"><ChevronLeft className="size-4 mr-2" /> PREV</Button>
+                  <Button variant="ghost" size="sm" disabled={logsPage === logsTotalPages} onClick={() => setLogsPage(p => p + 1)} className="h-10 px-6 rounded-xl text-[10px] font-black bg-white border border-gray-100 shadow-sm transition-all">NEXT <ChevronRight className="size-4 ml-2" /></Button>
                 </div>
               </div>
             </CardContent>

@@ -10,7 +10,6 @@ import { cn } from '@/app/components/ui/utils';
 interface HeaderProps {
   user: UserType;
   currentPage: string;
-  // PROPS TAMBAHAN
   onOpenPendingOrders?: () => void;
   pendingCount?: number;
 }
@@ -22,57 +21,51 @@ interface AppNotification {
 }
 
 const pageTitle: Record<string, string> = {
-  dashboard: 'Dashboard',
-  pos: 'Point of Sale (Kasir)',
-  products: 'Manajemen Produk',
-  stock: 'Manajemen Stok',
-  contacts: 'Manajemen Customer & Supplier',
-  discounts: 'Manajemen Diskon',
-  'cash-drawer': 'Cash Drawer',
-  reports: 'Laporan',
-  'ai-insights': 'AI Business Insights',
-  'ai-assistant': 'AI Assistant',
-  settings: 'Pengaturan',
+  dashboard: 'Dashboard Analytics',
+  pos: 'Kasir WuzPay',
+  products: 'Katalog Produk',
+  stock: 'Kontrol Inventori',
+  contacts: 'Mitra & Pelanggan',
+  discounts: 'Manajemen Promo',
+  'cash-drawer': 'Buka/Tutup Kasir',
+  reports: 'Laporan Penjualan',
+  'ai-insights': 'Business Intelligence',
+  'ai-assistant': 'WuzPay AI Bot',
+  settings: 'Konfigurasi Sistem',
 };
 
 export function Header({ user, currentPage, onOpenPendingOrders, pendingCount = 0 }: HeaderProps) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
-  // Logika Cek Stok Real-time
-useEffect(() => {
-  const checkSystems = async () => {
-    try {
-      const products = await productsAPI.getAll();
-      const lowStockItems = products.filter((p: Product) => Number(p.stock) <= 5);
-      
-      const currentStockNotifs = lowStockItems.map(p => ({
-        id: `low-stock-${p.id}`,
-        type: 'stock' as const,
-        message: `Stok ${p.name} kritis! Sisa ${p.stock}`
-      }));
-
-      setNotifications(prev => {
-        // 1. Ambil notifikasi selain stok (misal error sistem) agar tidak hilang
-        const nonStockNotifs = prev.filter(n => n.type !== 'stock');
+  // Logika Cek Stok Real-time (Polling 60 detik)
+  useEffect(() => {
+    const checkSystems = async () => {
+      try {
+        const products = await productsAPI.getAll();
+        // MongoDB menggunakan stock_quantity
+        const lowStockItems = products.filter((p: Product) => Number(p.stock_quantity ?? 0) <= 5);
         
-        // 2. Gabungkan notif non-stok dengan data stok terbaru hasil scan API
-        return [...nonStockNotifs, ...currentStockNotifs];
-      });
+        const currentStockNotifs = lowStockItems.map(p => ({
+          id: `low-stock-${p._id || p.id}`,
+          type: 'stock' as const,
+          message: `Stok ${p.name} menipis! Sisa ${p.stock_quantity}`
+        }));
 
-    } catch (err) {
-      setNotifications(prev => {
-        if (prev.some(n => n.id === 'backend-error')) return prev;
-        return [...prev, { id: 'backend-error', type: 'system', message: 'Koneksi terputus!' }];
-      });
-    }
-  };
-  // Jalankan langsung saat pertama kali render
-  checkSystems();
+        setNotifications(prev => {
+          const nonStockNotifs = prev.filter(n => n.type !== 'stock');
+          return [...nonStockNotifs, ...currentStockNotifs];
+        });
 
-  // Jalankan setiap 60 detik
-  const interval = setInterval(checkSystems, 60000); 
-    
-    // Cleanup function
+      } catch (err) {
+        setNotifications(prev => {
+          if (prev.some(n => n.id === 'backend-error')) return prev;
+          return [...prev, { id: 'backend-error', type: 'system', message: 'Koneksi ke WuzPay Server terputus!' }];
+        });
+      }
+    };
+
+    checkSystems();
+    const interval = setInterval(checkSystems, 60000); 
     return () => clearInterval(interval);
   }, [user]);
 
@@ -82,15 +75,16 @@ useEffect(() => {
 
   return (
     <>
-      <header className="flex h-16 items-center justify-between border-b bg-white px-6 sticky top-0 z-30">
+      <header className="flex h-20 items-center justify-between border-b bg-white/80 backdrop-blur-xl px-8 sticky top-0 z-30 border-gray-100">
         {/* Judul Halaman */}
         <div className="flex items-center gap-4 flex-1">
-          <h2 className="font-bold text-xl tracking-tight text-gray-800 uppercase">
-            {pageTitle[currentPage] || 'POS System'}
+          <div className="h-8 w-1 bg-orange-600 rounded-full hidden md:block" />
+          <h2 className="font-black text-xl tracking-tighter text-gray-900 uppercase italic">
+            {pageTitle[currentPage] || 'WuzPay System'}
           </h2>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-5">
           {/* TOMBOL DAFTAR PESANAN - HANYA DI POS */}
           {currentPage === 'pos' && (
             <div className="relative">
@@ -98,11 +92,14 @@ useEffect(() => {
                 variant="ghost" 
                 size="icon"
                 onClick={onOpenPendingOrders}
-                className={cn(pendingCount > 0 && "bg-orange-50 text-orange-600 hover:bg-orange-100")}
+                className={cn(
+                  "rounded-2xl transition-all duration-300",
+                  pendingCount > 0 ? "bg-orange-50 text-orange-600 hover:bg-orange-100 shadow-sm" : "text-gray-400 hover:bg-gray-50"
+                )}
               >
                 <Clock className="size-5" />
                 {pendingCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-orange-600 p-0 text-[10px] text-white border-2 border-white">
+                  <Badge className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-orange-600 p-0 text-[10px] font-black text-white border-2 border-white animate-bounce">
                     {pendingCount}
                   </Badge>
                 )}
@@ -115,72 +112,77 @@ useEffect(() => {
             <Button 
               variant="ghost" 
               size="icon"
-              className={cn(notifications.length > 0 && "bg-orange-50 text-orange-600 hover:bg-orange-100")}
+              className={cn(
+                "rounded-2xl transition-all duration-300",
+                notifications.length > 0 ? "bg-red-50 text-red-600 hover:bg-red-100 shadow-sm" : "text-gray-400 hover:bg-gray-50"
+              )}
             >
               <Bell className="size-5" />
               {notifications.length > 0 && (
-                <Badge className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-red-600 p-0 text-[10px] text-white animate-pulse border-2 border-white">
+                <Badge className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-red-600 p-0 text-[10px] font-black text-white border-2 border-white">
                   {notifications.length}
                 </Badge>
               )}
             </Button>
           </div>
 
-          <div className="h-6 w-[1px] bg-gray-200 mx-2" />
+          <div className="h-8 w-[1px] bg-gray-100 mx-1" />
 
           {/* User Profile */}
-          <div className="flex items-center gap-3 bg-gray-50 pl-3 pr-1 py-1 rounded-full border border-gray-100">
-            <div className="hidden md:block text-right leading-tight">
-              {/* ✅ Ganti ke email agar lebih konsisten sesuai login */}
-              <p className="font-bold text-xs text-gray-800 lowercase">{user?.email || "loading..."}</p>
-              <p className="text-[9px] text-orange-600 font-bold uppercase tracking-widest">{user?.role || "Staff"}</p>
+          <div className="flex items-center gap-3 bg-gray-50/80 pl-4 pr-1.5 py-1.5 rounded-[20px] border border-gray-100 hover:bg-gray-100/50 transition-colors cursor-pointer group">
+            <div className="hidden md:block text-right leading-none">
+              <p className="font-black text-[11px] text-gray-900 uppercase tracking-tight group-hover:text-orange-600 transition-colors">
+                {user?.name || user?.email?.split('@')[0] || "Staff"}
+              </p>
+              <p className="text-[9px] text-gray-400 font-black uppercase tracking-[0.2em] mt-1 italic">
+                {user?.role || "Staff"}
+              </p>
             </div>
             
-            <Avatar className="size-8 ring-2 ring-white">
-              <AvatarFallback className="bg-orange-600 text-white font-bold text-[10px]">
-                {/* ✅ Ambil 2 huruf pertama dari email */}
-                {user?.email ? user.email.substring(0, 2).toUpperCase() : "??"}
+            <Avatar className="size-9 ring-4 ring-white shadow-sm transition-transform group-hover:scale-105">
+              <AvatarFallback className="bg-orange-600 text-white font-black text-xs uppercase">
+                {user?.name ? user.name.substring(0, 2) : (user?.email ? user.email.substring(0, 2) : "??")}
               </AvatarFallback>
             </Avatar>
           </div>
         </div>
       </header>
 
-      {/* Persistent Floating Notifications Container (Ala n8n) */}
-      <div className="fixed top-20 right-6 z-50 flex flex-col gap-3 w-80 pointer-events-none">
+      {/* Floating Notifications Container */}
+      <div className="fixed top-24 right-8 z-50 flex flex-col gap-4 w-80 pointer-events-none">
         {notifications.map((n) => (
           <div 
             key={n.id} 
             className={cn(
-              "pointer-events-auto flex items-start gap-3 p-4 rounded-xl shadow-xl border-l-4 animate-in slide-in-from-right-10 duration-300 bg-white",
-              n.type === 'stock' ? "border-red-500" : "border-red-600"
+              "pointer-events-auto flex items-start gap-4 p-5 rounded-[24px] shadow-2xl backdrop-blur-xl border-l-8 animate-in slide-in-from-right-full duration-500 bg-white/95",
+              n.type === 'stock' ? "border-orange-500" : "border-red-600"
             )}
           >
             <div className={cn(
-              "p-2 rounded-lg",
-              n.type === 'stock' ? "bg-red-50" : "bg-red-50"
+              "p-2.5 rounded-xl",
+              n.type === 'stock' ? "bg-orange-50 text-orange-600" : "bg-red-50 text-red-600"
             )}>
               {n.type === 'stock' ? (
-                <AlertTriangle className="size-4 text-red-600" />
+                <AlertTriangle className="size-5" />
               ) : n.type === 'printer' ? (
-                <Printer className="size-4 text-red-600" />
+                <Printer className="size-5" />
               ) : (
-                <ServerCrash className="size-4 text-red-600" />
+                <ServerCrash className="size-5" />
               )}
             </div>
             
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-gray-900 leading-none mb-1">
-                {n.type === 'stock' ? 'PERINGATAN STOK' : 'GANGGUAN SISTEM'}
+              <p className="text-[10px] font-black text-gray-900 uppercase tracking-widest mb-1">
+                {n.type === 'stock' ? 'Peringatan Inventori' : 'Error Critical'}
               </p>
-              <p className="text-[11px] text-gray-600 leading-relaxed">{n.message}</p>
+              <p className="text-[11px] text-gray-500 font-bold leading-relaxed italic">{n.message}</p>
             </div>
 
             <button 
               onClick={() => removeNotif(n.id)}
-              className="text-gray-300 hover:text-gray-500 transition-colors pt-0.5"
+              className="text-gray-300 hover:text-orange-600 transition-colors"
             >
-              <X className="size-4" />
+              <X className="size-5" />
             </button>
           </div>
         ))}

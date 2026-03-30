@@ -12,13 +12,12 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1600,
   },
-  // --- TAMBAHKAN BAGIAN INI ---
   server: {
     proxy: {
       '/api': {
-        target: 'https://api-nexera.ryhnnas.my.id',
+        target: 'http://localhost:5000', // Sesuaikan dengan PORT di .env backend
         changeOrigin: true,
-        secure: true, // Karena sudah pakai HTTPS asli
+        secure: false,
       },
     },
   },

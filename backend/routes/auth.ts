@@ -1,212 +1,116 @@
 import { Hono } from "npm:hono";
-import { getSupabase } from "../supabaseClient.ts";
+import { User } from "../models/User.ts";
 import { verifyAuth } from "../middleware/auth.ts";
+import bcrypt from "npm:bcryptjs";
+import jwt from "npm:jsonwebtoken";
 
 const auth = new Hono();
+const JWT_SECRET = Deno.env.get("JWT_SECRET") || "supersecretkeywuzpay";
 
-// ==================== SIGN UP ====================
-auth.post("/signup", async (c) => {
+// ==================== SIGN UP / REGISTER ====================
+auth.post("/register", async (c) => {
   try {
     const { email, password, name, role } = await c.req.json();
-    
-    // Selalu gunakan instance fresh dengan Service Role untuk bypass RLS saat create user
-    const dbAdmin = getSupabase();
-    
-    const { data: authData, error: authError } = await dbAdmin.auth.admin.createUser({
+
+    // Cek apakah user sudah ada
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return c.json({ error: "Email sudah terdaftar" }, 400);
+
+    // Hash Password (Wajib untuk keamanan!)
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await User.create({
       email,
-      password,
-      user_metadata: { name, role: role || 'kasir' },
-      email_confirm: true
+      password: hashedPassword,
+      name,
+      role: role || 'kasir'
     });
-    
-    if (authError) return c.json({ error: authError.message }, 400);
-    
+
     return c.json({
-      user: { 
-        id: authData.user.id, 
-        email, 
-        name, 
-        role: role || 'kasir' 
-      }
+      user: { id: newUser._id, email: newUser.email, name: newUser.name, role: newUser.role }
     });
   } catch (error) {
-    return c.json({ error: 'Failed to create user' }, 500);
+    console.error("EROR REGISTER:", error.message);
+    return c.json({ error: 'Gagal mendaftar user baru' }, 500);
   }
 });
 
-// ==================== SIGN IN ====================
+// ==================== SIGN IN / LOGIN ====================
 auth.post("/login", async (c) => {
   try {
     const { email, password } = await c.req.json();
-    
-    // Gunakan instance fresh agar tidak ada sesi lama yang nyangkut
-    const db = getSupabase();
-    
-    const { data, error } = await db.auth.signInWithPassword({
-      email,
-      password,
-    });
 
-    if (error) return c.json({ error: error.message }, 400);
+    const user = await User.findOne({ email });
+    if (!user) return c.json({ error: "Email atau Password salah" }, 400);
 
-    // --- LOGIKA FORCE LOGOUT ---
+    // Bandingkan password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return c.json({ error: "Email atau Password salah" }, 400);
+
+    // Logika Force Logout / Session ID
     const newSessionId = crypto.randomUUID();
+    user.last_session_id = newSessionId;
+    await user.save();
 
-    // Gunakan instance admin untuk mengupdate tabel user_sessions
-    const { error: sessionError } = await db
-      .from('user_sessions')
-      .upsert({ 
-        user_id: data.user.id, 
-        last_session_id: newSessionId,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id' });
+    // Buat JWT Token
+    const token = jwt.sign(
+      { id: user._id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
 
-    if (sessionError) {
-        console.error("Session Save Error:", sessionError);
-        return c.json({ error: "Gagal membuat sesi login" }, 500);
-    }
-    
     return c.json({
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.user_metadata?.name || data.user.email,
-        role: data.user.user_metadata?.role || 'kasir',
-      },
-      access_token: data.session?.access_token,
+      user: { id: user._id, email: user.email, name: user.name, role: user.role },
+      access_token: token,
       session_id: newSessionId,
     });
   } catch (error) {
-    console.error('Login error:', error);
-    return c.json({ error: 'Failed to login' }, 500);
+    return c.json({ error: 'Gagal login' }, 500);
   }
 });
 
-// ==================== GET USER ====================
-auth.get("/user", async (c) => {
-  const authHeader = c.req.header('Authorization') || null;
-  const sessionId = c.req.header('X-Session-ID') || null;
-
-  // verifyAuth di middleware akan menggunakan instance Supabase-nya sendiri
-  const { user, error, status } = await verifyAuth(authHeader, sessionId);
-  
-  if (error) {
-    return c.json({ error }, status || 401);
-  }
-  
-  return c.json({ user });
-});
-
-// ==================== GET REGISTERED USERS ====================
+// ==================== GET ALL USERS (ADMIN/OWNER ONLY) ====================
 auth.get('/users', async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
     const sessionId = c.req.header('X-Session-ID') || null;
 
-    const { user, error, status } = await verifyAuth(authHeader, sessionId);
-    if (error) return c.json({ error }, status || 401);
+    const { user, error } = await verifyAuth(authHeader, sessionId);
+    if (error) return c.json({ error }, 401);
 
-    const role = String(user?.role || '').toLowerCase();
-    if (role !== 'owner' && role !== 'admin') {
+    if (user.role !== 'owner' && user.role !== 'admin') {
       return c.json({ error: 'Forbidden' }, 403);
     }
 
-    const db = getSupabase();
-    const { data, error: usersError } = await db.auth.admin.listUsers();
-    if (usersError) return c.json({ error: usersError.message }, 400);
-
-    const users = (data?.users || []).map((u: any) => ({
-      id: u.id,
-      email: u.email,
-      name: u.user_metadata?.name || u.email,
-      role: u.user_metadata?.role || 'kasir',
-      created_at: u.created_at,
-    }));
-
+    const users = await User.find({}, '-password'); // Ambil semua kecuali password
     return c.json({ users });
-  } catch (err: any) {
-    return c.json({ error: err?.message || 'Failed to load users' }, 500);
+  } catch (err) {
+    return c.json({ error: 'Gagal mengambil data user' }, 500);
   }
 });
 
-// ==================== CREATE USER (ADMIN/OWNER) ====================
-auth.post('/users', async (c) => {
-  try {
-    const authHeader = c.req.header('Authorization') || null;
-    const sessionId = c.req.header('X-Session-ID') || null;
-    const { user, error, status } = await verifyAuth(authHeader, sessionId);
-    if (error) return c.json({ error }, status || 401);
-
-    const role = String(user?.role || '').toLowerCase();
-    if (role !== 'owner' && role !== 'admin') {
-      return c.json({ error: 'Forbidden' }, 403);
-    }
-
-    const body = await c.req.json();
-    const email = String(body?.email || '').trim();
-    const password = String(body?.password || '').trim();
-    const name = String(body?.name || '').trim();
-    const newRole = String(body?.role || 'kasir').toLowerCase();
-
-    if (!email || !password || !name) {
-      return c.json({ error: 'Nama, email, dan password wajib diisi' }, 400);
-    }
-
-    const db = getSupabase();
-    const { data, error: createError } = await db.auth.admin.createUser({
-      email,
-      password,
-      user_metadata: { name, role: newRole },
-      email_confirm: true,
-    });
-
-    if (createError) return c.json({ error: createError.message }, 400);
-
-    return c.json({
-      user: {
-        id: data.user?.id,
-        name,
-        email,
-        role: newRole,
-      }
-    });
-  } catch (err: any) {
-    return c.json({ error: err?.message || 'Failed to create user' }, 500);
-  }
-});
-
-// ==================== DELETE USER (ADMIN/OWNER) ====================
+// ==================== DELETE USER ====================
 auth.delete('/users/:id', async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
     const sessionId = c.req.header('X-Session-ID') || null;
-    const { user, error, status } = await verifyAuth(authHeader, sessionId);
-    if (error) return c.json({ error }, status || 401);
+    const { user, error } = await verifyAuth(authHeader, sessionId);
+    if (error) return c.json({ error }, 401);
 
-    const role = String(user?.role || '').toLowerCase();
-    if (role !== 'owner' && role !== 'admin') {
-      return c.json({ error: 'Forbidden' }, 403);
+    if (user.role !== 'owner' && user.role !== 'admin') {
+        return c.json({ error: 'Forbidden' }, 403);
     }
 
     const targetId = c.req.param('id');
-    if (!targetId) return c.json({ error: 'User ID wajib diisi' }, 400);
-    if (targetId === user?.id) return c.json({ error: 'Tidak bisa menghapus akun sendiri' }, 400);
+    const targetUser = await User.findById(targetId);
 
-    const db = getSupabase();
-    const { data: targetUser, error: getUserError } = await db.auth.admin.getUserById(targetId);
-    if (getUserError) return c.json({ error: getUserError.message }, 400);
+    if (!targetUser) return c.json({ error: 'User tidak ditemukan' }, 404);
+    if (targetUser.role === 'owner') return c.json({ error: 'Akun owner tidak bisa dihapus' }, 400);
 
-    const targetRole = String(targetUser?.user?.user_metadata?.role || '').toLowerCase();
-    if (targetRole === 'owner') {
-      return c.json({ error: 'Akun owner tidak bisa dihapus' }, 400);
-    }
-
-    const { error: deleteError } = await db.auth.admin.deleteUser(targetId);
-    if (deleteError) return c.json({ error: deleteError.message }, 400);
-
+    await User.findByIdAndDelete(targetId);
     return c.json({ success: true });
-  } catch (err: any) {
-    return c.json({ error: err?.message || 'Failed to delete user' }, 500);
+  } catch (err) {
+    return c.json({ error: 'Gagal menghapus user' }, 500);
   }
 });
 

@@ -2,11 +2,10 @@ import { useState } from 'react';
 import { 
   LayoutDashboard, ShoppingCart, Package, Users, FileText, 
   Settings, Brain, TrendingUp, Wallet, Tag, LogOut,
-  ChevronDown, ChevronRight, BarChart3, QrCode, Menu, X, Layers, Printer, ShieldCheck
-} from 'lucide-react';
+  ChevronDown, ChevronRight, BarChart3, QrCode, Menu, X, Layers, Printer, ShieldCheck 
+} from 'lucide-react'; // <--- BarChart3 sudah masuk barisan mang!
 import { Button } from '@/app/components/ui/button';
 import { ScrollArea } from '@/app/components/ui/scroll-area';
-import { Separator } from '@/app/components/ui/separator';
 import { cn } from '@/app/components/ui/utils';
 import { authAPI } from '@/services/api';
 
@@ -14,7 +13,7 @@ interface SidebarProps {
   activeMenu: string;
   onMenuChange: (menu: string) => void;
   userRole: string;
-  allowedMenus: string[]; // Tetap terima data dari database
+  allowedMenus: string[];
 }
 
 const menuGroups = [
@@ -69,7 +68,7 @@ const menuGroups = [
 ];
 
 export function Sidebar({ activeMenu, onMenuChange, userRole, allowedMenus = [] }: SidebarProps) {
-  const [openGroups, setOpenGroups] = useState<string[]>(["Home"]);
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const toggleGroup = (title: string) => {
@@ -79,9 +78,7 @@ export function Sidebar({ activeMenu, onMenuChange, userRole, allowedMenus = [] 
       return;
     }
     setOpenGroups(prev => 
-      prev.includes(title) 
-        ? prev.filter(t => t !== title) 
-        : [...prev, title]
+      prev.includes(title) ? prev.filter(t => t !== title) : [...prev, title]
     );
   };
 
@@ -91,12 +88,10 @@ export function Sidebar({ activeMenu, onMenuChange, userRole, allowedMenus = [] 
   };
 
   return (
-    <div className={cn(
-      // KUNCI UTAMA: h-screen & overflow-hidden
-      "relative flex h-screen flex-col border-r bg-white transition-all duration-300 ease-in-out", 
+    <aside className={cn(
+      "relative flex h-screen flex-col border-r bg-white transition-all duration-300 ease-in-out shadow-sm", 
       isCollapsed ? "w-16" : "w-52"
     )}>
-      {/* Tombol Burger Floating */}
       <Button
         variant="ghost"
         size="icon"
@@ -106,99 +101,92 @@ export function Sidebar({ activeMenu, onMenuChange, userRole, allowedMenus = [] 
         {isCollapsed ? <Menu className="size-4" /> : <X className="size-4" />}
       </Button>
 
-      {/* Header Logo (Tetap di atas, tidak ikut scroll) */}
       <div className={cn(
-        "flex h-20 items-center border-b bg-white transition-all duration-300 shrink-0", // shrink-0 biar nggak kegencet
+        "flex h-20 items-center border-b bg-white transition-all duration-300 shrink-0", 
         isCollapsed ? "justify-center px-0" : "px-4"
       )}>
         <div className={cn(
           "relative flex items-center justify-center rounded-full bg-white shadow-sm ring-2 ring-orange-50 overflow-hidden transition-all",
           isCollapsed ? "size-10" : "size-10 mr-3"
         )}>
-          <img src="/logo.jpeg" alt="Logo" className="size-full object-cover" />
+          <img src="/logo.png" alt="Logo" className="size-full object-cover" />
         </div>
-
         {!isCollapsed && (
           <div className="animate-in fade-in duration-500">
-            <h1 className="font-black text-[15px] tracking-tighter leading-none text-gray-900 uppercase">
-              SEBLAK <span className="text-orange-600">MLEDAK</span>
+            <h1 className="font-black text-[14px] tracking-tighter leading-none text-gray-900 uppercase italic">
+              WUZ <span className="text-orange-600">PAY</span>
             </h1>
+            <p className="text-[8px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1 italic">ABP_IF4706</p>
           </div>
         )}
       </div>
 
-      {/* Menu Area (Area yang bisa di-scroll) */}
-      {/* Kita tambahkan class h-full agar dia mengambil sisa layar */}
-      <ScrollArea className="flex-1 w-full overflow-y-auto">
-        <div className="px-3 py-6 space-y-4">
-          {menuGroups.map((group) => {
-            const filteredItems = group.items.filter(item => 
-              allowedMenus.includes(item.id) || userRole === 'owner'
-            );
+      <div className="flex-1 min-h-0 w-full overflow-hidden"> 
+        <ScrollArea className="h-full w-full">
+          <div className="px-3 py-6 space-y-4">
+            {menuGroups.map((group) => {
+              const filteredItems = group.items.filter(item => 
+                allowedMenus.includes(item.id) || userRole === 'owner' || userRole === 'admin'
+              );
+              if (filteredItems.length === 0) return null;
+              const isOpen = openGroups.includes(group.title);
+              const GroupIcon = group.icon;
 
-            if (filteredItems.length === 0) return null;
+              return (
+                <div key={group.title} className="space-y-1">
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      "w-full font-black text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-all h-10",
+                      isCollapsed ? "justify-center px-0 h-12" : "justify-between"
+                    )}
+                    onClick={() => toggleGroup(group.title)}
+                  >
+                    <div className="flex items-center">
+                      <GroupIcon className={cn("text-gray-400", isCollapsed ? "size-6" : "mr-3 size-4")} />
+                      {!isCollapsed && <span className="text-[10px] uppercase tracking-widest">{group.title}</span>}
+                    </div>
+                    {!isCollapsed && (
+                      isOpen ? <ChevronDown className="size-3 opacity-50" /> : <ChevronRight className="size-3 opacity-50" />
+                    )}
+                  </Button>
 
-            const isOpen = openGroups.includes(group.title);
-            const GroupIcon = group.icon;
-
-            return (
-              <div key={group.title} className="space-y-1">
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "w-full font-semibold text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-all",
-                    isCollapsed ? "justify-center px-0 h-12" : "justify-between"
+                  {isOpen && !isCollapsed && (
+                    <div className="ml-4 border-l-2 border-orange-100 pl-2 space-y-1 animate-in slide-in-from-top-2 duration-300">
+                      {filteredItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = activeMenu === item.id;
+                        return (
+                          <Button
+                            key={item.id}
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                              'w-full justify-start text-[10px] font-black uppercase rounded-xl transition-all h-9 px-3',
+                              isActive ? 'bg-orange-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+                            )}
+                            onClick={() => onMenuChange(item.id)}
+                          >
+                            <Icon className={cn("mr-2 size-3.5", isActive ? "text-white" : "")} />
+                            {item.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
                   )}
-                  onClick={() => toggleGroup(group.title)}
-                >
-                  <div className="flex items-center">
-                    <GroupIcon className={cn("text-gray-400", isCollapsed ? "size-6" : "mr-3 size-4")} />
-                    {!isCollapsed && <span className="text-[10px] font-black uppercase tracking-widest">{group.title}</span>}
-                  </div>
-                  {!isCollapsed && (
-                    isOpen ? <ChevronDown className="size-3 opacity-50" /> : <ChevronRight className="size-3 opacity-50" />
-                  )}
-                </Button>
+                </div>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      </div>
 
-                {isOpen && !isCollapsed && (
-                  <div className="ml-4 border-l-2 border-orange-100 pl-2 space-y-1 animate-in slide-in-from-top-2 duration-300">
-                    {filteredItems.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = activeMenu === item.id;
-                      
-                      return (
-                        <Button
-                          key={item.id}
-                          variant="ghost"
-                          size="sm"
-                          className={cn(
-                            'w-full justify-start text-[11px] font-bold uppercase rounded-xl transition-all h-9',
-                            isActive 
-                              ? 'bg-orange-600 text-white shadow-md shadow-orange-100' 
-                              : 'text-gray-500 hover:bg-gray-50'
-                          )}
-                          onClick={() => onMenuChange(item.id)}
-                        >
-                          <Icon className={cn("mr-2 size-3.5", isActive ? "text-white" : "")} />
-                          {item.label}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </ScrollArea>
-
-      {/* Logout Area (Tetap di bawah, tidak ikut scroll) */}
-      <div className="shrink-0 p-4 border-t bg-white">
+      <div className="shrink-0 p-4 border-t bg-white mt-auto">
         <Button 
           variant="ghost" 
           className={cn(
-            "text-red-600 hover:bg-red-50 rounded-xl transition-all font-black uppercase text-[10px] tracking-widest",
-            isCollapsed ? "size-12 p-0 justify-center mx-auto flex" : "w-full justify-start"
+            "text-red-600 hover:bg-red-50 rounded-xl transition-all font-black uppercase text-[10px] tracking-widest h-11 border border-gray-50 shadow-sm",
+            isCollapsed ? "size-11 p-0 justify-center mx-auto flex" : "w-full justify-start px-4"
           )}
           onClick={handleLogout}
         >
@@ -206,6 +194,6 @@ export function Sidebar({ activeMenu, onMenuChange, userRole, allowedMenus = [] 
           {!isCollapsed && <span>Keluar</span>}
         </Button>
       </div>
-    </div>
+    </aside>
   );
 }

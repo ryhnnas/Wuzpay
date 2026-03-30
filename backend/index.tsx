@@ -2,6 +2,10 @@ import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import { Context } from "npm:hono";
+import mongoose from "npm:mongoose"; // Tambahkan ini
+
+// 1. Import Fungsi Koneksi (Kita buat di langkah selanjutnya)
+import { connectDB } from "./lib/mongodb.ts"; 
 
 // Import Modular Routes
 import authRoutes from "./routes/auth.ts";
@@ -11,53 +15,56 @@ import transactionRoutes from "./routes/transactions.ts";
 import entitiesRoutes from "./routes/entities.ts";
 import cashDrawerRoutes from "./routes/cash_drawer.ts";
 import analyticsRoutes from "./routes/analytics.ts";
-import seedRoutes from "./routes/seed.ts";
 import aiRoutes from "./routes/ai.ts";
 import permissionsRoutes from "./routes/permissions.ts";
-
-// Tambahkan baris ini di jajaran import routes
 import pendingOrders from "./routes/pending_orders.ts";
 import receiptRoutes from './routes/receipt_settings.ts';
+import seedRouter from "./routes/seed.ts";
+
+// Jalankan Koneksi MongoDB
+await connectDB(); 
 
 const app = new Hono();
-app.get("/", (c) => c.text("Nexera POS Backend is Mledakkk!"));
+
+// Update pesan selamat datang
+app.get("/", (c) => c.text("WuzPay POS Backend is Ready!"));
 
 const BASE_PATH = "/api";
 
-// 1. Global Middlewares
+// 2. Global Middlewares
 app.use('*', logger());
 app.use("/*", cors({
-    origin: [
+  origin: [
     "http://localhost:5173", 
-    "https://nexerapos.vercel.app"
+    "https://wuzpay.vercel.app" // Sesuaikan dengan domain deployment barumu nanti
   ],
-  // TAMBAHKAN "X-Session-ID" ke dalam array di bawah ini
-  allowHeaders: ["Content-Type", "Authorization", "apikey", "x-client-info", "X-Session-ID"],
+  allowHeaders: ["Content-Type", "Authorization", "X-Session-ID"], 
   allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  // EXPOSE header jika kamu ingin frontend bisa membaca header tertentu dari response
   exposeHeaders: ["X-Session-ID"],
   maxAge: 600,
   credentials: true,
 }));
 
-// 2. Route Registration
+// 3. Route Registration
 app.route(`${BASE_PATH}/auth`, authRoutes);
 app.route(`${BASE_PATH}/products`, productRoutes);
 app.route(`${BASE_PATH}/categories`, categoriesRoutes);
 app.route(`${BASE_PATH}/transactions`, transactionRoutes);
 app.route(`${BASE_PATH}/cash-drawer`, cashDrawerRoutes);
-app.route(`${BASE_PATH}/seed`, seedRoutes);
+app.route(`${BASE_PATH}/seed`, seedRouter);
 app.route(`${BASE_PATH}/ai`, aiRoutes);
-
-// Gabungkan entities dan analytics agar tidak berebut root BASE_PATH
-app.route(`${BASE_PATH}`, entitiesRoutes); 
+app.route(`${BASE_PATH}/entities`, entitiesRoutes);
 app.route(`${BASE_PATH}/analytics`, analyticsRoutes);
-
 app.route("/api/pending-orders", pendingOrders);
 app.route(`${BASE_PATH}/permissions`, permissionsRoutes);
-app.route(`${BASE_PATH}/settings/receipt`, receiptRoutes);
+app.route(`${BASE_PATH}/receipt-settings`, receiptRoutes);
 
-// 3. Health Check
-app.get("/health", (c: Context) => c.json({ status: "ok", time: new Date().toISOString() }));
+// 4. Health Check
+app.get("/health", (c: Context) => c.json({ 
+  status: "ok", 
+  database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+  time: new Date().toISOString() 
+}));
 
-Deno.serve({ port: 8080 }, app.fetch);
+// 5. Start Server
+Deno.serve({ port: 5000 }, app.fetch);
