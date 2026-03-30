@@ -1,0 +1,49 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+/* Menghilangkan icon mata bawaan Microsoft Edge */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+/* Menghilangkan icon bawaan di beberapa browser Webkit jika ada */
+input::-webkit-contacts-auto-fill-button, 
+input::-webkit-credentials-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+}
+
+@media print {
+  /* 1. Paksa ukuran kertas PDF/Printer jadi 58mm */
+  @page {
+    size: 58mm auto; /* Ini perintah paling penting! */
+    margin: 0 !important;
+  }
+
+  /* 2. Hilangkan semua margin bawaan browser */
+  html, body {
+    width: 58mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff;
+    -webkit-print-color-adjust: exact; /* Agar warna/logo muncul */
+  }
+
+  /* 3. Pastikan struk kamu nempel ke kiri atas dan tidak meluber */
+  #receipt-container {
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 !important;
+    padding: 2mm !important; /* Jarak aman biar teks gak mepet besi */
+    box-sizing: border-box;
+    display: block;
+  }
+
+  /* 4. Sembunyikan elemen UI yang mengganggu */
+  .no-print, button, .sidebar, header, footer {
+    display: none !important;
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "supabase": "^2.82.0"
+  },
+  "dependencies": {
+    "html-to-image": "^1.11.13"
+  }
+}
