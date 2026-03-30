@@ -52,23 +52,23 @@ JWT_SECRET=seblak_mledak_rahasia_2026
 ```
 
 ### 3. Install Dependencies
-# Frontend directory
+#### Frontend directory
 ```bash
 npm install
 ```
 
-# Backend directory
+#### Backend directory
 ```bash
-cd backend && npm install
+npm install
 ```
 
 ### 4. Jalankan Aplikasi
-# Jalankan Frontend (Vite)
+#### Jalankan Frontend (Vite)
 ```
 npm run dev
 ```
 
-# Jalankan Backend (Deno/Node)
+#### Jalankan Backend (Deno/Node)
 ```
 npm run dev
 ```
