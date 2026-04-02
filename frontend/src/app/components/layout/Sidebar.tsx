@@ -105,20 +105,9 @@ export function Sidebar({ activeMenu, onMenuChange, userRole, allowedMenus = [] 
         "flex h-20 items-center border-b bg-white transition-all duration-300 shrink-0", 
         isCollapsed ? "justify-center px-0" : "px-4"
       )}>
-        <div className={cn(
-          "relative flex items-center justify-center rounded-full bg-white shadow-sm ring-2 ring-orange-50 overflow-hidden transition-all",
-          isCollapsed ? "size-10" : "size-10 mr-3"
-        )}>
-          <img src="/logo.png" alt="Logo" className="size-full object-cover" />
-        </div>
-        {!isCollapsed && (
-          <div className="animate-in fade-in duration-500">
-            <h1 className="font-black text-[14px] tracking-tighter leading-none text-gray-900 uppercase italic">
-              WUZ <span className="text-orange-600">PAY</span>
-            </h1>
-            <p className="text-[8px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1 italic">ABP_IF4706</p>
-          </div>
-        )}
+       
+          <img className='mx-auto' src="/logo.png" alt="Logo" width={100} />
+        
       </div>
 
       <div className="flex-1 min-h-0 w-full overflow-hidden"> 

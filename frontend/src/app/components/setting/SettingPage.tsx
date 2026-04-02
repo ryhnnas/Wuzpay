@@ -50,7 +50,7 @@ export default function SettingsPage({ onLogout }: SettingsPageProps) {
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h2 className="font-black text-4xl uppercase tracking-tighter text-gray-900 italic flex items-center gap-3">
+          <h2 className="font-black text-4xl uppercase tracking-tighter text-orange-600 italic flex items-center gap-3">
              <Server className="size-10 text-orange-600" />
              Konfigurasi <span className="text-orange-600">Sistem</span>
           </h2>
@@ -59,7 +59,7 @@ export default function SettingsPage({ onLogout }: SettingsPageProps) {
         <button 
           onClick={handleSaveAll}
           disabled={isSaving}
-          className="bg-gray-900 hover:bg-orange-600 text-white px-8 py-4 rounded-[22px] flex items-center gap-3 font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 shadow-2xl shadow-gray-200"
+          className="bg-orange-600 hover:bg-orange-600 text-white px-8 py-4 rounded-[22px] flex items-center gap-3 font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 shadow-2xl shadow-gray-200"
         >
           {isSaving ? <span className="animate-spin text-lg">●</span> : <Save className="size-5 text-orange-500" />}
           Commit All Changes
@@ -93,7 +93,7 @@ export default function SettingsPage({ onLogout }: SettingsPageProps) {
             </div>
 
             {/* QUICK LINK KE PRINTER */}
-            <div className="mt-6 p-6 bg-gray-900 rounded-[32px] flex items-center justify-between group cursor-pointer hover:bg-black transition-all shadow-xl shadow-gray-200">
+            <div className="mt-6 p-6 bg-orange-600 rounded-[32px] flex items-center justify-between group cursor-pointer hover:bg-orange-700 transition-all shadow-xl shadow-gray-200">
                <div className="flex items-center gap-5">
                   <div className="p-4 bg-orange-600 rounded-2xl text-white shadow-lg shadow-orange-600/20 group-hover:scale-110 transition-transform">
                     <Printer className="size-6" />
@@ -110,7 +110,7 @@ export default function SettingsPage({ onLogout }: SettingsPageProps) {
           {/* BACKEND INFRASTRUCTURE STATUS */}
           <div className="rounded-[40px] border-none bg-white p-10 shadow-[0_8px_40px_rgba(0,0,0,0.03)] border border-gray-100">
             <h3 className="mb-8 font-black text-[10px] uppercase tracking-[0.3em] text-gray-400 flex items-center gap-3">
-              <Cloud className="size-5 text-blue-600" /> Infrastructure Node
+              <Cloud className="size-5 text-orange-600" /> Infrastructure Node
             </h3>
             <div className="space-y-4 font-mono text-[11px] bg-gray-50 p-8 rounded-[32px] border border-gray-100">
               <div className="flex justify-between items-center border-b border-gray-200/50 pb-3">
@@ -142,7 +142,7 @@ export default function SettingsPage({ onLogout }: SettingsPageProps) {
           {/* AI INTELLIGENCE CONFIG */}
           <div className="rounded-[40px] border-none bg-white p-10 shadow-[0_8px_40px_rgba(0,0,0,0.03)] border border-gray-100">
             <h3 className="mb-8 font-black text-[10px] uppercase tracking-[0.3em] text-gray-400 flex items-center gap-3">
-              <Cpu className="size-5 text-purple-600" /> WuzPay AI Intelligence
+              <Cpu className="size-5 text-orange-600" /> WuzPay AI Intelligence
             </h3>
             <div className="space-y-6">
               <div className="space-y-2">
@@ -220,7 +220,7 @@ export default function SettingsPage({ onLogout }: SettingsPageProps) {
               value={config.n8nWebhook}
               onChange={(e) => setConfig({...config, n8nWebhook: e.target.value})}
               placeholder="https://n8n.wuzpay.id/webhook/..."
-              className="w-full rounded-[32px] border-none bg-gray-900 text-orange-400 px-8 py-6 text-xs font-mono outline-none focus:ring-4 focus:ring-orange-600/20 shadow-2xl"
+              className="w-full rounded-[32px] border-none bg-orange-600 text-orange-400 px-8 py-6 text-xs font-mono outline-none focus:ring-4 focus:ring-orange-600/20 shadow-2xl"
             />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

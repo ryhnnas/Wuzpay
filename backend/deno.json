@@ -1,17 +1,15 @@
 {
   "imports": {
-    "npm:hono": "npm:hono",
-    "npm:hono/cors": "npm:hono/cors",
-    "npm:hono/logger": "npm:hono/logger",
-    "npm:mongoose": "npm:mongoose",
-    "bcryptjs": "npm:bcryptjs@^2.4.3"
+    "npm:hono": "npm:hono@^4",
+    "npm:hono/cors": "npm:hono@^4/cors",
+    "npm:hono/logger": "npm:hono@^4/logger",
+    "npm:mongoose": "npm:mongoose@^8",
+    "npm:bcryptjs": "npm:bcryptjs@^2.4.3",
+    "npm:jsonwebtoken": "npm:jsonwebtoken@^9",
+    "npm:xlsx": "npm:xlsx@^0.18"
   },
   "nodeModulesDir": "auto",
   "compilerOptions": {
-    "lib": ["deno.ns"]
-  },
-  "allowScripts": {
-    "allow": [],
-    "deny": ["npm:deno@2.6.8"]
+    "lib": ["deno.window"]
   }
 }

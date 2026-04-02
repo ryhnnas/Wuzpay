@@ -134,7 +134,7 @@ export function CashDrawer() {
     <div className="space-y-6 p-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-black text-3xl uppercase tracking-tighter italic text-gray-900">
+          <h2 className="font-black text-3xl uppercase tracking-tighter italic text-orange-600">
             Cash <span className="text-orange-600">Drawer</span>
           </h2>
           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Laporan Arus Kas Harian WuzPay</p>
@@ -187,10 +187,10 @@ export function CashDrawer() {
                   <TableCell className="text-[11px] font-bold text-gray-500 py-6 pl-10">
                     {drawer.start_time ? new Date(drawer.start_time).toLocaleString('id-ID') : '-'}
                   </TableCell>
-                  <TableCell className="text-[11px] font-black text-blue-600 uppercase tracking-tight italic">
+                  <TableCell className="text-[11px] font-black text-orange-600 uppercase tracking-tight italic">
                     {drawer.staffname || 'Sistem'}
                   </TableCell>
-                  <TableCell className="text-[12px] font-black text-gray-900">{formatRupiah(drawer.starting_cash)}</TableCell>
+                  <TableCell className="text-[12px] font-black text-orange-600">{formatRupiah(drawer.starting_cash)}</TableCell>
                   <TableCell className={cn(
                     "text-[12px] font-black italic",
                     drawer.ending_cash !== null ? "text-emerald-600" : "text-orange-400"
@@ -200,7 +200,7 @@ export function CashDrawer() {
                   <TableCell className="text-center">
                     <Badge className={cn(
                       "text-[9px] font-black px-4 py-1.5 rounded-full border-none shadow-sm uppercase tracking-widest",
-                      drawer.status === 'open' ? 'bg-orange-500 text-white animate-pulse' : 'bg-gray-900 text-white'
+                      drawer.status === 'open' ? 'bg-orange-500 text-white animate-pulse' : 'bg-orange-600 text-white'
                     )}>
                       {drawer.status}
                     </Badge>
@@ -208,7 +208,7 @@ export function CashDrawer() {
                   <TableCell className="text-right pr-10">
                     <div className="flex justify-end gap-2 group-hover:opacity-100 transition-opacity">
                       {drawer.notes && (
-                        <Button variant="ghost" size="icon" className="rounded-xl hover:bg-blue-50 text-blue-600" onClick={() => { setActiveNote(drawer.notes); setShowNoteDialog(true); }}>
+                        <Button variant="ghost" size="icon" className="rounded-xl hover:bg-orange-50 text-orange-600" onClick={() => { setActiveNote(drawer.notes); setShowNoteDialog(true); }}>
                           <Eye className="size-4" />
                         </Button>
                       )}
@@ -233,9 +233,9 @@ export function CashDrawer() {
           <div className="size-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
             <Trash2 className="size-10" />
           </div>
-          <h2 className="font-black text-2xl uppercase tracking-tighter text-gray-900">Hapus Laporan?</h2>
+          <h2 className="font-black text-2xl uppercase tracking-tighter text-orange-600">Hapus Laporan?</h2>
           <p className="text-sm text-gray-400 mt-2 leading-relaxed font-medium">
-            Rekap kas tanggal <span className="text-gray-900 font-bold">"{drawerToDelete ? new Date(drawerToDelete.start_time).toLocaleDateString('id-ID') : ''}"</span> akan dihapus permanen dari sistem WuzPay.
+            Rekap kas tanggal <span className="text-orange-600 font-bold">"{drawerToDelete ? new Date(drawerToDelete.start_time).toLocaleDateString('id-ID') : ''}"</span> akan dihapus permanen dari sistem WuzPay.
           </p>
           <div className="grid grid-cols-2 gap-4 mt-10">
             <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)} className="h-14 rounded-2xl font-black uppercase tracking-widest text-[10px]">Batal</Button>
@@ -266,7 +266,7 @@ export function CashDrawer() {
           <div className="py-4 text-center">
             <p className="text-xl font-black text-gray-800 italic tracking-tight leading-relaxed">"{activeNote}"</p>
           </div>
-          <Button onClick={() => setShowNoteDialog(false)} className="w-full h-14 mt-6 rounded-2xl bg-gray-900 text-white font-black uppercase tracking-widest text-[10px]">Tutup Catatan</Button>
+          <Button onClick={() => setShowNoteDialog(false)} className="w-full h-14 mt-6 rounded-2xl bg-orange-600 text-white font-black uppercase tracking-widest text-[10px]">Tutup Catatan</Button>
         </DialogContent>
       </Dialog>
 

@@ -5,12 +5,15 @@
   "main": "index.js",
   "scripts": {
     "start": "node backend/server.js",
-    "dev": "nodemon backend/server.js"
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "cd backend && deno run -A --env-file=.env --unstable-detect-cjs --watch index.tsx"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"
   },
   "dependencies": {
+    "concurrently": "^9.2.1",
     "dotenv": "^16.6.1",
     "html-to-image": "^1.11.13",
     "mongoose": "^8.23.0"

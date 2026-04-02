@@ -158,7 +158,7 @@ const SettingAkses = () => {
     <div className="p-8 space-y-8 bg-white min-h-screen font-sans">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter text-gray-900 flex items-center gap-3">
+          <h1 className="text-4xl font-black uppercase tracking-tighter text-orange-600 flex items-center gap-3">
             <ShieldCheck className="size-10 text-orange-600" />
             Hak Akses Role
           </h1>
@@ -176,8 +176,8 @@ const SettingAkses = () => {
         </Button>
       </div>
 
-      <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
-        <Info className="text-blue-600 size-5 mt-0.5" />
+      <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 flex items-start gap-3">
+        <Info className="text-orange-600 size-5 mt-0.5" />
         <p className="text-xs text-blue-700 font-medium leading-relaxed">
           Perubahan hak akses akan berdampak langsung pada tampilan Sidebar user.
           Role <span className="font-black uppercase">Owner</span> bersifat bypass dan tidak diatur dari tabel ini.

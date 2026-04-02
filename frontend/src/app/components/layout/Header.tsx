@@ -22,7 +22,7 @@ interface AppNotification {
 
 const pageTitle: Record<string, string> = {
   dashboard: 'Dashboard Analytics',
-  pos: 'Kasir WuzPay',
+  pos: 'Kasir',
   products: 'Katalog Produk',
   stock: 'Kontrol Inventori',
   contacts: 'Mitra & Pelanggan',
@@ -79,8 +79,8 @@ export function Header({ user, currentPage, onOpenPendingOrders, pendingCount = 
         {/* Judul Halaman */}
         <div className="flex items-center gap-4 flex-1">
           <div className="h-8 w-1 bg-orange-600 rounded-full hidden md:block" />
-          <h2 className="font-black text-xl tracking-tighter text-gray-900 uppercase italic">
-            {pageTitle[currentPage] || 'WuzPay System'}
+          <h2 className="font-black text-xl tracking-tighter text-orange-600 uppercase italic">
+            {pageTitle[currentPage] || 'Kategori'}
           </h2>
         </div>
 
@@ -131,7 +131,7 @@ export function Header({ user, currentPage, onOpenPendingOrders, pendingCount = 
           {/* User Profile */}
           <div className="flex items-center gap-3 bg-gray-50/80 pl-4 pr-1.5 py-1.5 rounded-[20px] border border-gray-100 hover:bg-gray-100/50 transition-colors cursor-pointer group">
             <div className="hidden md:block text-right leading-none">
-              <p className="font-black text-[11px] text-gray-900 uppercase tracking-tight group-hover:text-orange-600 transition-colors">
+              <p className="font-black text-[11px] text-orange-600 uppercase tracking-tight group-hover:text-orange-600 transition-colors">
                 {user?.name || user?.email?.split('@')[0] || "Staff"}
               </p>
               <p className="text-[9px] text-gray-400 font-black uppercase tracking-[0.2em] mt-1 italic">
@@ -172,7 +172,7 @@ export function Header({ user, currentPage, onOpenPendingOrders, pendingCount = 
             </div>
             
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-black text-gray-900 uppercase tracking-widest mb-1">
+              <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1">
                 {n.type === 'stock' ? 'Peringatan Inventori' : 'Error Critical'}
               </p>
               <p className="text-[11px] text-gray-500 font-bold leading-relaxed italic">{n.message}</p>

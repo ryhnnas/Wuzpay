@@ -5,7 +5,7 @@ import { Context } from "npm:hono";
 import mongoose from "npm:mongoose"; // Tambahkan ini
 
 // 1. Import Fungsi Koneksi (Kita buat di langkah selanjutnya)
-import { connectDB } from "./lib/mongodb.ts"; 
+import { connectDB } from "./lib/mongodb.ts";
 
 // Import Modular Routes
 import authRoutes from "./routes/auth.ts";
@@ -22,7 +22,7 @@ import receiptRoutes from './routes/receipt_settings.ts';
 import seedRouter from "./routes/seed.ts";
 
 // Jalankan Koneksi MongoDB
-await connectDB(); 
+await connectDB();
 
 const app = new Hono();
 
@@ -35,10 +35,10 @@ const BASE_PATH = "/api";
 app.use('*', logger());
 app.use("/*", cors({
   origin: [
-    "http://localhost:5173", 
+    "http://localhost:5173",
     "https://wuzpay.vercel.app" // Sesuaikan dengan domain deployment barumu nanti
   ],
-  allowHeaders: ["Content-Type", "Authorization", "X-Session-ID"], 
+  allowHeaders: ["Content-Type", "Authorization", "X-Session-ID"],
   allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   exposeHeaders: ["X-Session-ID"],
   maxAge: 600,
@@ -60,11 +60,11 @@ app.route(`${BASE_PATH}/permissions`, permissionsRoutes);
 app.route(`${BASE_PATH}/receipt-settings`, receiptRoutes);
 
 // 4. Health Check
-app.get("/health", (c: Context) => c.json({ 
-  status: "ok", 
+app.get("/health", (c: Context) => c.json({
+  status: "ok",
   database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
-  time: new Date().toISOString() 
+  time: new Date().toISOString()
 }));
 
 // 5. Start Server
-Deno.serve({ port: 5000 }, app.fetch);
+Deno.serve({ port: 8000 }, app.fetch);

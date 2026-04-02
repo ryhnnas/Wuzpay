@@ -417,7 +417,7 @@ const processPayment = async () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
             <Input 
-              placeholder="Cari menu seblak..." 
+              placeholder="Cari menu..." 
               className="pl-9 bg-gray-50 border-none h-11 focus-visible:ring-1 focus-visible:ring-orange-500"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -578,7 +578,7 @@ const processPayment = async () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs font-black text-gray-900">{formatRupiah(item.subtotal)}</p>
+                      <p className="text-xs font-black text-orange-600">{formatRupiah(item.subtotal)}</p>
                       <button onClick={() => setCart(cart.filter(i => (i._id || i.id) !== itemId))} className="text-red-400 mt-1 hover:text-red-600 transition-colors"><Trash2 className="size-3" /></button>
                     </div>
                   </div>
@@ -611,7 +611,7 @@ const processPayment = async () => {
           <div className="flex h-full">
             {/* SISI KIRI: DAFTAR NAMA */}
             <div className="w-[360px] bg-gray-50 border-r p-8 flex flex-col">
-               <h3 className="font-black text-xl uppercase italic mb-6 text-gray-900 tracking-tighter underline decoration-orange-500 decoration-4">Daftar Meja</h3>
+               <h3 className="font-black text-xl uppercase italic mb-6 text-orange-600 tracking-tighter underline decoration-orange-500 decoration-4">Daftar Meja</h3>
                <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar flex-1">
                  {pendingOrders.map((order: any) => {
                    const oId = order._id || order.id;
@@ -635,7 +635,7 @@ const processPayment = async () => {
                    <div className="overflow-y-auto flex-1 custom-scrollbar pr-4">
                      <div className="flex justify-between items-start mb-8">
                         <div>
-                          <h2 className="font-black text-4xl uppercase italic text-gray-900 leading-none">{selectedPendingOrder.customer_name}</h2>
+                          <h2 className="font-black text-4xl uppercase italic text-orange-600 leading-none">{selectedPendingOrder.customer_name}</h2>
                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-2">Detail Pesanan Pelanggan</p>
                         </div>
                         <Button 
@@ -654,7 +654,7 @@ const processPayment = async () => {
                               <span className="font-black text-xs uppercase text-gray-700 italic">{item.name}</span>
                               <span className="text-[10px] font-bold text-gray-400 uppercase">{item.quantity}x @ {formatRupiah(item.price)}</span>
                             </div>
-                            <span className="font-black text-sm text-gray-900">{formatRupiah(item.subtotal)}</span>
+                            <span className="font-black text-sm text-orange-600">{formatRupiah(item.subtotal)}</span>
                          </div>
                        ))}
                      </div>
@@ -665,7 +665,7 @@ const processPayment = async () => {
                         <span className="font-black text-4xl text-orange-600 tracking-tighter">{formatRupiah(selectedPendingOrder.total_amount)}</span>
                       </div>
                       <div className="flex gap-4">
-                         <Button onClick={() => { setCart(selectedPendingOrder.items); setCustomerName(selectedPendingOrder.customer_name); setEditingOrderId(selectedPendingOrder._id || selectedPendingOrder.id); setShowPendingListDialog(false); }} className="flex-1 h-16 bg-gray-100 text-gray-900 rounded-[24px] font-black hover:bg-gray-200 uppercase text-[10px] tracking-widest">Edit</Button>
+                         <Button onClick={() => { setCart(selectedPendingOrder.items); setCustomerName(selectedPendingOrder.customer_name); setEditingOrderId(selectedPendingOrder._id || selectedPendingOrder.id); setShowPendingListDialog(false); }} className="flex-1 h-16 bg-gray-100 text-orange-600 rounded-[24px] font-black hover:bg-gray-200 uppercase text-[10px] tracking-widest">Edit</Button>
                          <Button onClick={() => { setCart(selectedPendingOrder.items); setEditingOrderId(selectedPendingOrder._id || selectedPendingOrder.id); setCustomerName(selectedPendingOrder.customer_name); setShowPendingListDialog(false); setShowPaymentDialog(true); }} className="flex-[1.5] h-16 bg-orange-600 text-white rounded-[24px] font-black shadow-2xl shadow-orange-100 uppercase text-[10px] tracking-widest">Bayar</Button>
                       </div>
                    </div>
@@ -693,7 +693,7 @@ const processPayment = async () => {
           </div>
           <h2 className="font-black text-xl uppercase tracking-tighter text-gray-800">Hapus Antrean?</h2>
           <p className="text-sm text-gray-500 mt-2 leading-relaxed">
-            Pesanan atas nama <span className="font-bold text-gray-900 italic">"{orderToDelete?.customer_name || 'Pelanggan'}"</span> akan dihapus permanen.
+            Pesanan atas nama <span className="font-bold text-orange-600 italic">"{orderToDelete?.customer_name || 'Pelanggan'}"</span> akan dihapus permanen.
           </p>
           <div className="grid grid-cols-2 gap-3 mt-8">
             <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} className="h-12 rounded-2xl font-black text-[10px] uppercase">BATAL</Button>
@@ -780,7 +780,7 @@ const processPayment = async () => {
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center space-y-6 text-center">
-                  <div className="relative p-4 bg-white border-4 border-gray-900 rounded-[40px] shadow-2xl">
+                  <div className="relative p-4 bg-white border-4 border-orange-600 rounded-[40px] shadow-2xl">
                     <img src={paymentMethod === 'gopay' ? '/qris-gopay.jpg' : `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=WUZ-${currentOrderId}`} className="size-56 object-contain" />
                     <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-6 py-2 rounded-full font-black text-[10px] uppercase shadow-lg border-2 border-white">SIMULASI BAYAR</div>
                   </div>

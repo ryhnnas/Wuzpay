@@ -100,34 +100,23 @@ const KategoriManagement = () => {
 
   return (
     <div className="p-8 space-y-8 bg-white min-h-screen animate-in fade-in duration-500">
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter text-gray-900 flex items-center gap-3 italic">
-            <Layers className="size-10 text-orange-600" />
-            Wuz<span className="text-orange-600">Categories</span>
-          </h1>
-          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">
-            Pengelompokan Menu Produk WuzPay Sindangsari
-          </p>
+      {/* HEADER: SEARCH + BUTTON */}
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 group">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 size-5 text-gray-300 group-focus-within:text-orange-600 transition-colors" />
+          <Input 
+            placeholder="Cari kategori menu..." 
+            className="pl-14 h-14 bg-gray-50/50 border-gray-100 rounded-2xl font-bold focus-visible:ring-2 focus-visible:ring-orange-500 shadow-sm w-full"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
         <Button 
           onClick={() => handleOpenDialog()}
-          className="bg-orange-600 hover:bg-orange-700 text-white rounded-[20px] px-8 h-14 font-black transition-all active:scale-95 shadow-xl shadow-orange-100 uppercase tracking-widest text-xs"
+          className="bg-orange-600 hover:bg-orange-700 text-white rounded-[20px] px-8 h-14 font-black transition-all active:scale-95 shadow-xl shadow-orange-100 uppercase tracking-widest text-xs shrink-0"
         >
           <Plus className="mr-2 size-5 stroke-[3px]" /> TAMBAH KATEGORI
         </Button>
-      </div>
-
-      {/* SEARCH BAR */}
-      <div className="relative max-w-md group">
-        <Search className="absolute left-5 top-1/2 -translate-y-1/2 size-5 text-gray-300 group-focus-within:text-orange-600 transition-colors" />
-        <Input 
-          placeholder="Cari kategori menu..." 
-          className="pl-14 h-14 bg-gray-50/50 border-gray-100 rounded-2xl font-bold focus-visible:ring-2 focus-visible:ring-orange-500 shadow-sm"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
       </div>
 
       {/* TABLE AREA */}
@@ -135,9 +124,9 @@ const KategoriManagement = () => {
         <Table>
           <TableHeader className="bg-gray-50/50">
             <TableRow className="border-none hover:bg-transparent">
-              <TableHead className="font-black uppercase text-[10px] tracking-[0.2em] p-8 text-gray-400">Nama Kategori</TableHead>
-              <TableHead className="font-black uppercase text-[10px] tracking-[0.2em] p-8 text-gray-400">Deskripsi / Catatan</TableHead>
-              <TableHead className="font-black uppercase text-[10px] tracking-[0.2em] p-8 text-gray-400 text-right">Aksi Kontrol</TableHead>
+              <TableHead className="font-black uppercase text-[10px] tracking-[0.2em] p-8 text-gray-600">Nama Kategori</TableHead>
+              <TableHead className="font-black uppercase text-[10px] tracking-[0.2em] p-8 text-gray-600">Deskripsi / Catatan</TableHead>
+              <TableHead className="font-black uppercase text-[10px] tracking-[0.2em] p-8 text-gray-600 text-right">Aksi Kontrol</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -162,13 +151,13 @@ const KategoriManagement = () => {
                 <TableRow key={category._id || category.id} className="hover:bg-orange-50/20 transition-colors border-b border-gray-50 group">
                   <TableCell className="p-8">
                     <div className="flex flex-col">
-                      <span className="font-black text-gray-900 uppercase text-sm italic group-hover:text-orange-600 transition-colors">{category.name}</span>
-                      <span className="text-[9px] text-gray-300 font-bold uppercase tracking-tighter mt-1">ID: {category._id?.substring(18) || 'AUTO'}</span>
+                      <span className="font-black text-orange-600 uppercase text-sm italic group-hover:text-orange-600 transition-colors">{category.name}</span>
+                      <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter mt-1">ID: {category._id?.substring(18) || 'AUTO'}</span>
                     </div>
                   </TableCell>
                   <TableCell className="p-8">
-                    <p className="text-xs text-gray-500 font-bold leading-relaxed max-w-md">
-                      {category.description || <span className="text-gray-200 italic font-medium">Tidak ada deskripsi tambahan...</span>}
+                    <p className="text-xs text-orange-600 font-bold leading-relaxed max-w-md">
+                      {category.description || <span className="text-gray-400 italic font-medium">Tidak ada deskripsi tambahan...</span>}
                     </p>
                   </TableCell>
                   <TableCell className="p-8 text-right">
@@ -185,7 +174,7 @@ const KategoriManagement = () => {
                         variant="ghost" 
                         size="icon" 
                         onClick={() => handleDelete(category)} 
-                        className="rounded-xl hover:bg-red-50 text-red-400 shadow-sm border border-gray-50 bg-white transition-all"
+                        className="rounded-xl hover:bg-red-50 text-red-500 shadow-sm border border-gray-100 bg-white transition-all"
                       >
                         <Trash2 className="size-4" />
                       </Button>
@@ -202,7 +191,7 @@ const KategoriManagement = () => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[480px] rounded-[40px] border-none p-10 shadow-2xl">
           <DialogHeader className="mb-6">
-            <DialogTitle className="text-3xl font-black uppercase tracking-tighter text-gray-900 italic">
+            <DialogTitle className="text-3xl font-black uppercase tracking-tighter text-orange-600 italic">
               {editingCategory ? 'Update' : 'Buat'} <span className="text-orange-600">Kategori</span>
             </DialogTitle>
             <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">Master Data Produk WuzPay</p>
@@ -240,7 +229,7 @@ const KategoriManagement = () => {
             <Button 
               onClick={handleSubmit}
               disabled={isSaving}
-              className="flex-[2] h-16 bg-gray-900 hover:bg-orange-600 text-white rounded-[24px] font-black uppercase tracking-widest text-xs transition-all shadow-xl active:scale-95"
+              className="flex-[2] h-16 bg-orange-600 hover:bg-orange-600 text-white rounded-[24px] font-black uppercase tracking-widest text-xs transition-all shadow-xl active:scale-95"
             >
               {isSaving ? <Loader2 className="mr-2 size-5 animate-spin" /> : editingCategory ? 'Update Data' : 'Simpan Kategori'}
             </Button>

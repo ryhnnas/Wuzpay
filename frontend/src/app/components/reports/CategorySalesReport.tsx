@@ -65,7 +65,7 @@ export function CategorySalesReport() {
     <div className="p-8 space-y-8 bg-slate-50/50 min-h-screen animate-in fade-in duration-500 font-sans">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
-          <h2 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic">
+          <h2 className="text-4xl font-black tracking-tighter text-orange-600 uppercase italic">
             Category <span className="text-orange-600">Sales</span>
           </h2>
           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2 italic underline decoration-orange-500 decoration-2">
@@ -83,7 +83,7 @@ export function CategorySalesReport() {
                   "px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300",
                   activeFilter === f 
                     ? "bg-orange-600 text-white shadow-lg shadow-orange-100" 
-                    : "text-gray-400 hover:text-gray-900"
+                    : "text-gray-400 hover:text-orange-600"
                 )}
               >
                 {f === 'today' ? 'Hari Ini' : f === 'week' ? '7 Hari' : f === 'month' ? '30 Hari' : 'Kustom'}
@@ -99,7 +99,7 @@ export function CategorySalesReport() {
             )}
           </div>
 
-          <div className="bg-gray-900 text-white p-5 rounded-[28px] shadow-2xl flex items-center gap-6 min-w-[280px]">
+          <div className="bg-orange-600 text-white p-5 rounded-[28px] shadow-2xl flex items-center gap-6 min-w-[280px]">
             <div className="size-12 bg-orange-600 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-600/20 shrink-0">
                <ArrowUpRight className="size-6 text-white" />
             </div>
@@ -145,7 +145,7 @@ export function CategorySalesReport() {
                           {Number(item.qty || item.total_qty || 0)} UNIT
                        </Badge>
                     </td>
-                    <td className="px-6 py-6 text-right font-black text-gray-900 text-sm tracking-tighter">
+                    <td className="px-6 py-6 text-right font-black text-orange-600 text-sm tracking-tighter">
                       Rp {(Number(item.revenue || item.total_amount) || 0).toLocaleString('id-ID')}
                     </td>
                     <td className="px-10 py-6 text-right">

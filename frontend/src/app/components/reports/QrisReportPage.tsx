@@ -60,7 +60,7 @@ export function QrisReportPage() {
     <div className="p-8 space-y-8 bg-slate-50/50 min-h-screen font-sans animate-in fade-in duration-500">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
-          <h2 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic">
+          <h2 className="text-4xl font-black tracking-tighter text-orange-600 uppercase italic">
             QRIS <span className="text-orange-600">Settlement</span>
           </h2>
           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2 italic">Monitoring Pembayaran Digital WuzPay</p>
@@ -83,7 +83,7 @@ export function QrisReportPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="rounded-[32px] border-none shadow-2xl bg-gray-900 text-white p-2 relative overflow-hidden group">
+        <Card className="rounded-[32px] border-none shadow-2xl bg-orange-600 text-white p-2 relative overflow-hidden group">
           <CardContent className="pt-6 relative z-10">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-2">Total QRIS Masuk</p>
             <h3 className="text-3xl font-black italic tracking-tighter text-orange-500">
@@ -94,7 +94,7 @@ export function QrisReportPage() {
         <Card className="rounded-[32px] border-none shadow-sm bg-white p-2">
           <CardContent className="pt-6">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">Total Transaksi</p>
-            <h3 className="text-3xl font-black italic tracking-tighter text-gray-900">{summary.count} TX</h3>
+            <h3 className="text-3xl font-black italic tracking-tighter text-orange-600">{summary.count} TX</h3>
           </CardContent>
         </Card>
       </div>
@@ -123,7 +123,7 @@ export function QrisReportPage() {
                       <div className="flex mt-1">
                         <Badge className={cn(
                           "text-[8px] font-black uppercase px-2 py-0 border-none",
-                          tx.qris_vendor === 'gopay' ? "bg-blue-100 text-blue-600" : "bg-purple-100 text-purple-600"
+                          tx.qris_vendor === 'gopay' ? "bg-orange-100 text-orange-600" : "bg-purple-100 text-orange-600"
                         )}>
                           {tx.qris_vendor === 'gopay' ? 'GoPay' : 'Midtrans'}
                         </Badge>
@@ -161,7 +161,7 @@ export function QrisReportPage() {
               <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl">
                 <div>
                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Receipt</p>
-                  <p className="font-black text-gray-900 uppercase italic">{selectedTx.receipt_number}</p>
+                  <p className="font-black text-orange-600 uppercase italic">{selectedTx.receipt_number}</p>
                 </div>
                 <Badge className="bg-orange-600 text-white font-black text-[9px] uppercase px-3 py-1">SUCCESS</Badge>
               </div>
@@ -182,7 +182,7 @@ export function QrisReportPage() {
                    </p>
                 </div>
               </div>
-              <Button onClick={() => setSelectedTx(null)} className="w-full h-12 bg-gray-900 hover:bg-orange-600 text-white rounded-2xl font-black uppercase text-[10px]">
+              <Button onClick={() => setSelectedTx(null)} className="w-full h-12 bg-orange-600 hover:bg-orange-600 text-white rounded-2xl font-black uppercase text-[10px]">
                 Close Record
               </Button>
             </div>

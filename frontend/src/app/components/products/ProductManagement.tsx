@@ -194,21 +194,15 @@ export function ProductManagement() {
   return (
     <div className="space-y-8 p-8 animate-in fade-in duration-500 font-sans">
       {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h2 className="font-black text-4xl tracking-tighter uppercase italic text-gray-900">
-            Katalog <span className="text-orange-600">Produk</span>
-          </h2>
-          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2 underline decoration-orange-500 decoration-2">Inventaris & Daftar Menu WuzPay</p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <Button variant="outline" onClick={handleExportExcel} className="rounded-[18px] font-black text-[10px] uppercase tracking-widest border-gray-100 h-12 px-6">
+      <div className="flex justify-end mb-6">
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={handleExportExcel} className="rounded-[20px] font-black text-[10px] uppercase tracking-widest border-gray-100 h-14 px-6">
             <Download className="mr-2 size-4 text-orange-600" /> Export
           </Button>
-          <Button variant="outline" onClick={() => setShowImportDialog(true)} className="rounded-[18px] font-black text-[10px] uppercase tracking-widest border-gray-100 h-12 px-6">
+          <Button variant="outline" onClick={() => setShowImportDialog(true)} className="rounded-[20px] font-black text-[10px] uppercase tracking-widest border-gray-100 h-14 px-6">
             <Upload className="mr-2 size-4 text-orange-600" /> Import
           </Button>
-          <Button onClick={handleAddProduct} className="bg-gray-900 hover:bg-orange-600 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest shadow-xl h-14 px-8 transition-all active:scale-95">
+          <Button onClick={handleAddProduct} className="bg-orange-600 hover:bg-orange-600 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest shadow-xl h-14 px-8 transition-all active:scale-95">
             <Plus className="mr-2 size-5" /> Tambah Menu
           </Button>
         </div>
@@ -275,18 +269,18 @@ export function ProductManagement() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="font-black text-gray-900 uppercase text-xs tracking-tight italic">{product.name}</div>
+                    <div className="font-black text-orange-600 uppercase text-xs tracking-tight italic">{product.name}</div>
                     <div className="text-[10px] font-bold text-orange-600/50 mt-1 uppercase tracking-tighter italic">{product.sku || 'TANPA SKU'}</div>
                   </TableCell>
                   <TableCell>
-                    <Badge className="text-[9px] font-black uppercase tracking-widest bg-gray-900 text-white border-none px-3 py-1 rounded-lg italic">
+                    <Badge className="text-[9px] font-black uppercase tracking-widest bg-orange-600 text-white border-none px-3 py-1 rounded-lg italic">
                       {product.category_id?.name || 'Umum'}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-center">
                     {/* COST PRICE DISPLAY FIX */}
                     <div className="text-[10px] text-gray-300 font-bold line-through italic">{formatRupiah(product.cost_price)}</div>
-                    <div className="font-black text-gray-900 text-sm tracking-tighter italic">{formatRupiah(product.price)}</div>
+                    <div className="font-black text-orange-600 text-sm tracking-tighter italic">{formatRupiah(product.price)}</div>
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge className={cn(
@@ -343,7 +337,7 @@ export function ProductManagement() {
               <ImageIcon className="size-10 text-orange-600" />
             </div>
             <div className="text-center px-8">
-              <p className="text-sm font-black uppercase tracking-tighter text-gray-900 leading-none mb-2">Pilih File Master Produk</p>
+              <p className="text-sm font-black uppercase tracking-tighter text-orange-600 leading-none mb-2">Pilih File Master Produk</p>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest italic">Format: .xlsx atau .csv (Max 5MB)</p>
             </div>
             <Input 
@@ -448,7 +442,7 @@ export function ProductManagement() {
 
           <DialogFooter className="mt-12 flex gap-4">
             <Button variant="ghost" onClick={() => setShowProductDialog(false)} className="rounded-2xl font-black text-[10px] uppercase h-14 flex-1 tracking-widest text-gray-300">Batal</Button>
-            <Button onClick={handleSaveProduct} className="bg-gray-900 hover:bg-orange-600 text-white rounded-2xl font-black shadow-2xl flex-[2] h-14 uppercase tracking-widest text-xs transition-all active:scale-95">
+            <Button onClick={handleSaveProduct} className="bg-orange-600 hover:bg-orange-600 text-white rounded-2xl font-black shadow-2xl flex-[2] h-14 uppercase tracking-widest text-xs transition-all active:scale-95">
               KONFIRMASI & SIMPAN MENU
             </Button>
           </DialogFooter>

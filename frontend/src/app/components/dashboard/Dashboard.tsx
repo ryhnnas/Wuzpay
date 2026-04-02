@@ -227,13 +227,13 @@ export function Dashboard() {
 
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
+          {/* <div>
             <h2 className="font-black text-2xl uppercase tracking-tighter text-gray-800">Analytics Dashboard</h2>
-            <p className="text-gray-500 text-sm italic underline decoration-orange-300">Data Real-Time Seblak Mledak</p>
-          </div>
-          <div className="flex items-center bg-white/70 backdrop-blur-md p-2 rounded-2xl shadow-md border border-gray-200/50 gap-2 flex-wrap">
+            <p className="text-gray-500 text-sm italic underline decoration-orange-300">Data Real-Time Transaksi</p>
+          </div> */}
+          <div className="flex items-center bg-white/70 backdrop-blur-md p-2 rounded-2xl shadow-md border border-gray-200/50 gap-2 flex-wrap justify-end ml-auto">
             <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-36 border-none bg-gray-50/50 font-black text-[10px] rounded-xl hover:bg-gray-100/50 transition-colors">
+              <SelectTrigger className="w-45 border-none bg-gray-50/50 font-black text-[10px] rounded-xl hover:bg-gray-100/50 transition-colors">
                 <Calendar className="mr-2 size-3 text-orange-600" />
                 <SelectValue />
               </SelectTrigger>
@@ -270,7 +270,7 @@ export function Dashboard() {
           <Card className="border border-blue-200/50 shadow-lg rounded-2xl bg-gradient-to-br from-blue-50/90 via-sky-50/80 to-sky-100/50 backdrop-blur-sm hover:shadow-xl hover:border-blue-300/70 transition-all duration-300 group">
             <CardContent className="p-5 flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <p className="text-[9px] font-black uppercase tracking-widest text-blue-600">Total Transaksi</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-orange-600">Total Transaksi</p>
                 <div className="p-2.5 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
                   <ShoppingCart className="size-3.5 text-blue-700" />
                 </div>
@@ -294,7 +294,7 @@ export function Dashboard() {
           <Card className="border border-purple-200/50 shadow-lg rounded-2xl bg-gradient-to-br from-purple-50/90 via-violet-50/80 to-violet-100/50 backdrop-blur-sm hover:shadow-xl hover:border-purple-300/70 transition-all duration-300 group">
             <CardContent className="p-5 flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <p className="text-[9px] font-black uppercase tracking-widest text-purple-600">Avg / Struk</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-orange-600">Avg / Struk</p>
                 <div className="p-2.5 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
                   <Receipt className="size-3.5 text-purple-700" />
                 </div>
@@ -334,7 +334,7 @@ export function Dashboard() {
           <Card className="lg:col-span-3 border border-red-200/50 shadow-lg rounded-2xl overflow-hidden bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
             <CardHeader className="bg-gradient-to-r from-red-50/80 to-red-50/80 border-b border-red-200/50 p-4">
               <CardTitle className="text-[10px] font-black uppercase flex items-center gap-2 tracking-widest text-red-700">
-                <AlertTriangle className="size-4 animate-bounce" /> Stok Menipis
+                <AlertTriangle className="size-4" /> Stok Menipis
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 h-[320px] overflow-y-auto bg-gradient-to-b from-white/50 to-red-50/20">
@@ -388,7 +388,7 @@ export function Dashboard() {
                 <Badge className="bg-orange-600/10 border border-orange-500/30 text-orange-500 font-black text-[10px] uppercase px-3 py-1">Live Insight</Badge>
               </div>
               <div className="relative z-10">
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">Jam Penjualan Terpadat</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">Waktu Penjualan Terpadat</p>
                 <h3 className="text-7xl font-black tracking-tighter mt-2 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">{peakHour}</h3>
               </div>
               <div className="relative z-10 border-t-2 border-orange-600/30 pt-6">
@@ -411,7 +411,7 @@ export function Dashboard() {
           <Card className="border border-blue-200/50 shadow-lg rounded-2xl bg-white/80 backdrop-blur-sm">
             <CardHeader className="p-4 border-b border-blue-200/50 bg-gradient-to-r from-blue-50 to-sky-50 flex flex-row items-center justify-between">
               <CardTitle className="text-[10px] font-black uppercase tracking-widest text-blue-700">Volume Transaksi</CardTitle>
-              <ShoppingCart className="size-4 text-blue-600" />
+              <ShoppingCart className="size-4 text-orange-600" />
             </CardHeader>
             <CardContent className="h-[240px] pt-4 px-2">
               <ResponsiveContainer width="100%" height="100%">
@@ -423,7 +423,7 @@ export function Dashboard() {
           <Card className="border border-purple-200/50 shadow-lg rounded-2xl bg-white/80 backdrop-blur-sm">
             <CardHeader className="p-4 border-b border-purple-200/50 bg-gradient-to-r from-purple-50 to-violet-50 flex flex-row items-center justify-between">
               <CardTitle className="text-[10px] font-black uppercase tracking-widest text-purple-700">Metode Bayar</CardTitle>
-              <CreditCard className="size-4 text-purple-600" />
+              <CreditCard className="size-4 text-orange-600" />
             </CardHeader>
             <CardContent className="h-[240px] flex items-center justify-center relative">
               <div className="absolute flex flex-col items-center justify-center"><span className="text-[8px] font-black text-gray-400 uppercase tracking-tighter">Omzet</span><span className="text-[10px] font-black text-purple-700">Pusat</span></div>

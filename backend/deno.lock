@@ -4,11 +4,12 @@
     "npm:@supabase/supabase-js@2": "2.95.3",
     "npm:bcryptjs@*": "2.4.3",
     "npm:bcryptjs@^2.4.3": "2.4.3",
-    "npm:hono@*": "4.11.9",
+    "npm:hono@4": "4.12.9",
     "npm:jsonwebtoken@*": "9.0.3",
-    "npm:mongoose@*": "8.23.0",
+    "npm:jsonwebtoken@9": "9.0.3",
     "npm:mongoose@8": "8.23.0",
-    "npm:xlsx@*": "0.18.5"
+    "npm:xlsx@*": "0.18.5",
+    "npm:xlsx@0.18": "0.18.5"
   },
   "npm": {
     "@mongodb-js/saslprep@1.4.6": {
@@ -126,8 +127,8 @@
     "frac@1.1.2": {
       "integrity": "sha512-w/XBfkibaTl3YDqASwfDUqkna4Z2p9cFSr1aHDt0WoMTECnRfBOv2WArlZILlqgWlmdIlALXGpM2AOhEk5W3IA=="
     },
-    "hono@4.11.9": {
-      "integrity": "sha512-Eaw2YTGM6WOxA6CXbckaEvslr2Ne4NFsKrvc0v97JD5awbmeBLO5w9Ho9L9kmKonrwF9RJlW6BxT1PVv/agBHQ=="
+    "hono@4.12.9": {
+      "integrity": "sha512-wy3T8Zm2bsEvxKZM5w21VdHDDcwVS1yUFFY6i8UobSsKfFceT7TOwhbhfKsDyx7tYQlmRM5FLpIuYvNFyjctiA=="
     },
     "iceberg-js@0.8.1": {
       "integrity": "sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA=="
@@ -301,8 +302,10 @@
   "workspace": {
     "dependencies": [
       "npm:bcryptjs@^2.4.3",
-      "npm:hono@*",
-      "npm:mongoose@*"
+      "npm:hono@4",
+      "npm:jsonwebtoken@9",
+      "npm:mongoose@8",
+      "npm:xlsx@0.18"
     ],
     "packageJson": {
       "dependencies": [

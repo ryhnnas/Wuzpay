@@ -179,7 +179,7 @@ export function ReportsSection() {
     <div className="h-screen w-full flex flex-col items-center justify-center gap-4 bg-white">
       <Loader2 className="size-12 text-orange-600 animate-spin" />
       <div className="text-center">
-        <p className="font-black text-gray-900 uppercase text-xs tracking-[0.3em] animate-pulse">WuzPay Reporting Engine</p>
+        <p className="font-black text-orange-600 uppercase text-xs tracking-[0.3em] animate-pulse">WuzPay Reporting Engine</p>
         <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Mengkalkulasi Laba & Rugi...</p>
       </div>
     </div>
@@ -191,7 +191,7 @@ export function ReportsSection() {
       {/* SECTION 1: HEADER & ACTIONS */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
-          <h2 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic">
+          <h2 className="text-4xl font-black tracking-tighter text-orange-600 uppercase italic">
             Sales <span className="text-orange-600">Intelligence</span>
           </h2>
           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2 italic flex items-center gap-2">
@@ -199,7 +199,7 @@ export function ReportsSection() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
             </span>
-            Audit & Performa Bisnis WuzPay Sindangsari
+            Audit & Performa Bisnis
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -209,7 +209,7 @@ export function ReportsSection() {
           <Button 
             onClick={handleExport}
             disabled={isExporting}
-            className="bg-gray-900 hover:bg-orange-600 text-white rounded-2xl font-black text-[10px] uppercase h-12 px-8 shadow-xl transition-all flex items-center gap-2"
+            className="bg-orange-600 hover:bg-orange-600 text-white rounded-2xl font-black text-[10px] uppercase h-12 px-8 shadow-xl transition-all flex items-center gap-2"
           >
             {isExporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
             Export Excel
@@ -280,10 +280,10 @@ export function ReportsSection() {
       {/* SECTION 3: KEY PERFORMANCE INDICATORS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Volume Sales', val: summary.count, icon: ShoppingBag, col: 'text-blue-600', bg: 'bg-blue-50', unit: ' Orders' },
+          { label: 'Volume Sales', val: summary.count, icon: ShoppingBag, col: 'text-orange-600', bg: 'bg-orange-50', unit: ' Orders' },
           { label: 'Gross Revenue', val: formatRupiah(summary.revenue), icon: DollarSign, col: 'text-orange-600', bg: 'bg-orange-50', unit: '' },
           { label: 'Net Profit', val: formatRupiah(summary.profit), icon: TrendingUp, col: 'text-emerald-600', bg: 'bg-emerald-50', unit: '' },
-          { label: 'Avg Ticket', val: formatRupiah(summary.count > 0 ? summary.revenue / summary.count : 0), icon: CreditCard, col: 'text-purple-600', bg: 'bg-purple-50', unit: '' },
+          { label: 'Avg Ticket', val: formatRupiah(summary.count > 0 ? summary.revenue / summary.count : 0), icon: CreditCard, col: 'text-orange-600', bg: 'bg-orange-50', unit: '' },
         ].map((s, i) => (
           <Card key={i} className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-[32px] overflow-hidden group hover:shadow-xl transition-all">
             <CardContent className="p-8 flex items-center gap-6">
@@ -362,11 +362,11 @@ export function ReportsSection() {
                           {safeFormat(t.createdAt || t.created_at, 'dd/MM/yy HH:mm')}
                         </TableCell>
                         <TableCell className="text-center">
-                          <Badge className="bg-gray-900 text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">
+                          <Badge className="bg-orange-600 text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">
                             {t.payment_method}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right font-black text-gray-900 text-xs tracking-tighter italic">
+                        <TableCell className="text-right font-black text-orange-600 text-xs tracking-tighter italic">
                           {formatRupiah(t.total_amount)}
                         </TableCell>
                         <TableCell className="px-10 text-right">

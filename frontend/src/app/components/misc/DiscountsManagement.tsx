@@ -160,7 +160,7 @@ export function DiscountsManagement() {
     <div className="space-y-6 p-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-black text-3xl uppercase tracking-tighter italic text-gray-900">
+          <h2 className="font-black text-3xl uppercase tracking-tighter italic text-orange-600">
             Promo & <span className="text-orange-600">Diskon</span>
           </h2>
           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Kelola Strategi Marketing WuzPay</p>
@@ -189,7 +189,7 @@ export function DiscountsManagement() {
             ) : (
               discounts.map(discount => (
                 <TableRow key={discount._id || discount.id} className="border-b border-gray-50 hover:bg-orange-50/20 transition-colors group">
-                  <TableCell className="font-black text-gray-900 uppercase text-xs pl-10 py-6 italic">{discount.name}</TableCell>
+                  <TableCell className="font-black text-orange-600 uppercase text-xs pl-10 py-6 italic">{discount.name}</TableCell>
                   <TableCell>
                     <Badge className="bg-orange-50 text-orange-600 font-black text-[10px] px-3 py-1 rounded-lg border-none shadow-sm">
                       {discount.value} {discount.value_type === 'percentage' ? '%' : 'IDR'}
@@ -197,7 +197,7 @@ export function DiscountsManagement() {
                   </TableCell>
                   <TableCell>
                      <div className="flex items-center gap-2 text-[10px] uppercase font-black text-gray-500 tracking-widest">
-                        {discount.scope === 'product' || discount.scope === 'item' ? <Package className="size-3.5 text-blue-500" /> : <Layers className="size-3.5 text-purple-500" />}
+                        {discount.scope === 'product' || discount.scope === 'item' ? <Package className="size-3.5 text-orange-500" /> : <Layers className="size-3.5 text-purple-500" />}
                         {discount.scope === 'product' || discount.scope === 'item' ? 'Menu Spesifik' : discount.scope === 'category' ? 'Kategori' : 'transaction'}
                      </div>
                   </TableCell>
@@ -297,12 +297,12 @@ export function DiscountsManagement() {
 
             {formData.scope === 'item' && (
               <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-300">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-blue-600 ml-4">Pilih Menu Produk</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-orange-600 ml-4">Pilih Menu Produk</Label>
                 <Select
                   value={formData.productId}
                   onValueChange={(val) => setFormData({ ...formData, productId: val })}
                 >
-                  <SelectTrigger className="rounded-2xl bg-blue-50/30 border-blue-100 h-14 font-black text-[10px] uppercase px-6 text-blue-700">
+                  <SelectTrigger className="rounded-2xl bg-orange-50/30 border-orange-100 h-14 font-black text-[10px] uppercase px-6 text-blue-700">
                     <SelectValue placeholder="PILIH MENU SPESIFIK..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -316,12 +316,12 @@ export function DiscountsManagement() {
 
             {formData.scope === 'category' && (
               <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-300">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-purple-600 ml-4">Pilih Kategori Menu</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-orange-600 ml-4">Pilih Kategori Menu</Label>
                 <Select
                   value={formData.categoryId}
                   onValueChange={(val) => setFormData({ ...formData, categoryId: val })}
                 >
-                  <SelectTrigger className="rounded-2xl bg-purple-50/30 border-purple-100 h-14 font-black text-[10px] uppercase px-6 text-purple-700">
+                  <SelectTrigger className="rounded-2xl bg-orange-50/30 border-orange-100 h-14 font-black text-[10px] uppercase px-6 text-purple-700">
                     <SelectValue placeholder="PILIH KATEGORI..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -357,7 +357,7 @@ export function DiscountsManagement() {
 
           <DialogFooter className="mt-10 flex gap-4">
             <Button variant="ghost" onClick={() => setShowDialog(false)} className="bg-orange-600 rounded-2xl font-black uppercase text-[10px] tracking-widest h-14 px-8 flex-1">Batal</Button>
-            <Button onClick={handleSave} disabled={isSaving} className="bg-gray-900 hover:bg-orange-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl h-14 flex-[2] transition-all">
+            <Button onClick={handleSave} disabled={isSaving} className="bg-orange-600 hover:bg-orange-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl h-14 flex-[2] transition-all">
               {isSaving ? <Loader2 className="animate-spin size-4" /> : <CheckCircle2 className="mr-2 size-4" />}
               AKTIFKAN PROMO
             </Button>

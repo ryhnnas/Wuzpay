@@ -111,10 +111,10 @@ export function StockManagement() {
     <div className="space-y-6 p-8 animate-in fade-in duration-500 font-sans">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-black text-3xl uppercase tracking-tighter italic text-gray-900">
+          <h2 className="font-black text-3xl uppercase tracking-tighter italic text-orange-600">
             Stock <span className="text-orange-600">Inventory</span>
           </h2>
-          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Manajemen Persediaan WuzPay Sindangsari</p>
+          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Manajemen Persediaan</p>
         </div>
         <Button variant="outline" onClick={fetchData} className="rounded-2xl font-black text-[10px] uppercase tracking-widest border-gray-200 h-12 px-6 hover:bg-orange-50 hover:text-orange-600 transition-all">
           <RefreshCw className="mr-2 size-4" /> Sync Database
@@ -174,7 +174,7 @@ export function StockManagement() {
                       return (
                         <tr key={pId} className="hover:bg-orange-50/20 transition-all group">
                           <td className="px-10 py-6">
-                            <p className="font-black text-gray-900 uppercase text-xs italic tracking-tight">{product.name}</p>
+                            <p className="font-black text-orange-600 uppercase text-xs italic tracking-tight">{product.name}</p>
                             <p className="text-[9px] text-gray-300 font-mono mt-1">{product.sku || 'WUZ-ITEM'}</p>
                           </td>
                           <td className="px-6 py-6">
@@ -183,7 +183,7 @@ export function StockManagement() {
                             </Badge>
                           </td>
                           <td className="px-6 py-6 text-center">
-                            <div className={cn("text-xl font-black italic", (product.stock_quantity || 0) <= 5 ? "text-red-600 animate-pulse" : "text-gray-900")}>
+                            <div className={cn("text-xl font-black italic", (product.stock_quantity || 0) <= 5 ? "text-red-600 animate-pulse" : "text-orange-600")}>
                               {product.stock_quantity || 0}
                             </div>
                           </td>
@@ -201,7 +201,7 @@ export function StockManagement() {
                             <Button 
                               onClick={() => handleUpdateStock(product)} 
                               disabled={!addAmounts[pId] || updateLoading === pId}
-                              className="bg-gray-900 hover:bg-orange-600 text-white rounded-2xl font-black text-[10px] tracking-widest px-8 h-11 transition-all shadow-xl active:scale-95"
+                              className="bg-orange-600 hover:bg-orange-600 text-white rounded-2xl font-black text-[10px] tracking-widest px-8 h-11 transition-all shadow-xl active:scale-95"
                             >
                               {updateLoading === pId ? <Loader2 className="animate-spin size-4" /> : 'SAVE'}
                             </Button>
@@ -253,7 +253,7 @@ export function StockManagement() {
                               <span className="font-black text-[10px] text-gray-600 uppercase tracking-tight">WuzPay System</span>
                             </div>
                           </td>
-                          <td className="px-6 py-6 font-black text-gray-900 uppercase text-xs italic">{log.product_id?.name || 'Menu Terhapus'}</td>
+                          <td className="px-6 py-6 font-black text-orange-600 uppercase text-xs italic">{log.product_id?.name || 'Menu Terhapus'}</td>
                           <td className="px-6 py-6">
                             <div className="flex items-center">
                                <Badge className={cn("font-black text-[10px] border-none px-3 py-1 rounded-lg shadow-sm", isAddition ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600")}>
@@ -262,7 +262,7 @@ export function StockManagement() {
                               <span className="text-gray-300 text-[9px] ml-2 uppercase font-bold italic">(Awal: {log.previous_stock})</span>
                             </div>
                           </td>
-                          <td className="px-10 py-6 text-right"><Badge className="bg-gray-900 text-white border-none font-black text-[11px] px-4 py-1.5 rounded-xl">{log.current_stock}</Badge></td>
+                          <td className="px-10 py-6 text-right"><Badge className="bg-orange-600 text-white border-none font-black text-[11px] px-4 py-1.5 rounded-xl">{log.current_stock}</Badge></td>
                         </tr>
                       );
                     })}

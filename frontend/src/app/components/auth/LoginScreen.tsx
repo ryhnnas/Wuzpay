@@ -88,19 +88,18 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
       <Card className="w-full max-w-[420px] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border-none bg-white/80 backdrop-blur-xl rounded-[40px] z-10 animate-in zoom-in-95 duration-500">
         <div className="mb-10 text-center relative">
-          <div className="mx-auto mb-6 relative w-24 h-24">
-            <div className="absolute inset-0 bg-orange-600 rounded-full animate-pulse opacity-20 scale-110" />
-            <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white shadow-xl ring-4 ring-orange-50 overflow-hidden">
+          <div className="mx-auto mb-6 relative w-30">
+            <div className="absolute inset-0 scale-110" />
+            <div className="relative flex  items-center justify-center overflow-hidden">
               <img 
                 src="/logo.png"
                 alt="WuzPay Logo" 
-                className="w-full h-full object-cover"
               />
             </div>
           </div>
 
-          <h1 className="font-black text-3xl text-gray-900 tracking-tighter uppercase leading-none">
-            WUZPAY <br />ABP_IF4706
+          <h1 className="font-black text-3xl text-orange-600 tracking-tighter uppercase leading-none">
+            ABP_IF4706
           </h1>
           <p className="text-[10px] font-bold text-orange-600 tracking-[0.3em] mt-2 uppercase">
             Point of Sale System

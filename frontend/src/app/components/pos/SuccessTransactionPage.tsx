@@ -30,7 +30,7 @@ export function SuccessTransactionPage({ transaction, onBackToPOS }: any) {
               <CheckCircle2 className="size-14 stroke-[3px]" />
             </div>
             <div className="space-y-2">
-              <h1 className="text-5xl font-black tracking-tighter text-gray-900 uppercase italic">
+              <h1 className="text-5xl font-black tracking-tighter text-orange-600 uppercase italic">
                 WuzPay <span className="text-emerald-500">Berhasil!</span>
               </h1>
               <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
@@ -58,7 +58,7 @@ export function SuccessTransactionPage({ transaction, onBackToPOS }: any) {
           <div className="flex flex-col gap-4">
             <Button 
               onClick={() => handleGlobalPrint({ ...transaction, store_name: "WUZPAY SINDANGSARI" })}
-              className="h-20 bg-white hover:bg-gray-50 text-gray-900 border-2 border-gray-100 rounded-[28px] font-black text-xl shadow-sm flex gap-4 transition-all active:scale-95 group"
+              className="h-20 bg-white hover:bg-gray-50 text-orange-600 border-2 border-gray-100 rounded-[28px] font-black text-xl shadow-sm flex gap-4 transition-all active:scale-95 group"
             >
               <Printer className="size-7 text-orange-600 group-hover:rotate-12 transition-transform" />
               CETAK ULANG STRUK
@@ -66,7 +66,7 @@ export function SuccessTransactionPage({ transaction, onBackToPOS }: any) {
             
             <Button 
               onClick={onBackToPOS}
-              className="h-20 bg-gray-900 hover:bg-orange-600 text-white rounded-[28px] font-black text-xl shadow-2xl shadow-gray-200 flex gap-4 transition-all active:scale-95"
+              className="h-20 bg-orange-600 hover:bg-orange-600 text-white rounded-[28px] font-black text-xl shadow-2xl shadow-gray-200 flex gap-4 transition-all active:scale-95"
             >
               <ArrowLeft className="size-7" />
               TRANSAKSI BARU

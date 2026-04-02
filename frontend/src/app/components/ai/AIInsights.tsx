@@ -11,7 +11,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-import { productsAPI, transactionsAPI } from '@/services/api';
+import { productsAPI, transactionsAPI, aiAPI } from '@/services/api';
 import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
 
@@ -86,14 +86,16 @@ export function AIInsights() {
       const sixtyDaysAgoStr = format(subDays(now, 60), 'yyyy-MM-dd');
 
       const txWithDate = transactions
-        .map((tx: any) => ({
-          ...tx,
-          // MongoDB menggunakan string ISO, pastikan konversi date aman
-          createdDate: tx.created_at ? new Date(tx.created_at) : new Date(),
-          dateKey: tx.created_at ? format(new Date(tx.created_at), 'yyyy-MM-dd') : null,
-          amount: Number(tx.total_amount ?? tx.total ?? 0),
-          items: Array.isArray(tx.items) ? tx.items : [],
-        }))
+        .map((tx: any) => {
+          const dateVal = tx.createdAt || tx.created_at;
+          return {
+            ...tx,
+            createdDate: dateVal ? new Date(dateVal) : new Date(),
+            dateKey: dateVal ? format(new Date(dateVal), 'yyyy-MM-dd') : null,
+            amount: Number(tx.total_amount ?? tx.total ?? 0),
+            items: Array.isArray(tx.items) ? tx.items : [],
+          };
+        })
         .filter((tx: any) => tx.dateKey);
 
       const todayTx = txWithDate.filter((tx: any) => tx.dateKey === todayStr);
@@ -225,7 +227,7 @@ export function AIInsights() {
 
       setRecommendations(generatedRecommendations.slice(0, 4));
 
-      setNarrativeReport({
+      let finalNarrative = {
         summary: `Performa WuzPay dalam 30 hari terakhir menghasilkan ${formatCurrency(monthRevenue)} (${formatPercentChange(monthRevenue, prevMonthRevenue)}).`,
         topProduct: topProduct
           ? `${topProduct.name} mendominasi pasar dengan kontribusi ${formatCurrency(topProduct.revenue)}.`
@@ -234,10 +236,43 @@ export function AIInsights() {
           ? `Waktu tersibuk tokomu adalah pukul ${topHours.join(' & ')}. Pastikan stok siap sebelum jam ini.`
           : 'Pola jam ramai belum terbentuk secara konsisten.',
         strategy: 'Optimalkan ketersediaan bahan baku pada jam sibuk dan lakukan upsell pada produk terlaris.',
-      });
+      };
+
+      try {
+        const aiPrompt = `Buatkan evaluasi performa bisnis singkat (1-2 kalimat per poin) berdasarkan data 30 hari toko berikut. Kembalikan HANYA format JSON valid tanpa penjelasan tambahan.
+Data: Omzet ${formatCurrency(monthRevenue)} (bulan lalu ${formatCurrency(prevMonthRevenue)}), Produk Terlaris: ${topProduct?.name || 'belum ada'} (${topProduct?.qty || 0} porsi), Stok Kritis: ${lowStockProducts.length || 0} macam, Jam Sibuk: ${topHours.join(', ') || 'belum ada'}.
+Format:
+{
+  "summary": "[Evaluasi omzet]",
+  "topProduct": "[Strategi promosi produk terlaris]",
+  "peakHours": "[Saran manajemen antrean/stok di jam sibuk]",
+  "strategy": "[Kesimpulan strategi utama bulan ini]"
+}`;
+        // Ambil dari backend (via aiAPI) 
+        console.log("WuzPay AI is generating Insights with prompt:", aiPrompt);
+        const aiRaw = await aiAPI.chat(aiPrompt, []);
+        console.log("Raw Gemini Output:", aiRaw);
+
+        const jsonMatch = aiRaw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const aiData = JSON.parse(jsonMatch[0]);
+          if (aiData.summary && aiData.strategy) {
+            finalNarrative = aiData;
+          } else {
+             console.log("Missing keys in AI JSON", aiData);
+          }
+        } else {
+          console.warn("No JSON match found in Gemini output.");
+        }
+      } catch (error) {
+        console.error('AI Narrative Generation failed, fallback to static:', error);
+      }
+
+      setNarrativeReport(finalNarrative);
 
     } catch (error) {
-      toast.error('Gagal memproses data WuzPay AI');
+      console.error("Critical error in loadInsights:", error);
+      toast.error('Gagal memproses data WuzPay AI. Pastikan Backend berjalan.');
     } finally {
       setIsLoading(false);
     }
@@ -246,9 +281,9 @@ export function AIInsights() {
   const getIcon = (type: string) => {
     switch (type) {
       case 'warning': return <AlertTriangle className="size-6 text-orange-600" />;
-      case 'trend': return <TrendingUp className="size-6 text-gray-900" />;
+      case 'trend': return <TrendingUp className="size-6 text-orange-600" />;
       case 'success': return <CheckCircle className="size-6 text-green-600" />;
-      default: return <Info className="size-6 text-blue-600" />;
+      default: return <Info className="size-6 text-orange-600" />;
     }
   };
 
@@ -256,15 +291,23 @@ export function AIInsights() {
     <div className="space-y-6 p-6 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-black text-3xl uppercase tracking-tighter text-gray-900 italic">
-            Business <span className="text-orange-600">Insights</span>
-          </h2>
-          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">Analisis Data Otomatis WuzPay</p>
+          <h2 className="text-2xl font-black tracking-tighter text-orange-600 uppercase">📈 AI Business Insights</h2>
+          <p className="text-gray-400 text-sm font-medium">Analisis cerdas dari gabungan tranksaksi & inventaris.</p>
         </div>
-        <Button onClick={loadInsights} disabled={isLoading} className="bg-gray-900 text-white rounded-2xl font-black px-6 h-12 shadow-xl shadow-gray-200 uppercase text-[10px] tracking-widest">
-          <RefreshCw className={`mr-2 size-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Generate Report
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button 
+            onClick={loadInsights} 
+            disabled={isLoading}
+            variant="outline" 
+            className="rounded-xl border-orange-200 text-orange-600 hover:bg-orange-50 font-bold shadow-sm"
+          >
+            <RefreshCw className={`size-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Analisis Ulang
+          </Button>
+          <div className="bg-orange-50 text-orange-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 border border-orange-100 shadow-sm">
+            <Brain className="size-5" /> WuzPay AI Active
+          </div>
+        </div>
       </div>
 
       {/* Metrics Grid */}
@@ -273,7 +316,7 @@ export function AIInsights() {
           <Card key={index} className="rounded-[32px] border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white p-2">
             <CardContent className="pt-6">
               <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">{metric.title}</p>
-              <p className="mb-1 font-black text-2xl tracking-tighter text-gray-900">{metric.value}</p>
+              <p className="mb-1 font-black text-2xl tracking-tighter text-orange-600">{metric.value}</p>
               <div className="flex items-center gap-2">
                  <Badge className={`text-[9px] font-black px-2 py-0.5 rounded-full ${metric.trend.startsWith('-') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
                    {metric.trend}
@@ -295,7 +338,7 @@ export function AIInsights() {
                 <CardContent className="pt-6 flex gap-4">
                   <div className="bg-gray-50 p-3 rounded-2xl h-fit">{getIcon(insight.type)}</div>
                   <div className="flex-1">
-                    <h4 className="font-black text-sm uppercase tracking-tight text-gray-900 mb-1">{insight.title}</h4>
+                    <h4 className="font-black text-sm uppercase tracking-tight text-orange-600 mb-1">{insight.title}</h4>
                     <p className="text-xs font-medium text-gray-500 leading-relaxed">{insight.description}</p>
                   </div>
                 </CardContent>
@@ -304,23 +347,23 @@ export function AIInsights() {
           </div>
         </div>
 
-        {/* Recommendations Column */}
+         {/* Recommendations Column */}
         <div className="space-y-4">
            <h3 className="font-black text-xs uppercase tracking-[0.2em] text-gray-400 ml-2">Strategic Moves</h3>
-           <Card className="rounded-[32px] border-none shadow-xl bg-gray-900 text-white overflow-hidden">
+           <Card className="rounded-[32px] border-none shadow-xl bg-orange-600 text-white overflow-hidden">
              <CardHeader className="border-b border-white/10 pb-4">
-               <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                 <Zap className="size-4 text-orange-500" /> WuzPay Engine Recommendation
+               <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-white">
+                 <Zap className="size-4 text-orange-100" /> WuzPay Engine Recommendation
                </CardTitle>
              </CardHeader>
              <CardContent className="p-6 space-y-4">
                {recommendations.map((rec, index) => (
-                 <div key={index} className="bg-white/5 rounded-2xl p-4 border border-white/5 hover:bg-white/10 transition-colors">
-                   <div className="flex items-center justify-between mb-2">
-                     <h4 className="font-bold text-xs uppercase text-orange-500">{rec.title}</h4>
-                     <Badge className="bg-orange-600 text-[8px] font-black text-white px-2 py-0">IMPACT: {rec.impact}</Badge>
+                 <div key={index} className="bg-white/10 rounded-2xl p-4 border border-white/10 hover:bg-white/20 transition-colors">
+                   <div className="flex flex-col md:flex-row md:items-center justify-between mb-2 gap-2">
+                     <h4 className="font-black text-xs uppercase text-white">{rec.title}</h4>
+                     <Badge className="bg-white text-orange-600 text-[8px] font-black px-2 py-0">IMPACT: {rec.impact}</Badge>
                    </div>
-                   <p className="text-[11px] text-gray-400 font-medium leading-relaxed">{rec.description}</p>
+                   <p className="text-[11px] text-white/90 font-medium leading-relaxed">{rec.description}</p>
                  </div>
                ))}
              </CardContent>
@@ -331,7 +374,7 @@ export function AIInsights() {
       {/* Narrative Report */}
       <Card className="rounded-[40px] border-none shadow-[0_20px_60px_rgba(0,0,0,0.03)] bg-white overflow-hidden">
         <CardHeader className="bg-orange-50/50 p-8 border-b border-orange-100/50">
-          <CardTitle className="font-black text-xl uppercase tracking-tighter text-gray-900 italic flex items-center gap-2">
+          <CardTitle className="font-black text-xl uppercase tracking-tighter text-orange-600 italic flex items-center gap-2">
             <Brain className="size-6 text-orange-600" /> Laporan Eksekutif WuzPay
           </CardTitle>
         </CardHeader>

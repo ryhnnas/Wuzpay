@@ -87,7 +87,7 @@ export default function SettingPrint() {
     <div className="p-8 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-700 font-sans pb-24">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-          <h2 className="font-black text-4xl uppercase tracking-tighter text-gray-900 italic flex items-center gap-3">
+          <h2 className="font-black text-4xl uppercase tracking-tighter text-orange-600 italic flex items-center gap-3">
              <HardDrive className="size-10 text-orange-600" />
              Printer <span className="text-orange-600">Interface</span>
           </h2>
@@ -102,7 +102,7 @@ export default function SettingPrint() {
         
         {/* PANEL KONEKSI HARDWARE */}
         <Card className="rounded-[40px] border-none shadow-[0_8px_40px_rgba(0,0,0,0.04)] overflow-hidden bg-white">
-          <CardHeader className="bg-gray-900 text-white p-8">
+          <CardHeader className="bg-orange-600 text-white p-8">
             <CardTitle className="text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3">
               <Settings2 className="size-5 text-orange-600" /> Link Protocol
             </CardTitle>
@@ -154,8 +154,8 @@ export default function SettingPrint() {
             {/* Auto Print Switch */}
             <div className="flex items-center justify-between p-6 bg-gray-50/80 rounded-[28px] border border-gray-100 group transition-all hover:bg-white hover:shadow-md">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-white rounded-xl shadow-sm group-hover:bg-blue-50 transition-colors">
-                  <RefreshCw className="size-5 text-blue-500" />
+                <div className="p-3 bg-white rounded-xl shadow-sm group-hover:bg-orange-50 transition-colors">
+                  <RefreshCw className="size-5 text-orange-500" />
                 </div>
                 <div>
                   <p className="text-[12px] font-black uppercase text-gray-800 italic">Auto-Dispatch</p>
@@ -187,8 +187,8 @@ export default function SettingPrint() {
               />
             </div>
 
-            <div className="p-5 rounded-2xl bg-blue-50/50 border border-blue-100 flex gap-4">
-               <AlertCircle className="size-5 text-blue-600 shrink-0 mt-0.5" />
+            <div className="p-5 rounded-2xl bg-orange-50/50 border border-orange-100 flex gap-4">
+               <AlertCircle className="size-5 text-orange-600 shrink-0 mt-0.5" />
                <p className="text-[10px] text-blue-700 font-bold leading-relaxed uppercase tracking-tighter italic">
                  Wajib menggunakan printer thermal standard 58mm (ESC/POS) untuk hasil cetak struk yang presisi.
                </p>
@@ -202,14 +202,14 @@ export default function SettingPrint() {
         <Button 
           variant="ghost"
           onClick={handleTestPrint}
-          className="flex-1 h-20 rounded-[32px] border-2 border-gray-100 bg-white font-black text-[11px] uppercase tracking-[0.3em] text-gray-500 hover:bg-gray-900 hover:text-white transition-all shadow-sm"
+          className="flex-1 h-20 rounded-[32px] border-2 border-gray-100 bg-white font-black text-[11px] uppercase tracking-[0.3em] text-gray-500 hover:bg-orange-600 hover:text-white transition-all shadow-sm"
         >
           <Printer className="mr-3 size-5 text-orange-600" /> Dispatch Test Unit
         </Button>
         <Button 
           onClick={handleSave}
           disabled={isLoading}
-          className="flex-[1.5] h-20 bg-gray-900 hover:bg-orange-600 text-white rounded-[32px] font-black text-[11px] uppercase tracking-[0.3em] shadow-2xl transition-all active:scale-95"
+          className="flex-[1.5] h-20 bg-orange-600 hover:bg-orange-600 text-white rounded-[32px] font-black text-[11px] uppercase tracking-[0.3em] shadow-2xl transition-all active:scale-95"
         >
           {isLoading ? <RefreshCw className="animate-spin mr-3 size-5" /> : <CheckCircle2 className="mr-3 size-5 text-orange-500" />}
           Commit Configuration

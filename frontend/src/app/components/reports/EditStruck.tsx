@@ -118,14 +118,14 @@ export function EditStruk({ transactionId, onClose }: { transactionId: string, o
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900/90 backdrop-blur-lg z-[100] flex items-center justify-center p-6 animate-in fade-in duration-500 font-sans">
+    <div className="fixed inset-0 bg-orange-600/90 backdrop-blur-lg z-[100] flex items-center justify-center p-6 animate-in fade-in duration-500 font-sans">
       <div className="bg-white w-full max-w-6xl h-[85vh] rounded-[48px] overflow-hidden flex shadow-2xl border border-white/10">
         
         {/* PANEL KIRI: LIST ITEM EDITOR */}
         <div className="flex-[1.2] flex flex-col border-r border-gray-100 bg-white relative">
           <div className="p-10 border-b flex justify-between items-center bg-gray-50/50">
             <div>
-              <h3 className="font-black text-3xl uppercase tracking-tighter italic text-gray-900">Editor <span className="text-orange-600">Struk</span></h3>
+              <h3 className="font-black text-3xl uppercase tracking-tighter italic text-orange-600">Editor <span className="text-orange-600">Struk</span></h3>
               <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.3em] mt-2 italic">Ref: {transaction.receipt_number || 'WUZ-NEW'}</p>
             </div>
             <Button variant="ghost" onClick={onClose} className="rounded-2xl size-12 hover:bg-red-50 hover:text-red-600 transition-all">
@@ -186,7 +186,7 @@ export function EditStruk({ transactionId, onClose }: { transactionId: string, o
                       )}
                     </td>
                     
-                    <td className="py-5 text-right font-black text-gray-900 text-sm tracking-tighter italic">
+                    <td className="py-5 text-right font-black text-orange-600 text-sm tracking-tighter italic">
                       {new Intl.NumberFormat('id-ID').format(item.quantity * (item.price_at_sale || 0))}
                     </td>
                     
@@ -198,7 +198,7 @@ export function EditStruk({ transactionId, onClose }: { transactionId: string, o
                           </Button>
                         ) : (
                           <>
-                            <Button size="icon" variant="ghost" className="size-9 text-blue-500 bg-blue-50 hover:bg-blue-500 hover:text-white rounded-xl transition-all" onClick={() => setEditingId(itemId)}>
+                            <Button size="icon" variant="ghost" className="size-9 text-orange-500 bg-orange-50 hover:bg-orange-500 hover:text-white rounded-xl transition-all" onClick={() => setEditingId(itemId)}>
                               <Pencil className="size-4" />
                             </Button>
                             <Button size="icon" variant="ghost" className="size-9 text-red-400 bg-red-50 hover:bg-red-500 hover:text-white rounded-xl transition-all" onClick={() => {
@@ -234,7 +234,7 @@ export function EditStruk({ transactionId, onClose }: { transactionId: string, o
                 variant="outline"
                 disabled={isProcessing}
                 onClick={downloadReceipt} 
-                className="border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white rounded-[24px] font-black h-16 uppercase tracking-widest text-[10px] transition-all"
+                className="border-2 border-orange-600 text-orange-600 hover:bg-orange-600 hover:text-white rounded-[24px] font-black h-16 uppercase tracking-widest text-[10px] transition-all"
               >
                 <Download className="mr-3 size-5" /> {isProcessing ? 'Processing...' : 'Simpan ke Galeri'}
               </Button>
@@ -242,7 +242,7 @@ export function EditStruk({ transactionId, onClose }: { transactionId: string, o
 
             <Button 
               onClick={handleSave}
-              className="w-full bg-gray-900 hover:bg-orange-600 text-white font-black rounded-[24px] h-20 shadow-2xl uppercase tracking-[0.4em] text-xs transition-all active:scale-95 flex items-center justify-center gap-4"
+              className="w-full bg-orange-600 hover:bg-orange-600 text-white font-black rounded-[24px] h-20 shadow-2xl uppercase tracking-[0.4em] text-xs transition-all active:scale-95 flex items-center justify-center gap-4"
             >
               <Save className="size-6 text-orange-500" /> Sinkronkan Perubahan
             </Button>
@@ -251,7 +251,7 @@ export function EditStruk({ transactionId, onClose }: { transactionId: string, o
 
         {/* PANEL KANAN: LIVE PREVIEW */}
         <div className="flex-1 bg-gray-100 p-12 flex flex-col items-center justify-start overflow-y-auto custom-scrollbar">
-          <div className="mb-8 bg-gray-900 text-white px-6 py-2 rounded-full shadow-2xl flex items-center gap-3">
+          <div className="mb-8 bg-orange-600 text-white px-6 py-2 rounded-full shadow-2xl flex items-center gap-3">
              <Eye className="size-4 text-orange-500 animate-pulse" />
              <span className="text-[9px] font-black uppercase tracking-[0.4em]">Live Struk Preview</span>
           </div>

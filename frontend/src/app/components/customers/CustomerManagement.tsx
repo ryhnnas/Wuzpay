@@ -188,7 +188,7 @@ export function CustomerManagement() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-black text-3xl uppercase tracking-tighter text-gray-900 italic">
+          <h2 className="font-black text-3xl uppercase tracking-tighter text-orange-600 italic">
             Manajemen Kontak <span className="text-orange-600">.</span>
           </h2>
           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">Database Mitra Bisnis WuzPay</p>
@@ -241,7 +241,7 @@ export function CustomerManagement() {
                 ) : (
                   filteredCustomers.map(customer => (
                     <TableRow key={customer._id || customer.id} className="hover:bg-orange-50/30 transition-colors border-gray-50">
-                      <TableCell className="font-black text-gray-900 uppercase text-xs px-8 py-5 italic">{customer.name}</TableCell>
+                      <TableCell className="font-black text-orange-600 uppercase text-xs px-8 py-5 italic">{customer.name}</TableCell>
                       <TableCell className="text-xs font-bold text-gray-500">{customer.email || '-'}</TableCell>
                       <TableCell className="text-xs font-black text-gray-700">{customer.phone || '-'}</TableCell>
                       <TableCell className="text-xs font-medium text-gray-400 truncate max-w-[200px]">{customer.address || '-'}</TableCell>
@@ -282,7 +282,7 @@ export function CustomerManagement() {
                 ) : (
                   filteredSuppliers.map(supplier => (
                     <TableRow key={supplier._id || supplier.id} className="hover:bg-orange-50/30 transition-colors border-gray-50">
-                      <TableCell className="font-black text-gray-900 uppercase text-xs px-8 py-5 italic">{supplier.name}</TableCell>
+                      <TableCell className="font-black text-orange-600 uppercase text-xs px-8 py-5 italic">{supplier.name}</TableCell>
                       <TableCell className="text-xs font-bold text-gray-500">{supplier.email || '-'}</TableCell>
                       <TableCell className="text-xs font-black text-gray-700">{(supplier as any).phone || (supplier as any).contact_info || '-'}</TableCell>
                       <TableCell className="text-xs font-medium text-gray-400 truncate max-w-[200px]">{(supplier as any).office_address || '-'}</TableCell>

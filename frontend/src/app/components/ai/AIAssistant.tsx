@@ -26,6 +26,7 @@ export function AIAssistant() {
     },
   ]);
   const [inputMessage, setInputMessage] = useState('');
+  const [activeTab, setActiveTab] = useState('chat');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -81,7 +82,38 @@ export function AIAssistant() {
         try {
           const result = await aiAPI.processReceipt(file);
           toast.success('Nota berhasil diproses!', { id: toastId });
-          console.log('Processed Data:', result);
+          
+          let aiResponseText = `Berhasil membaca nota!\n\n`;
+          if (result.data) {
+             aiResponseText += `🛒 Toko: ${result.data.store_name}\n`;
+             aiResponseText += `📅 Tanggal: ${new Date(result.data.date).toLocaleString('id-ID')}\n`;
+             aiResponseText += `💰 Total: Rp ${result.data.total_amount.toLocaleString('id-ID')}\n\n`;
+             if (result.data.items && result.data.items.length > 0) {
+               aiResponseText += `Rincian Item:\n`;
+               result.data.items.forEach((item: any) => {
+                 aiResponseText += `- ${item.name} (${item.qty}x) = Rp ${item.price.toLocaleString('id-ID')}\n`;
+               });
+             }
+          }
+          if (result.message) {
+            aiResponseText += `\n*${result.message}*`;
+          }
+
+          const fileMessage: Message = {
+            id: Date.now().toString(),
+            role: 'user',
+            content: `[Mengunggah & scan gambar nota: ${file.name}]`,
+            timestamp: new Date(),
+          };
+          const aiMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: aiResponseText,
+            timestamp: new Date(),
+          };
+          
+          setMessages(prev => [...prev, fileMessage, aiMessage]);
+          setActiveTab('chat'); // pindahkan user kembali ke tab chat
         } catch (error) {
           toast.error('Gagal memproses nota', { id: toastId });
         } finally {
@@ -103,25 +135,25 @@ export function AIAssistant() {
     <div className="p-6 space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-black text-3xl uppercase tracking-tighter text-gray-900 italic">
+          <h2 className="font-black text-3xl uppercase tracking-tighter text-orange-600 italic">
             WuzPay AI <span className="text-orange-600">Assistant</span>
           </h2>
           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">Analisis Bisnis Real-Time via Gemini</p>
         </div>
         
-        <Tabs defaultValue="chat" className="w-full md:w-auto">
-          <TabsList className="bg-gray-100 p-1 rounded-2xl w-full">
-            <TabsTrigger value="chat" className="flex-1 text-[10px] font-black uppercase tracking-widest px-6 h-10 data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-xl transition-all">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="bg-gray-100 p-1 rounded-2xl w-full md:w-auto ml-auto">
+            <TabsTrigger value="chat" className="flex-1 md:flex-none text-[10px] font-black uppercase tracking-widest px-6 h-10 data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-xl transition-all">
               Diskusi Data
             </TabsTrigger>
-            <TabsTrigger value="receipt" className="flex-1 text-[10px] font-black uppercase tracking-widest px-6 h-10 data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-xl transition-all">
+            <TabsTrigger value="receipt" className="flex-1 md:flex-none text-[10px] font-black uppercase tracking-widest px-6 h-10 data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-xl transition-all">
               Scan Nota
             </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
-      <Tabs defaultValue="chat">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsContent value="chat" className="mt-0 space-y-4">
           <Card className="h-[calc(100vh-18rem)] rounded-[32px] border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col">
             <CardContent className="flex-1 flex flex-col p-6 overflow-hidden">
@@ -140,7 +172,7 @@ export function AIAssistant() {
                       <div
                         className={`max-w-[85%] md:max-w-[70%] rounded-[24px] p-4 shadow-sm ${
                           message.role === 'user'
-                            ? 'bg-gray-900 text-white rounded-tr-none'
+                            ? 'bg-orange-600 text-white rounded-tr-none'
                             : 'bg-orange-50/50 text-gray-800 rounded-tl-none border border-orange-100/50'
                         }`}
                       >
@@ -225,7 +257,7 @@ export function AIAssistant() {
                 </div>
                 <h3 className="mb-2 font-black text-xl uppercase tracking-tighter">Upload Bukti Nota</h3>
                 <p className="mb-8 text-gray-400 font-bold text-[10px] uppercase tracking-[0.2em]">Format: JPG, PNG • Max 5MB</p>
-                <Button className="bg-gray-900 text-white rounded-2xl font-black px-12 h-14 hover:bg-orange-600 transition-all shadow-xl shadow-gray-200">
+                <Button className="bg-orange-600 text-white rounded-2xl font-black px-12 h-14 hover:bg-orange-600 transition-all shadow-xl shadow-gray-200">
                   PILIH FILE NOTA
                 </Button>
               </div>

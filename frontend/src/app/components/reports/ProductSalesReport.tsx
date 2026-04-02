@@ -82,7 +82,7 @@ export function ProductSalesReport() {
       {/* HEADER & ANALYTICS CARDS */}
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
         <div>
-          <h2 className="text-4xl font-black text-gray-900 uppercase tracking-tighter italic">
+          <h2 className="text-4xl font-black text-orange-600 uppercase tracking-tighter italic">
             Product <span className="text-orange-600">Earnings</span>
           </h2>
           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2 italic">Analisa Laba Berdasarkan Penjualan Menu</p>
@@ -99,7 +99,7 @@ export function ProductSalesReport() {
                   "px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300",
                   activeFilter === f 
                     ? "bg-orange-600 text-white shadow-lg shadow-orange-100 scale-105" 
-                    : "text-gray-400 hover:text-gray-900 hover:bg-gray-50"
+                    : "text-gray-400 hover:text-orange-600 hover:bg-gray-50"
                 )}
               >
                 {f === 'today' ? 'Hari Ini' : f === 'week' ? '7 Hari' : f === 'month' ? '30 Hari' : 'Kustom'}
@@ -116,7 +116,7 @@ export function ProductSalesReport() {
           </div>
 
           {/* NET PROFIT HIGHLIGHT (WUZPAY BRANDING) */}
-          <div className="bg-gray-900 text-white p-5 rounded-[32px] shadow-2xl flex items-center gap-6 min-w-[300px] group border-b-4 border-orange-600">
+          <div className="bg-orange-600 text-white p-5 rounded-[32px] shadow-2xl flex items-center gap-6 min-w-[300px] group border-b-4 border-orange-600">
             <div className="size-14 bg-orange-600 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-600/20 group-hover:rotate-12 transition-transform duration-500">
                <TrendingUp className="size-7 text-white" />
             </div>
@@ -133,10 +133,10 @@ export function ProductSalesReport() {
       {/* SUB-METRICS ROW */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white border border-gray-100 p-6 rounded-[28px] shadow-sm flex items-center gap-4">
-             <div className="size-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600"><DollarSign className="size-5"/></div>
+             <div className="size-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600"><DollarSign className="size-5"/></div>
              <div>
                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Gross Revenue</p>
-                <p className="text-lg font-black text-gray-900 tracking-tighter">Rp {Math.round(totalGrossRevenue).toLocaleString('id-ID')}</p>
+                <p className="text-lg font-black text-orange-600 tracking-tighter">Rp {Math.round(totalGrossRevenue).toLocaleString('id-ID')}</p>
              </div>
           </div>
           <div className="bg-white border border-gray-100 p-6 rounded-[28px] shadow-sm flex items-center gap-4">
@@ -150,7 +150,7 @@ export function ProductSalesReport() {
              <div className="size-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600"><Package className="size-5"/></div>
              <div>
                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Items Sold</p>
-                <p className="text-lg font-black text-gray-900 tracking-tighter">{data.reduce((sum, it:any) => sum + it.qty, 0)} Pcs</p>
+                <p className="text-lg font-black text-orange-600 tracking-tighter">{data.reduce((sum, it:any) => sum + it.qty, 0)} Pcs</p>
              </div>
           </div>
       </div>
@@ -199,7 +199,7 @@ export function ProductSalesReport() {
                       <td className="px-10 py-5">
                         <div className="flex items-center gap-4">
                           <span className={cn("text-[10px] font-black w-6", isFirst ? "text-orange-500" : "text-gray-300")}>{(currentPage - 1) * rowsPerPage + i + 1}</span>
-                          <span className="font-black text-gray-900 uppercase text-xs italic tracking-tight">{item.name}</span>
+                          <span className="font-black text-orange-600 uppercase text-xs italic tracking-tight">{item.name}</span>
                           {isFirst && <Award className="size-4 text-orange-500 fill-orange-500" />}
                         </div>
                       </td>
