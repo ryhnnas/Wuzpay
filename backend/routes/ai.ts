@@ -146,50 +146,148 @@ ai.get('/insights', async (c) => {
   return c.json(sample);
 });
 
-// POST /process-receipt
+// POST /process-receipt (legacy, kept for backward compat)
 ai.post('/process-receipt', async (c) => {
+  return c.json({ error: 'Gunakan /scan-receipt-ocr atau /scan-receipt-vision' }, 410);
+});
+
+// ==================== SCAN RECEIPT - OCR METHOD ====================
+// Proxy ke Python PaddleOCR microservice di port 8001
+ai.post('/scan-receipt-ocr', async (c) => {
   try {
     const body = await c.req.parseBody();
     const file = body['file'];
-
     if (!file) return c.json({ error: 'File nota wajib diunggah' }, 400);
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    
-    // Jika tidak ada API key, fallback ke data dummy agar UI tidak error
-    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'xxx') {
-      return c.json({
-        success: true,
-        data: {
-          store_name: "Toko Simulasi WuzPay",
-          date: new Date().toISOString(),
-          total_amount: 75000,
-          items: [
-            { name: "Seblak Spesial", price: 25000, qty: 2 },
-            { name: "Es Teh Manis", price: 12500, qty: 2 }
-          ]
-        },
-        message: "Catatan: Ini adalah simulasi karena Gemini API Key belum dikonfigurasi."
-      });
+    const OCR_SERVICE_URL = Deno.env.get('OCR_SERVICE_URL') || 'http://localhost:8001';
+
+    // Forward file ke Python OCR service
+    const formData = new FormData();
+    if (file instanceof File) {
+      formData.append('file', file);
+    } else {
+      return c.json({ error: 'Format file tidak valid' }, 400);
     }
 
-    // Jika ada API Key, kirim ke Gemini (implementasi sesungguhnya butuh Vision API)
-    // Untuk saat ini kita return mock sukses yang realistis
-    return c.json({
-      success: true,
-      data: {
-        store_name: "Toko Scan Sukses",
-        date: new Date().toISOString(),
-        total_amount: 150000,
-        items: [
-          { name: "Produk A", price: 50000, qty: 1 },
-          { name: "Produk B", price: 100000, qty: 1 }
-        ]
-      }
+    const ocrResponse = await fetch(`${OCR_SERVICE_URL}/upload-resit/`, {
+      method: 'POST',
+      body: formData,
     });
+
+    if (!ocrResponse.ok) {
+      const errText = await ocrResponse.text().catch(() => 'Unknown error');
+      console.error('OCR Service Error:', errText);
+      return c.json({ error: 'Gagal memproses gambar di OCR service', detail: errText }, 502);
+    }
+
+    const result = await ocrResponse.json();
+    return c.json(result);
   } catch (err: any) {
-    console.error('Receipt Process Error:', err);
-    return c.json({ error: 'Gagal memproses nota' }, 500);
+    console.error('Scan Receipt OCR Error:', err);
+    return c.json({ error: 'Gagal memproses nota via OCR' }, 500);
+  }
+});
+
+// ==================== SCAN RECEIPT - LLM VISION METHOD ====================
+// Langsung kirim gambar ke LLM vision model via OpenAI-compatible API
+ai.post('/scan-receipt-vision', async (c) => {
+  try {
+    const body = await c.req.parseBody();
+    const file = body['file'];
+    if (!file) return c.json({ error: 'File nota wajib diunggah' }, 400);
+
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const OPENAI_API_URL = Deno.env.get('OPENAI_API_URL') || 'https://api.groq.com/openai/v1';
+
+    if (!OPENAI_API_KEY) {
+      return c.json({ error: 'OPENAI_API_KEY belum dikonfigurasi di backend' }, 500);
+    }
+
+    // Baca file dan convert ke base64
+    let fileBuffer: ArrayBuffer;
+    let mimeType = 'image/png';
+
+    if (file instanceof File) {
+      fileBuffer = await file.arrayBuffer();
+      mimeType = file.type || 'image/png';
+    } else {
+      return c.json({ error: 'Format file tidak valid' }, 400);
+    }
+
+    const b64Image = btoa(
+      new Uint8Array(fileBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+    );
+
+    const SYSTEM_PROMPT = `Anda adalah mesin ekstraksi data resit (struk belanja) yang sangat presisi. Tugas Anda adalah menganalisis gambar resit dan mengubahnya menjadi format JSON yang valid.
+
+ATURAN MUTLAK:
+1. Anda HANYA boleh merespons dengan JSON murni.
+2. DILARANG KERAS menambahkan teks pengantar, penjelasan, atau penutup.
+3. DILARANG KERAS menggunakan format markdown block (jangan gunakan \`\`\`json atau \`\`\`).
+4. Jika nilai tidak ditemukan dalam teks, isi dengan null (bukan string kosong atau 0).
+5. Bersihkan angka dari simbol mata uang (seperti Rp, $, .) dan kembalikan sebagai tipe data integer/number. Format tanggal usahakan menjadi YYYY-MM-DD.
+
+STRUKTUR JSON YANG DIWAJIBKAN:
+{
+  "tanggal": "string (YYYY-MM-DD) atau null",
+  "total_belanja": integer atau null,
+  "items": [
+    {
+      "nama_barang": "string",
+      "kuantitas": integer atau null,
+      "harga_per_barang": integer atau null
+    }
+  ]
+}`;
+
+    const response = await fetch(`${OPENAI_API_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        temperature: 0,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Ekstrak data dari resit berikut:' },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${b64Image}`,
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => 'Unknown error');
+      console.error('LLM Vision API Error:', errText);
+      return c.json({ error: 'Gagal memproses gambar di LLM Vision', detail: errText }, 502);
+    }
+
+    const result = await response.json();
+    const content = result.choices?.[0]?.message?.content;
+
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      parsed = { tanggal: null, total_belanja: null, items: [] };
+    }
+
+    return c.json({ success: true, data: parsed });
+  } catch (err: any) {
+    console.error('Scan Receipt Vision Error:', err);
+    return c.json({ error: 'Gagal memproses nota via LLM Vision' }, 500);
   }
 });
 

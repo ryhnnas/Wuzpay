@@ -37,10 +37,15 @@ Arsitektur sistem menggunakan teknologi *cutting-edge* untuk memastikan skalabil
 
 Ikuti langkah-langkah di bawah untuk menjalankan projek di lingkungan lokal:
 
+### Install Deno
+```bash
+curl -fsSL https://deno.land/install.sh | sh
+```
+
 ### 1. Clone Repository
 ```bash
-git clone [https://github.com/username/wuzpay-pos.git](https://github.com/username/wuzpay-pos.git)
-cd wuzpay-pos
+git clone [https://github.com/ryhnnas/Wuzpay.git](https://github.com/ryhnnas/Wuzpay.git)
+cd Wuzpay
 ```
 
 ### 2. Konfigurasi Environment

@@ -20,6 +20,7 @@ const API_ENDPOINTS = {
     update: (id: string) => `/api/products/${id}`,
     delete: (id: string) => `/api/products/${id}`,
     addStock: (id: string) => `/api/products/${id}/add-stock`,
+    bulkAddStock: '/api/products/bulk-add-stock',
     getStockLogs: '/api/products/stock/logs',
     importExcel: '/api/products/import',
     exportExcel: '/api/products/export',
@@ -75,7 +76,9 @@ const API_ENDPOINTS = {
   ai: {
     chat: '/api/ai/chat',
     insights: '/api/ai/insights',
-    processReceipt: '/api/ai/process-receipt'
+    processReceipt: '/api/ai/process-receipt',
+    scanReceiptOCR: '/api/ai/scan-receipt-ocr',
+    scanReceiptVision: '/api/ai/scan-receipt-vision',
   }
 };
 
@@ -239,6 +242,13 @@ export const productsAPI = {
   getStockLogs: async () => {
     const response: any = await apiRequest(API_ENDPOINTS.products.getStockLogs);
     return Array.isArray(response) ? response : (response.logs || response.data || []);
+  },
+
+  bulkAddStock: async (items: any[]) => {
+    return apiRequest<any>(API_ENDPOINTS.products.bulkAddStock, {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    });
   },
 
   import: async (formData: FormData) => {
@@ -420,7 +430,17 @@ export const aiAPI = {
     const formData = new FormData();
     formData.append('file', file);
     return apiRequest(API_ENDPOINTS.ai.processReceipt, { method: 'POST', body: formData });
-  }
+  },
+  scanReceiptOCR: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiRequest<any>(API_ENDPOINTS.ai.scanReceiptOCR, { method: 'POST', body: formData });
+  },
+  scanReceiptVision: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiRequest<any>(API_ENDPOINTS.ai.scanReceiptVision, { method: 'POST', body: formData });
+  },
 };
 
 export const settingsAPI = {

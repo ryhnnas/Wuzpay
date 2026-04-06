@@ -117,6 +117,84 @@ products.get("/stock/logs", async (c) => {
   }
 });
 
+// ==================== BULK ADD STOCK (FROM RECEIPT SCAN) ====================
+products.post("/bulk-add-stock", async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization') || null;
+    const sessionId = c.req.header('X-Session-ID') || null;
+    const { user, error: authError } = await verifyAuth(authHeader, sessionId);
+    if (authError) return c.json({ error: authError }, 401);
+
+    const { items } = await c.req.json();
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return c.json({ error: 'Items array wajib diisi' }, 400);
+    }
+
+    const results = { updated: 0, created: 0, errors: [] as any[] };
+
+    for (const item of items) {
+      try {
+        const { product_id, product_name, amount, price, cost, is_new } = item;
+
+        if (is_new && product_name) {
+          // Buat produk baru
+          const newProduct = await Product.create({
+            name: product_name,
+            price: Number(price) || 0,
+            cost: Number(cost) || 0,
+            stock_quantity: Number(amount) || 0,
+            userId: user?.id,
+          });
+
+          await StockLog.create({
+            product_id: newProduct._id,
+            user_id: user?.id || 'system',
+            previous_stock: 0,
+            added_stock: Number(amount),
+            current_stock: Number(amount),
+            type: 'initial',
+          });
+
+          results.created++;
+        } else if (product_id) {
+          // Update stok produk yang sudah ada
+          const product = await Product.findById(product_id);
+          if (!product) {
+            results.errors.push({ product_id, error: 'Produk tidak ditemukan' });
+            continue;
+          }
+
+          const previousStock = product.stock_quantity || 0;
+          const addedAmount = Number(amount) || 0;
+          const newStock = previousStock + addedAmount;
+
+          product.stock_quantity = newStock;
+          await product.save();
+
+          await StockLog.create({
+            product_id: product._id,
+            user_id: user?.id || 'system',
+            previous_stock: previousStock,
+            added_stock: addedAmount,
+            current_stock: newStock,
+            type: 'addition',
+          });
+
+          results.updated++;
+        }
+      } catch (err: any) {
+        results.errors.push({ item, error: err.message });
+      }
+    }
+
+    return c.json({ success: true, results });
+  } catch (error) {
+    console.error('Bulk add stock error:', error);
+    return c.json({ error: 'Gagal batch update stok' }, 500);
+  }
+});
+
 products.post("/:id/add-stock", async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;

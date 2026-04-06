@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { 
-  Boxes, Search, Plus, Minus, Save, AlertCircle, RefreshCw, Loader2, History, User, ChevronLeft, ChevronRight
+  Boxes, Search, Plus, Minus, Save, AlertCircle, RefreshCw, Loader2, History, User, ChevronLeft, ChevronRight, ScanLine
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Input } from '@/app/components/ui/input';
@@ -11,6 +11,7 @@ import { productsAPI, categoriesAPI } from '@/services/api';
 import { cn } from '@/app/components/ui/utils';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { ScanReceiptModal } from './ScanReceiptModal';
 
 export function StockManagement() {
   const [products, setProducts] = useState<any[]>([]);
@@ -30,6 +31,7 @@ export function StockManagement() {
   const logsItemsPerPage = 20;
 
   const [addAmounts, setAddAmounts] = useState<Record<string, number>>({});
+  const [showScanModal, setShowScanModal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -116,9 +118,17 @@ export function StockManagement() {
           </h2>
           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Manajemen Persediaan</p>
         </div>
-        <Button variant="outline" onClick={fetchData} className="rounded-2xl font-black text-[10px] uppercase tracking-widest border-gray-200 h-12 px-6 hover:bg-orange-50 hover:text-orange-600 transition-all">
-          <RefreshCw className="mr-2 size-4" /> Sync Database
-        </Button>
+        <div className="flex gap-3">
+          <Button 
+            onClick={() => setShowScanModal(true)} 
+            className="rounded-2xl font-black text-[10px] uppercase tracking-widest h-12 px-6 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-700 hover:to-amber-600 text-white shadow-xl shadow-orange-200 transition-all"
+          >
+            <ScanLine className="mr-2 size-4" /> Scan Resi
+          </Button>
+          <Button variant="outline" onClick={fetchData} className="rounded-2xl font-black text-[10px] uppercase tracking-widest border-gray-200 h-12 px-6 hover:bg-orange-50 hover:text-orange-600 transition-all">
+            <RefreshCw className="mr-2 size-4" /> Sync
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="inventory" className="w-full">
@@ -281,6 +291,13 @@ export function StockManagement() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ScanReceiptModal
+        open={showScanModal}
+        onOpenChange={setShowScanModal}
+        onSaveSuccess={fetchData}
+        products={products}
+      />
     </div>
   );
 }

@@ -5,3 +5,11 @@ backend/data/
 .DS_Store
 dist/
 coverage/
+
+# Python Virtual Environments
+venv/
+env/
+.venv/
+backend/ocr-service/ocr/
+__pycache__/
+*.py[cod]

@@ -5,9 +5,11 @@
   "main": "index.js",
   "scripts": {
     "start": "node backend/server.js",
-    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev": "concurrently -n \"BACKEND,FRONTEND,OCR\" -c \"blue,green,yellow\" \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:ocr\"",
     "dev:frontend": "npm run dev --prefix frontend",
-    "dev:backend": "cd backend && deno run -A --env-file=.env --unstable-detect-cjs --watch index.tsx"
+    "dev:backend": "cd backend && deno run -A --env-file=.env --unstable-detect-cjs --watch index.tsx",
+    "dev:ocr": "cd backend/ocr-service && ./ocr/bin/python main.py",
+    "install-all": "npm install && npm install --prefix frontend && npm install --prefix backend && cd backend/ocr-service && python3 -m venv ocr && ./ocr/bin/pip install -r requirements.txt"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"

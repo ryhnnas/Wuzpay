@@ -67,4 +67,4 @@ app.get("/health", (c: Context) => c.json({
 }));
 
 // 5. Start Server
-Deno.serve({ port: 8000 }, app.fetch);
+Deno.serve({ port: process.env.PORT || 8000 }, app.fetch);
