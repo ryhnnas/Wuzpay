@@ -6,6 +6,7 @@
     "dev": "deno run -A --env-file=.env --unstable-detect-cjs --watch index.tsx"
   },
   "dependencies": {
-    "mongoose": "^8.0.0"
+    "mongoose": "^8.0.0",
+    "wuzpay": "file:.."
   }
 }
