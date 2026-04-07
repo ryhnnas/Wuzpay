@@ -2,10 +2,12 @@ import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import { Context } from "npm:hono";
+import { secureHeaders } from "npm:hono/secure-headers";
 import mongoose from "npm:mongoose"; // Tambahkan ini
 
 // 1. Import Fungsi Koneksi (Kita buat di langkah selanjutnya)
 import { connectDB } from "./lib/mongodb.ts";
+import { rateLimiter } from "./middleware/rateLimiter.ts";
 
 // Import Modular Routes
 import authRoutes from "./routes/auth.ts";
@@ -34,6 +36,7 @@ const BASE_PATH = "/api";
 
 // 2. Global Middlewares
 app.use('*', logger());
+app.use('*', secureHeaders());
 app.use("/*", cors({
   origin: [
     "http://localhost:5173",
@@ -46,7 +49,22 @@ app.use("/*", cors({
   credentials: true,
 }));
 
-// 3. Route Registration
+// 3. Route Registration & Rate Limiters
+
+// Global Rate Limiter untuk semua API (Melindungi dari DDOS ringan)
+app.use(`${BASE_PATH}/*`, rateLimiter({
+  windowMs: 60 * 1000, // 1 menit
+  limit: 100,          // Maks 100 request
+  message: "Terlalu banyak permintaan API. Harap tunggu 1 menit."
+}));
+
+// Strict Rate Limiter khusus AI (Mahal, lindungi ketat)
+app.use(`${BASE_PATH}/ai/*`, rateLimiter({
+  windowMs: 60 * 1000, // 1 Menit
+  limit: 5,            // Maks 5 eksekusi prompt AI 1 menit
+  message: "Batas permintaan AI tercapai. Harap tunggu 1 menit untuk melanjutkan."
+}));
+
 app.route(`${BASE_PATH}/auth`, authRoutes);
 app.route(`${BASE_PATH}/products`, productRoutes);
 app.route(`${BASE_PATH}/categories`, categoriesRoutes);

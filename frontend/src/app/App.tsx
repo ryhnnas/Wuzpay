@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Toaster } from '@/app/components/ui/sonner';
@@ -25,12 +26,16 @@ import SettingsPage from './components/setting/SettingPage';
 import SettingStruk from './components/setting/SettingStruk';
 import SettingPrint from './components/setting/SettingPrint';
 import SettingAkses from './components/setting/SettingAkses';
-import { authAPI, pendingOrdersAPI, permissionsAPI } from '@/services/api';
+import { authAPI, pendingOrdersAPI, permissionsAPI, transactionsAPI } from '@/services/api';
 import { IngredientManagement } from './components/products/IngredientManagement';
+import { OfflineBanner } from './components/ui/OfflineBanner';
+import db from '@/services/db';
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [currentUser, setCurrentUser] = useState<User | null>(authAPI.getCachedUser());
-  const [activeMenu, setActiveMenu] = useState('dashboard');
   const [isCheckingAuth, setIsCheckingAuth] = useState(!authAPI.getCachedUser());
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [showPendingListDialog, setShowPendingListDialog] = useState(false);
@@ -93,7 +98,9 @@ function App() {
           await loadUserPermissions(user.role);
         }
 
-        if (user.role === 'kasir') setActiveMenu('pos');
+        if (user.role && location.pathname === '/login') {
+          navigate(user.role === 'kasir' ? '/pos' : '/dashboard', { replace: true });
+        }
         loadPendingOrdersFromDB();
 
       } catch (error) {
@@ -118,16 +125,16 @@ function App() {
   const handleLoginSuccess = async (user: User) => {
     setCurrentUser(user);
     await loadUserPermissions(user.role);
-    setActiveMenu(user.role === 'kasir' ? 'pos' : 'dashboard');
+    navigate(user.role === 'kasir' ? '/pos' : '/dashboard', { replace: true });
   };
 
   const handleLogout = useCallback(() => {
     authAPI.logout();
     setCurrentUser(null);
-    setActiveMenu('dashboard');
     setUserPermissions([]);
     setIsPermsLoading(false);
-  }, []);
+    navigate('/login', { replace: true });
+  }, [navigate]);
 
   // --- GLOBAL SESSION MONITOR ---
   useEffect(() => {
@@ -146,6 +153,44 @@ function App() {
     return () => window.removeEventListener("unhandledrejection", handleAuthError);
   }, [handleLogout]);
 
+  // --- OFFLINE SYNC BACKGROUND WORKER ---
+  useEffect(() => {
+    const syncOfflineData = async () => {
+      if (!navigator.onLine) return;
+
+      const pendingTxs = await db.pendingTransactions.toArray();
+      if (pendingTxs.length === 0) return;
+
+      console.log(`🔄 Mengirim ${pendingTxs.length} transaksi offline ke awan...`);
+      for (const tx of pendingTxs) {
+        try {
+           // Mengamankan potensi duplikat, Hapus dulu dari antrean lokal.
+           // Jika panggilan API berikut patah jaringan lagi, dia akan dikembalikan lagi ke antrean lokal 
+           // di dalam fungsi api.ts secara otomatis.
+           await db.pendingTransactions.delete(tx.id!);
+           
+           await transactionsAPI.create(tx.payload);
+           
+           // Jeda pernafasan 300ms antar resit agar backend Deno Rate Limiter tidak tersentak
+           await new Promise(r => setTimeout(r, 300)); 
+        } catch(e: any) {
+           console.error("Gagal sync transaksi offline:", e);
+        }
+      }
+    };
+
+    window.addEventListener('online', syncOfflineData);
+    const syncInterval = setInterval(syncOfflineData, 20000); // Tiap 20 detik
+    
+    // Coba tembak sync saat aplikasi pertama kali ke-load (antisipasi tertinggal)
+    setTimeout(syncOfflineData, 3000);
+
+    return () => {
+      window.removeEventListener('online', syncOfflineData);
+      clearInterval(syncInterval);
+    };
+  }, []);
+
   // --- RENDER CONTENT ---
   const renderContent = () => {
     if (isCheckingAuth || isPermsLoading) {
@@ -157,6 +202,12 @@ function App() {
       );
     }
 
+    // Dapatkan menu ID dari URL path
+    let activeMenu = location.pathname.substring(1);
+    if (!activeMenu || activeMenu === 'login') {
+      activeMenu = currentUser?.role === 'kasir' ? 'pos' : 'dashboard';
+    }
+
     const isAllowed = userPermissions.includes(activeMenu) || currentUser?.role === 'owner';
 
     if (!isAllowed) {
@@ -164,44 +215,41 @@ function App() {
         <div className="flex h-full flex-col items-center justify-center p-10 bg-white">
           <ShieldCheck className="size-20 text-orange-600 mb-6" />
           <h2 className="font-black text-3xl uppercase">Akses Dibatasi</h2>
-          <Button onClick={() => setActiveMenu(currentUser?.role === 'kasir' ? 'pos' : 'dashboard')} className="mt-8 bg-black text-white px-10">KEMBALI</Button>
+          <Button onClick={() => navigate(currentUser?.role === 'kasir' ? '/pos' : '/dashboard')} className="mt-8 bg-black text-white px-10">KEMBALI</Button>
         </div>
       );
     }
 
-    // DISINI TADI EROR, SEKARANG SUDAH PAKAI activeMenu MANG!
-    switch (activeMenu) {
-      case 'pos':
-        return (
-          <POSScreen
-            pendingOrders={pendingOrders}
-            setPendingOrders={setPendingOrders}
-            showPendingListDialog={showPendingListDialog}
-            setShowPendingListDialog={setShowPendingListDialog}
-            refreshPendingOrders={loadPendingOrdersFromDB}
-          />
-        );
-      case 'dashboard': return <Dashboard />;
-      case 'ingredients': return <IngredientManagement />;
-      case 'products': return <ProductManagement />;
-      case 'stock': return <StockManagement />;
-      case 'contacts': return <CustomerManagement />;
-      case 'discounts': return <DiscountsManagement />;
-      case 'cash-drawer': return <CashDrawer />;
-      case 'kategories': return <KategoriManagement />;
-      case 'product-sales': return <ProductSalesReport />;
-      case 'category-sales': return <CategorySalesReport />;
-      case 'qris-reports': return <QrisReportPage />;
-      case 'reports': return <ReportsSection />;
-      case 'ai-insights': return <AIInsights />;
-      case 'ai-assistant': return <AIAssistant />;
-      case 'settings': return <SettingsPage onLogout={handleLogout} />;
-      case 'setting-struk': return <SettingStruk />;
-      case 'setting-print': return <SettingPrint />;
-      case 'setting-akses': return <SettingAkses />;
-      default: return <Dashboard />;
-    }
+    return (
+      <Routes>
+        <Route path="/" element={<Navigate to={currentUser?.role === 'kasir' ? '/pos' : '/dashboard'} replace />} />
+        <Route path="/login" element={<Navigate to={currentUser?.role === 'kasir' ? '/pos' : '/dashboard'} replace />} />
+        
+        <Route path="/pos" element={<POSScreen pendingOrders={pendingOrders} setPendingOrders={setPendingOrders} showPendingListDialog={showPendingListDialog} setShowPendingListDialog={setShowPendingListDialog} refreshPendingOrders={loadPendingOrdersFromDB} />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/ingredients" element={<IngredientManagement />} />
+        <Route path="/products" element={<ProductManagement />} />
+        <Route path="/stock" element={<StockManagement />} />
+        <Route path="/contacts" element={<CustomerManagement />} />
+        <Route path="/discounts" element={<DiscountsManagement />} />
+        <Route path="/cash-drawer" element={<CashDrawer />} />
+        <Route path="/kategories" element={<KategoriManagement />} />
+        <Route path="/product-sales" element={<ProductSalesReport />} />
+        <Route path="/category-sales" element={<CategorySalesReport />} />
+        <Route path="/qris-reports" element={<QrisReportPage />} />
+        <Route path="/reports" element={<ReportsSection />} />
+        <Route path="/ai-insights" element={<AIInsights />} />
+        <Route path="/ai-assistant" element={<AIAssistant />} />
+        <Route path="/settings" element={<SettingsPage onLogout={handleLogout} />} />
+        <Route path="/setting-struk" element={<SettingStruk />} />
+        <Route path="/setting-print" element={<SettingPrint />} />
+        <Route path="/setting-akses" element={<SettingAkses />} />
+        
+        <Route path="*" element={<Navigate to={currentUser?.role === 'kasir' ? '/pos' : '/dashboard'} replace />} />
+      </Routes>
+    );
   };
+
 
   if (!currentUser && !isCheckingAuth) {
     return (
@@ -212,15 +260,22 @@ function App() {
     );
   }
 
+  let activeMenu = location.pathname.substring(1);
+  if (!activeMenu || activeMenu === 'login') {
+    activeMenu = currentUser?.role === 'kasir' ? 'pos' : 'dashboard';
+  }
+
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
-      <Sidebar
-        activeMenu={activeMenu}
-        onMenuChange={setActiveMenu}
-        userRole={currentUser?.role || ''}
-        allowedMenus={userPermissions}
-      />
-      <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex flex-col h-screen overflow-hidden">
+      <OfflineBanner />
+      <div className="flex flex-1 h-full bg-gray-50 overflow-hidden font-sans relative">
+        <Sidebar
+          activeMenu={activeMenu}
+          onMenuChange={(menu: string) => navigate(`/${menu}`)}
+          userRole={currentUser?.role || ''}
+          allowedMenus={userPermissions}
+        />
+        <div className="flex flex-1 flex-col overflow-hidden">
         <Header
           user={currentUser}
           currentPage={activeMenu}
@@ -232,6 +287,7 @@ function App() {
         </main>
       </div>
       <Toaster position="top-right" richColors closeButton />
+      </div>
     </div>
   );
 }

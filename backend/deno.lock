@@ -1,18 +1,28 @@
 {
   "version": "5",
   "specifiers": {
+    "npm:@hono/zod-validator@*": "0.7.6_hono@4.12.9_zod@4.3.6",
     "npm:@supabase/supabase-js@2": "2.95.3",
     "npm:bcryptjs@*": "2.4.3",
     "npm:bcryptjs@^2.4.3": "2.4.3",
     "npm:dotenv@*": "17.4.1",
+    "npm:hono@*": "4.12.9",
     "npm:hono@4": "4.12.9",
     "npm:jsonwebtoken@*": "9.0.3",
     "npm:jsonwebtoken@9": "9.0.3",
     "npm:mongoose@8": "8.23.0",
     "npm:xlsx@*": "0.18.5",
-    "npm:xlsx@0.18": "0.18.5"
+    "npm:xlsx@0.18": "0.18.5",
+    "npm:zod@*": "4.3.6"
   },
   "npm": {
+    "@hono/zod-validator@0.7.6_hono@4.12.9_zod@4.3.6": {
+      "integrity": "sha512-Io1B6d011Gj1KknV4rXYz4le5+5EubcWEU/speUjuw9XMMIaP3n78yXLhjd2A3PXaXaUwEAluOiAyLqhBEJgsw==",
+      "dependencies": [
+        "hono",
+        "zod"
+      ]
+    },
     "@mongodb-js/saslprep@1.4.6": {
       "integrity": "sha512-y+x3H1xBZd38n10NZF/rEBlvDOOMQ6LKUTHqr8R9VkJ+mmQOYtJFxIlkkK8fZrtOiL6VixbOBWMbZGBdal3Z1g==",
       "dependencies": [
@@ -301,6 +311,9 @@
         "word"
       ],
       "bin": true
+    },
+    "zod@4.3.6": {
+      "integrity": "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="
     }
   },
   "workspace": {

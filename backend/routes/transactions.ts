@@ -5,8 +5,36 @@ import { Ingredient } from "../models/Ingredient.ts";
 import { verifyAuth } from "../middleware/auth.ts";
 import { parseDateRange } from "../lib/date.ts";
 import mongoose from "npm:mongoose";
+import { z } from "npm:zod";
+import { zValidator } from "npm:@hono/zod-validator";
+import { auditLog } from "../lib/logger.ts";
 
 const transactions = new Hono();
+
+// ==================== ZOD SCHEMAS ====================
+const transactionItemSchema = z.object({
+  id: z.string().optional(),
+  product_id: z.string().optional(),
+  name: z.string(),
+  quantity: z.union([z.string(), z.number()]),
+  price_at_sale: z.union([z.string(), z.number()]).optional(),
+  category_name: z.string().optional()
+});
+
+const transactionSchema = z.object({
+  total_real_amount: z.union([z.string(), z.number()]).optional(),
+  subtotal: z.union([z.string(), z.number()]).optional(),
+  discount_amount: z.union([z.string(), z.number()]).optional(),
+  payment_method: z.string().optional(),
+  items: z.array(transactionItemSchema).min(1, "Transaksi minimal harus memiliki 1 item barang.")
+});
+
+const updateTransactionSchema = z.object({
+  total_amount: z.union([z.string(), z.number()]),
+  total_real_amount: z.union([z.string(), z.number()]).optional(),
+  profit: z.union([z.string(), z.number()]).optional(),
+  items: z.array(transactionItemSchema) // Minimal nggak membatasi karena boleh kosong kalo order di-void?
+});
 
 // ==================== 1. GET ALL TRANSACTIONS ====================
 transactions.get("/", async (c) => {
@@ -33,7 +61,9 @@ transactions.get("/", async (c) => {
 });
 
 // ==================== 2. CREATE TRANSACTION (BOM LOGIC) ====================
-transactions.post("/", async (c) => {
+transactions.post("/", zValidator('json', transactionSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+}), async (c) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -43,7 +73,7 @@ transactions.post("/", async (c) => {
     const { user, error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
 
-    const body = await c.req.json();
+    const body = await c.req.valid('json');
     const now = new Date();
 
     const datePart = now.toISOString().split("T")[0].replace(/-/g, "");
@@ -133,6 +163,9 @@ transactions.post("/", async (c) => {
     await session.commitTransaction();
     session.endSession();
 
+    // Rekam Log Audit secara asinkron
+    auditLog("CREATE_TRANSACTION", user, { receiptNumber, totalAmount, totalItems: processedItems.length });
+
     return c.json({ success: true, transaction: newTransaction[0] });
 
   } catch (error: any) {
@@ -143,10 +176,12 @@ transactions.post("/", async (c) => {
 });
 
 // ==================== 3. UPDATE TRANSACTION ITEMS ====================
-transactions.put("/:id/items", async (c) => {
+transactions.put("/:id/items", zValidator('json', updateTransactionSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+}), async (c) => {
   const id = c.req.param("id");
   try {
-    const body = await c.req.json();
+    const body = await c.req.valid('json');
     const { items, total_amount, total_real_amount, profit } = body;
 
     const updated = await Transaction.findByIdAndUpdate(
@@ -164,6 +199,11 @@ transactions.put("/:id/items", async (c) => {
     );
 
     if (!updated) return c.json({ error: "Transaksi ga ketemu mang!" }, 404);
+
+    // Ambil auth (opsional jika endpoint ini tidak strict) untuk dicatat di log
+    const authHeader = c.req.header("Authorization") || null;
+    const { user } = await verifyAuth(authHeader, null);
+    auditLog("UPDATE_TRANSACTION_ITEMS", user, { id, total_amount, itemsCount: items.length });
 
     return c.json({ success: true, data: updated });
   } catch (error: any) {

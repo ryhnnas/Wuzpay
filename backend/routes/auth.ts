@@ -3,14 +3,31 @@ import { User } from "../models/User.ts";
 import { verifyAuth } from "../middleware/auth.ts";
 import bcrypt from "npm:bcryptjs";
 import jwt from "npm:jsonwebtoken";
+import { z } from "npm:zod";
+import { zValidator } from "npm:@hono/zod-validator";
 
 const auth = new Hono();
 const JWT_SECRET = Deno.env.get("JWT_SECRET") || "supersecretkeywuzpay";
 
+// ==================== ZOD SCHEMAS ====================
+const registerSchema = z.object({
+  email: z.string().email("Format email tidak valid"),
+  password: z.string().min(6, "Password minimal 6 karakter"),
+  name: z.string().min(1, "Nama tidak boleh kosong"),
+  role: z.enum(['owner', 'admin', 'kasir']).optional()
+});
+
+const loginSchema = z.object({
+  email: z.string().email("Format email tidak valid"),
+  password: z.string().min(1, "Password tidak boleh kosong"),
+});
+
 // ==================== SIGN UP / REGISTER ====================
-auth.post("/register", async (c) => {
+auth.post("/register", zValidator('json', registerSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+}), async (c) => {
   try {
-    const { email, password, name, role } = await c.req.json();
+    const { email, password, name, role } = await c.req.valid('json');
 
     // Cek apakah user sudah ada
     const existingUser = await User.findOne({ email });
@@ -36,9 +53,11 @@ auth.post("/register", async (c) => {
 });
 
 // ==================== SIGN IN / LOGIN ====================
-auth.post("/login", async (c) => {
+auth.post("/login", zValidator('json', loginSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+}), async (c) => {
   try {
-    const { email, password } = await c.req.json();
+    const { email, password } = await c.req.valid('json');
 
     const user = await User.findOne({ email });
     if (!user) return c.json({ error: "Email atau Password salah" }, 400);
@@ -66,6 +85,21 @@ auth.post("/login", async (c) => {
     });
   } catch (error) {
     return c.json({ error: 'Gagal login' }, 500);
+  }
+});
+
+// ==================== GET CURRENT USER ====================
+auth.get('/me', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization') || null;
+    const sessionId = c.req.header('X-Session-ID') || null;
+
+    const { user, error, status } = await verifyAuth(authHeader, sessionId);
+    if (error || !user) return c.json({ error: error || 'Unauthorized' }, status || 401);
+
+    return c.json({ user });
+  } catch (err) {
+    return c.json({ error: 'Gagal mengambil data user' }, 500);
   }
 });
 

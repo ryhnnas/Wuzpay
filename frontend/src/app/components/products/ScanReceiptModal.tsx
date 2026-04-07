@@ -8,7 +8,7 @@ import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Badge } from '@/app/components/ui/badge';
 import { cn } from '@/app/components/ui/utils';
-import { aiAPI, productsAPI } from '@/services/api';
+import { aiAPI, productsAPI, ingredientsAPI } from '@/services/api';
 import { toast } from 'sonner';
 
 interface ScannedItem {
@@ -26,13 +26,13 @@ interface ScanReceiptModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaveSuccess: () => void;
-  products: any[];
+  ingredients: any[];
 }
 
 type Step = 'method' | 'upload' | 'processing' | 'results' | 'confirm-new' | 'saving' | 'done';
 type ScanMethod = 'ocr' | 'vision';
 
-export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, products }: ScanReceiptModalProps) {
+export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredients }: ScanReceiptModalProps) {
   const [step, setStep] = useState<Step>('method');
   const [method, setMethod] = useState<ScanMethod | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -64,28 +64,28 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, products }
 
   // Fuzzy match product name
   const matchProduct = useCallback((name: string) => {
-    if (!name || !products.length) return null;
+    if (!name || !ingredients.length) return null;
     const lower = name.toLowerCase().trim();
 
     // Exact match
-    const exact = products.find(p => p.name?.toLowerCase() === lower);
+    const exact = ingredients.find(p => p.name?.toLowerCase() === lower);
     if (exact) return exact;
 
     // Partial match (contains)
-    const partial = products.find(p =>
+    const partial = ingredients.find(p =>
       p.name?.toLowerCase().includes(lower) || lower.includes(p.name?.toLowerCase())
     );
     if (partial) return partial;
 
     // Word-based match
     const words = lower.split(/\s+/);
-    const wordMatch = products.find(p => {
+    const wordMatch = ingredients.find(p => {
       const pWords = p.name?.toLowerCase().split(/\s+/) || [];
       return words.some((w: string) => w.length > 2 && pWords.some((pw: string) => pw.includes(w) || w.includes(pw)));
     });
 
     return wordMatch || null;
-  }, [products]);
+  }, [ingredients]);
 
   // Handle file selection
   const handleFileSelect = (file: File) => {
@@ -168,7 +168,7 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, products }
 
   // Manual product match
   const manualMatchProduct = (itemId: string, productId: string) => {
-    const product = products.find(p => (p._id || p.id) === productId);
+    const product = ingredients.find(p => (p._id || p.id) === productId);
     if (!product) return;
 
     setScannedItems(prev => prev.map(item => {
@@ -239,15 +239,14 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, products }
       }
 
       const payload = validItems.map(item => ({
-        product_id: item.matched_product_id,
-        product_name: item.nama_barang,
+        ingredient_id: item.matched_product_id,
+        name: item.nama_barang,
         amount: item.kuantitas,
         price: item.harga_per_barang,
-        cost: 0,
         is_new: item.is_new && item.confirmed_new,
       }));
 
-      const result = await productsAPI.bulkAddStock(payload);
+      const result = await ingredientsAPI.saveOCR(payload);
       setSaveResult(result);
       setStep('done');
       toast.success(`Stok berhasil diperbarui! ${result.results?.updated || 0} diupdate, ${result.results?.created || 0} dibuat`);
@@ -512,7 +511,7 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, products }
                         }}
                       >
                         <option value="">Pilih produk yang cocok...</option>
-                        {products.map(p => (
+                        {ingredients.map(p => (
                           <option key={p._id || p.id} value={p._id || p.id}>
                             {p.name} (Stok: {p.stock_quantity || 0})
                           </option>

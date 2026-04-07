@@ -85,8 +85,8 @@ export function QrisReportPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="rounded-[32px] border-none shadow-2xl bg-orange-600 text-white p-2 relative overflow-hidden group">
           <CardContent className="pt-6 relative z-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-2">Total QRIS Masuk</p>
-            <h3 className="text-3xl font-black italic tracking-tighter text-orange-500">
+            <p className="text-[10px] font-white uppercase tracking-[0.2em] text-white-500 mb-2">Total QRIS Masuk</p>
+            <h3 className="text-3xl font-white italic tracking-tighter text-white">
               Rp {summary.totalAmount.toLocaleString('id-ID')}
             </h3>
           </CardContent>

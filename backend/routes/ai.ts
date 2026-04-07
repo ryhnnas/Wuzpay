@@ -4,6 +4,39 @@ import { Ingredient } from "../models/Ingredient.ts";
 
 const ai = new Hono();
 
+// ==================== OCR ASYNC QUEUE (SEMAPHORE) ====================
+// Berfungsi menahan request OCR agar berjalan SATU-PERSATU, menghindari server Python OOM
+const ocrQueue: (() => Promise<void>)[] = [];
+let isProcessingOCR = false;
+
+async function processOcrQueue() {
+  if (isProcessingOCR || ocrQueue.length === 0) return;
+  isProcessingOCR = true;
+  while (ocrQueue.length > 0) {
+    const job = ocrQueue.shift();
+    if (job) {
+      try { await job(); } 
+      catch (err) { console.error("OCR Queue Error:", err); }
+    }
+  }
+  isProcessingOCR = false;
+}
+
+function enqueueOcrTask<T>(task: () => Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    ocrQueue.push(async () => {
+      try {
+        const result = await task();
+        resolve(result);
+      } catch (e) {
+        reject(e);
+      }
+    });
+    // Picu antrean jika sedang nganggur
+    processOcrQueue();
+  });
+}
+
 // ==================== SYSTEM INSTRUCTION ====================
 function getSystemInstruction() {
   const t = new Date();
@@ -299,7 +332,10 @@ ai.post("/scan-receipt-ocr", async (c) => {
       return c.json({ error: "Format file tidak valid" }, 400);
     }
 
-    const ocrResponse = await fetch(`${OCR_SERVICE_URL}/upload-resit/`, { method: "POST", body: formData });
+    const ocrResponse = await enqueueOcrTask(() => 
+      fetch(`${OCR_SERVICE_URL}/upload-resit/`, { method: "POST", body: formData })
+    );
+
     if (!ocrResponse.ok) {
       return c.json({ error: "Gagal memproses gambar di OCR service" }, 502);
     }

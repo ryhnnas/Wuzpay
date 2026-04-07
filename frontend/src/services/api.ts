@@ -1,4 +1,5 @@
 import { Product, Category, Customer, Supplier, Transaction, Discount, CashDrawer, User } from '@/types';
+import db from './db';
 
 // Ambil Base URL dari .env atau fallback ke localhost
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -303,9 +304,8 @@ export const transactionsAPI = {
 
   getById: async (id: string) => apiRequest<any>(API_ENDPOINTS.transactions.getById(id)),
 
-  create: async (tx: any) => apiRequest(API_ENDPOINTS.transactions.create, {
-    method: 'POST',
-    body: JSON.stringify({
+  create: async (tx: any) => {
+    const formattedPayload = {
       ...tx,
       total_amount: tx.total_amount || tx.total,
       payment_method: tx.payment_method || tx.paymentMethod,
@@ -315,8 +315,45 @@ export const transactionsAPI = {
         price_at_sale: i.price_at_sale || i.price,
         cost_at_sale: i.cost_at_sale || i.cost || 0
       }))
-    }),
-  }),
+    };
+
+    try {
+      // Jika memang jelas tidak ada koneksi, langsung lempar error agar ditangkap blok catch offline
+      if (!navigator.onLine) throw new Error("NETWORK_OFFLINE");
+
+      return await apiRequest(API_ENDPOINTS.transactions.create, {
+        method: 'POST',
+        body: JSON.stringify(formattedPayload),
+      });
+    } catch (e: any) {
+      // Tangkap pesan kegagalan network bawaan fetch() (Failed to fetch) atau custom error kita
+      const isNetworkError = e.message === "NETWORK_OFFLINE" || String(e).includes("Failed to fetch") || String(e).includes("NetworkError");
+      
+      if (isNetworkError) {
+        console.warn("⚠️ [Offline Mode] Menyimpan Transaksi ke Penyimpanan Lokal...");
+        
+        await db.pendingTransactions.add({
+          payload: formattedPayload,
+          timestamp: Date.now()
+        });
+
+        // Mengembalikan Mock Response agar aplikasi kasir berasa normal (ngeluarin struk & bersih-bersih)
+        return {
+          success: true,
+          offline: true, 
+          transaction: {
+            ...formattedPayload,
+            _id: `OFFLINE-TX-${Date.now()}`,
+            receipt_number: `WUZ-OFFLINE-${Math.random().toString(36).substring(2,6).toUpperCase()}`,
+            createdAt: new Date().toISOString()
+          }
+        };
+      }
+      
+      // Jika errornya dari server (misal 400 Bad Request/Zod Error), lemparkan ke UI
+      throw e;
+    }
+  },
 
   updateItems: async (id: string, payload: any) => apiRequest(API_ENDPOINTS.transactions.update(id), {
     method: 'PUT',
