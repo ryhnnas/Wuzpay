@@ -99,7 +99,7 @@ export const clearAuthSession = () => {
 async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
   const sessionId = getSessionId();
-  
+
   const headers: HeadersInit = {
     ...options.headers,
   };
@@ -110,15 +110,15 @@ async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T>
 
   if (token && token !== "undefined" && token !== "null") {
     headers['Authorization'] = `Bearer ${token}`;
-  } 
+  }
 
   if (sessionId && sessionId !== "null" && sessionId !== "undefined") {
     headers['X-Session-ID'] = sessionId;
   }
 
   // URL Handling: Pastikan domain bersih
-  const base = API_BASE_URL.replace(/\/$/, ''); 
-  const path = url.replace(/^\//, ''); 
+  const base = API_BASE_URL.replace(/\/$/, '');
+  const path = url.replace(/^\//, '');
   const finalUrl = url.startsWith('http') ? url : `${base}/${path}`;
 
   const response = await fetch(finalUrl, { ...options, headers });
@@ -151,14 +151,14 @@ export const authAPI = {
 
   login: async (email: string, password: string): Promise<{ user: User; access_token: string; session_id: string }> => {
     const data = await apiRequest<{ user: User; access_token: string; session_id: string }>(API_ENDPOINTS.auth.login, {
-      method: 'POST', 
+      method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    
+
     if (data.access_token) setAuthToken(data.access_token);
     if (data.session_id) setSessionId(data.session_id);
     if (data.user) localStorage.setItem('user_data', JSON.stringify(data.user));
-    
+
     return data;
   },
 
@@ -197,10 +197,10 @@ export const authAPI = {
       method: 'DELETE',
     });
   },
-  
+
   logout: () => {
     clearAuthSession();
-    window.location.href = '/login'; 
+    window.location.href = '/login';
   },
 };
 
@@ -292,10 +292,10 @@ export const transactionsAPI = {
     const params = new URLSearchParams();
     if (filters?.startDate) params.append('startDate', typeof filters.startDate === 'string' ? filters.startDate : filters.startDate.toISOString());
     if (filters?.endDate) params.append('endDate', typeof filters.endDate === 'string' ? filters.endDate : filters.endDate.toISOString());
-    
+
     const query = params.toString();
     if (query) url += `?${query}`;
-    
+
     const response: any = await apiRequest(url);
     const raw = Array.isArray(response) ? response : (response.transactions || response.data || []);
     return raw.map((t: any) => ({ ...t, id: t._id, total: t.total_amount }));
@@ -371,20 +371,20 @@ export const reportsAPI = {
     const e = typeof end === 'string' ? new Date(end).toISOString() : end.toISOString();
     return apiRequest(`${API_ENDPOINTS.analytics.productSales}?startDate=${s}&endDate=${e}`);
   },
-  
+
   getCategorySales: async (start: Date | string, end: Date | string) => {
     // PROTEKSI: Cek tipe data, kalau string konversi dulu mang!
     const s = typeof start === 'string' ? new Date(start).toISOString() : start.toISOString();
     const e = typeof end === 'string' ? new Date(end).toISOString() : end.toISOString();
     return apiRequest(`${API_ENDPOINTS.analytics.categorySales}?startDate=${s}&endDate=${e}`);
   },
-  
+
   getQrisReports: async (start: Date | string, end: Date | string, limit: number = 20) => {
     const s = typeof start === 'string' ? new Date(start).toISOString() : start.toISOString();
     const e = typeof end === 'string' ? new Date(end).toISOString() : end.toISOString();
     return apiRequest(`${API_ENDPOINTS.analytics.qris}?startDate=${s}&endDate=${e}&limit=${limit}`);
   },
-  
+
   getSummary: async (start: Date | string, end: Date | string) => {
     const s = typeof start === 'string' ? new Date(start).toISOString() : start.toISOString();
     const e = typeof end === 'string' ? new Date(end).toISOString() : end.toISOString();
@@ -420,8 +420,8 @@ export const pendingOrdersAPI = {
 // ==================== AI & SETTINGS ====================
 export const aiAPI = {
   chat: async (prompt: string, history: any[]) => {
-    const res = await apiRequest<{ response: string }>(API_ENDPOINTS.ai.chat, { 
-      method: 'POST', body: JSON.stringify({ prompt, history }) 
+    const res = await apiRequest<{ response: string }>(API_ENDPOINTS.ai.chat, {
+      method: 'POST', body: JSON.stringify({ prompt, history })
     });
     return res.response;
   },
@@ -466,8 +466,8 @@ export const settingsAPI = {
       return { store_name: 'WUZPAY SINDANGSARI', paper_size: '58mm' };
     }
   },
-  updateReceiptSettings: async (config: any) => apiRequest(API_ENDPOINTS.receipt_settings.base, { 
-    method: 'PUT', body: JSON.stringify(config) 
+  updateReceiptSettings: async (config: any) => apiRequest(API_ENDPOINTS.receipt_settings.base, {
+    method: 'PUT', body: JSON.stringify(config)
   }),
 };
 
@@ -476,4 +476,39 @@ export const permissionsAPI = {
   update: (role: string, menus: string[]) => apiRequest(API_ENDPOINTS.permissions.update(role), {
     method: 'PUT', body: JSON.stringify({ allowed_menus: menus })
   }),
+};
+
+// INGREDIENT
+export const ingredientsAPI = {
+  getAll: async () => {
+    const res = await fetch('http://localhost:5000/api/ingredients');
+    if (!res.ok) throw new Error('Gagal fetch ingredients');
+    return (await res.json()).data;
+  },
+  addStock: async (id: string, amount: number) => {
+    // Nanti kita buat endpoint khusus untuk update stok manual
+    const res = await fetch(`http://localhost:5000/api/ingredients/${id}/add-stock`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount })
+    });
+    if (!res.ok) throw new Error('Gagal update stok ingredient');
+    return await res.json();
+  },
+  saveOCR: async (items: any[]) => {
+    const res = await fetch('http://localhost:5000/api/ingredients/ocr-bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items })
+    });
+    if (!res.ok) throw new Error('Gagal simpan hasil OCR');
+    return await res.json();
+  },
+  delete: async (id: string) => {
+    const res = await fetch(`http://localhost:5000/api/ingredients/${id}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) throw new Error('Gagal menghapus bahan baku');
+    return await res.json();
+  }
 };
