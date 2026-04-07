@@ -157,15 +157,15 @@ export function AIAssistant() {
         <TabsContent value="chat" className="mt-0 space-y-4">
           <Card className="h-[calc(100vh-18rem)] rounded-[32px] border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col">
             <CardContent className="flex-1 flex flex-col p-6 overflow-hidden">
-              <ScrollArea className="flex-1 pr-4">
-                <div className="space-y-6">
+              <div className="flex-1 overflow-y-auto pr-2" style={{ scrollBehavior: 'smooth' }}>
+                <div className="space-y-6 pb-2">
                   {messages.map(message => (
                     <div
                       key={message.id}
                       className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : ''}`}
                     >
                       {message.role === 'assistant' && (
-                        <Avatar className="bg-orange-600 size-10 shadow-lg shadow-orange-100">
+                        <Avatar className="bg-orange-600 size-10 shadow-lg shadow-orange-100 shrink-0">
                           <AvatarFallback><Bot className="size-5 text-white" /></AvatarFallback>
                         </Avatar>
                       )}
@@ -182,7 +182,7 @@ export function AIAssistant() {
                         </p>
                       </div>
                       {message.role === 'user' && (
-                        <Avatar className="bg-orange-100 size-10">
+                        <Avatar className="bg-orange-100 size-10 shrink-0">
                           <AvatarFallback><User className="size-5 text-orange-600" /></AvatarFallback>
                         </Avatar>
                       )}
@@ -190,7 +190,7 @@ export function AIAssistant() {
                   ))}
                   {isLoading && (
                     <div className="flex gap-3">
-                      <Avatar className="bg-orange-600 size-10 animate-bounce">
+                      <Avatar className="bg-orange-600 size-10 animate-bounce shrink-0">
                         <AvatarFallback><Zap className="size-5 text-white" /></AvatarFallback>
                       </Avatar>
                       <div className="rounded-[24px] bg-gray-50 p-4 flex items-center gap-2">
@@ -199,9 +199,9 @@ export function AIAssistant() {
                       </div>
                     </div>
                   )}
-                  <div ref={scrollRef} />
+                  <div ref={scrollRef} className="h-1" />
                 </div>
-              </ScrollArea>
+              </div>
 
               <div className="mt-4 pt-4 border-t border-gray-50">
                 {/* Quick Questions */}

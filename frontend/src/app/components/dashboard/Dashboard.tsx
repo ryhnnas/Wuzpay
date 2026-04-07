@@ -16,7 +16,7 @@ import { cn } from "@/app/components/ui/utils";
 import { toast } from 'sonner';
 
 export function Dashboard() {
-  const [dateRange, setDateRange] = useState('month'); // Default ke month agar data Seed Maret langsung muncul
+  const [dateRange, setDateRange] = useState('today');
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -39,27 +39,30 @@ export function Dashboard() {
       let eStr = "";
 
       const now = new Date();
-      const offset = now.getTimezoneOffset() * 60000;
-      const localISOTime = new Date(now - offset).toISOString();
-      const todayStr = localISOTime.split('T')[0];
 
       if (dateRange === 'today') {
-        sStr = `${todayStr}T00:00:00.000Z`;
-        eStr = `${todayStr}T23:59:59.999Z`;
+        // Midnight hari ini (local timezone) → dikonversi ke UTC otomatis
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+        sStr = todayStart.toISOString();
+        eStr = todayEnd.toISOString();
       } else if (dateRange === 'week') {
-        const start = new Date();
-        start.setDate(start.getDate() - 7);
-        sStr = start.toISOString().split('T')[0] + 'T00:00:00.000Z';
-        eStr = `${todayStr}T23:59:59.999Z`;
+        const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        sStr = weekStart.toISOString();
+        eStr = todayEnd.toISOString();
       } else if (dateRange === 'month') {
         const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        sStr = firstDay.toISOString().split('T')[0] + 'T00:00:00.000Z';
-        eStr = lastDay.toISOString().split('T')[0] + 'T23:59:59.999Z';
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 1); // awal bulan berikutnya
+        sStr = firstDay.toISOString();
+        eStr = lastDay.toISOString();
       } else if (dateRange === 'custom') {
         if (!startDate || !endDate) { setIsLoading(false); return; }
-        sStr = `${startDate}T00:00:00.000Z`;
-        eStr = `${endDate}T23:59:59.999Z`;
+        // Parse tanggal custom ke local timezone lalu konversi ke UTC
+        const [sy, sm, sd] = startDate.split('-').map(Number);
+        const [ey, em, ed] = endDate.split('-').map(Number);
+        sStr = new Date(sy, sm - 1, sd).toISOString();
+        eStr = new Date(ey, em - 1, ed + 1).toISOString(); // +1 hari supaya inclusive
       }
 
       // Hit API WuzPay Backend
