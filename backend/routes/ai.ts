@@ -10,20 +10,23 @@ async function fetchBusinessContext(): Promise<string> {
   try {
     const now = new Date();
     const todayStart = new Date(now.setHours(0, 0, 0, 0));
+    const todayEnd = new Date(todayStart);
+    todayEnd.setDate(todayEnd.getDate() + 1);
+
     const sevenDaysAgo = new Date(new Date().setDate(now.getDate() - 7));
     const thirtyDaysAgo = new Date(new Date().setDate(now.getDate() - 30));
 
     // 1. Ambil Summary Penjualan (Today, Week, Month) menggunakan Aggregation
     const salesStats = await Transaction.aggregate([
-      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      { $match: { createdAt: { $gte: thirtyDaysAgo, $lt: todayEnd } } },
       {
         $facet: {
-          today: [{ $match: { createdAt: { $gte: todayStart } } }, { $group: { _id: null, rev: { $sum: "$total_amount" }, count: { $sum: 1 } } }],
-          weekly: [{ $match: { createdAt: { $gte: sevenDaysAgo } } }, { $group: { _id: null, rev: { $sum: "$total_amount" }, count: { $sum: 1 } } }],
+          today: [{ $match: { createdAt: { $gte: todayStart, $lt: todayEnd } } }, { $group: { _id: null, rev: { $sum: "$total_amount" }, count: { $sum: 1 } } }],
+          weekly: [{ $match: { createdAt: { $gte: sevenDaysAgo, $lt: todayEnd } } }, { $group: { _id: null, rev: { $sum: "$total_amount" }, count: { $sum: 1 } } }],
           monthly: [{ $group: { _id: null, rev: { $sum: "$total_amount" }, count: { $sum: 1 } } }],
           dailyBreakdown: [
-            { $match: { createdAt: { $gte: sevenDaysAgo } } },
-            { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, rev: { $sum: "$total_amount" }, count: { $sum: 1 } } },
+            { $match: { createdAt: { $gte: sevenDaysAgo, $lt: todayEnd } } },
+            { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "Asia/Jakarta" } }, rev: { $sum: "$total_amount" }, count: { $sum: 1 } } },
             { $sort: { "_id": 1 } }
           ]
         }
@@ -40,7 +43,7 @@ async function fetchBusinessContext(): Promise<string> {
 
     // 2. Top 10 Produk (Unwind array items di MongoDB)
     const topProductsRaw = await Transaction.aggregate([
-      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      { $match: { createdAt: { $gte: thirtyDaysAgo, $lt: todayEnd } } },
       { $unwind: "$items" },
       {
         $group: {
@@ -120,9 +123,23 @@ ai.post('/chat', async (c) => {
 
     const prompt = body.prompt || body.message || (body.messages?.[body.messages.length - 1]?.content);
 
+    // Bawa riwayat percakapan agar AI paham konteks
+    const history = Array.isArray(body.history) ? body.history : [];
+    const messages = history.map((m: any) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      content: m.content || m.text || ''
+    }));
+    
+    if (prompt) {
+      messages.push({ role: 'user', content: prompt });
+    }
+
+    const businessContext = await fetchBusinessContext();
+
     const result = await callGemini(GEMINI_API_URL!, GEMINI_API_KEY, {
-      prompt: prompt,
-      systemInstruction: await fetchBusinessContext(),
+      messages: messages.length > 0 ? messages : undefined,
+      prompt: messages.length > 0 ? undefined : prompt,
+      systemInstruction: businessContext,
     });
 
     // Menangani format response Gemini yang berbeda-beda

@@ -1,8 +1,8 @@
 // WuzPay Database Configuration
 // Customized for Local MongoDB & Hono Backend
 
-// API Base URL - Mengambil dari .env (Localhost:5000)
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+// API Base URL - Mengambil dari .env (Localhost:8000)
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export const API_ENDPOINTS = {
   // Authentication

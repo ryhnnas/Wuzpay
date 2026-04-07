@@ -7,14 +7,24 @@ import bcrypt from "npm:bcryptjs";
 const seedRouter = new Hono();
 
 // ─────────────────────────────────────────────
-// HELPER: Tanggal acak antara 1–31 Maret 2026
+// HELPER: Tanggal acak dengan jam operasional
 // ─────────────────────────────────────────────
-const getRandomMarchDate = () => {
-  const day   = Math.floor(Math.random() * 31) + 1;   // 1 – 31
-  const hour  = Math.floor(Math.random() * 13) + 9;   // 09:00 – 21:xx
-  const min   = Math.floor(Math.random() * 60);
-  const sec   = Math.floor(Math.random() * 60);
-  return new Date(2026, 2, day, hour, min, sec);       // bulan 2 = Maret (0-indexed)
+const getRandomTimeForDate = (year: number, month: number, day: number) => {
+  const hour = Math.floor(Math.random() * 13) + 9;   // 09:00 – 21:xx
+  const min  = Math.floor(Math.random() * 60);
+  const sec  = Math.floor(Math.random() * 60);
+  return new Date(year, month, day, hour, min, sec);
+};
+
+// HELPER: Generate semua tanggal dari startDate sampai endDate (inclusive)
+const generateDateRange = (start: Date, end: Date): Date[] => {
+  const dates: Date[] = [];
+  const cur = new Date(start);
+  while (cur <= end) {
+    dates.push(new Date(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
 };
 
 // HELPER: Pilih elemen acak dari array
@@ -53,14 +63,14 @@ seedRouter.get("/full-setup", async (c) => {
     // ── 3. BUAT OWNER + KASIR ───────────────────────────────────────────────
     const ownerId  = new mongoose.Types.ObjectId();
     const kasirId  = new mongoose.Types.ObjectId();
-    const hashedPw = await bcrypt.hash("admin123", 10);
+    const hashedPw = await bcrypt.hash("owner123", 10);
     const kasirPw  = await bcrypt.hash("kasir123", 10);
 
     await User.create([
       {
         _id: ownerId,
         name: "Owner WuzPay",
-        email: "admin@wuzpay.com",
+        email: "owner@wuzpay.com",
         password: hashedPw,
         role: "owner",
       },
@@ -653,10 +663,9 @@ seedRouter.get("/full-setup", async (c) => {
       })
     );
 
-    // ── 7. GENERATE 500 TRANSAKSI ACAK MARET 2026 ──────────────────────────
+    // ── 7. GENERATE ~1500 TRANSAKSI (1 Mar – 8 Mei 2026) ────────────────────
     const paymentMethods = ["cash", "qris", "gopay", "transfer"] as const;
 
-    // Nama pelanggan acak supaya laporan lebih realistis
     const customerNames = [
       "Pelanggan Umum", "Budi Santoso", "Siti Rahayu", "Ahmad Fauzi",
       "Rina Kartika", "Dian Permana", "Yusuf Hakim", "Dewi Lestari",
@@ -668,77 +677,109 @@ seedRouter.get("/full-setup", async (c) => {
       "Galih Setiawan", "Eva Anggraeni",
     ];
 
+    // Rentang tanggal: 1 Maret 2026 – 8 Mei 2026
+    const allDays = generateDateRange(
+      new Date(2026, 2, 1),  // 1 Maret
+      new Date(2026, 4, 8),  // 8 Mei
+    );
+
+    // Distribusikan ~1500 transaksi secara acak per hari (15–30 per hari)
+    const TOTAL_TARGET = 1500;
+    // Buat bobot acak per hari, lalu normalize agar total = TOTAL_TARGET
+    const rawWeights = allDays.map(() => Math.random() * 15 + 15); // 15-30 base
+    const weightSum = rawWeights.reduce((a, b) => a + b, 0);
+    const txPerDay = rawWeights.map((w) => Math.max(5, Math.round((w / weightSum) * TOTAL_TARGET)));
+
     const transactions: any[] = [];
+    let globalIdx = 0;
 
-    for (let i = 0; i < 500; i++) {
-      // Ambil 1–3 produk berbeda per transaksi (lebih realistis)
-      const numItems = randInt(1, 3);
-      const usedIndices = new Set<number>();
-      const items: any[] = [];
+    for (let d = 0; d < allDays.length; d++) {
+      const dayDate = allDays[d];
+      const count = txPerDay[d];
 
-      let totalRealAmount = 0;
-      let totalProfit     = 0;
+      for (let t = 0; t < count; t++) {
+        const date = getRandomTimeForDate(
+          dayDate.getFullYear(),
+          dayDate.getMonth(),
+          dayDate.getDate(),
+        );
 
-      for (let j = 0; j < numItems; j++) {
-        let idx: number;
-        do { idx = Math.floor(Math.random() * finalProducts.length); }
-        while (usedIndices.has(idx));
-        usedIndices.add(idx);
+        // 1–3 produk per transaksi
+        const numItems = randInt(1, 3);
+        const usedIndices = new Set<number>();
+        const items: any[] = [];
+        let totalRealAmount = 0;
+        let totalProfit = 0;
 
-        const prod  = finalProducts[idx];
-        const qty   = randInt(1, 3);
-        const price = prod.p;
-        const cost  = prod.cost_real;
+        for (let j = 0; j < numItems; j++) {
+          let idx: number;
+          do { idx = Math.floor(Math.random() * finalProducts.length); }
+          while (usedIndices.has(idx));
+          usedIndices.add(idx);
 
-        totalRealAmount += price * qty;
-        totalProfit     += (price - cost) * qty;
+          const prod = finalProducts[idx];
+          const qty = randInt(1, 3);
+          const price = prod.p;
+          const cost = prod.cost_real;
 
-        items.push({
-          product_id:    prod._id,
-          name:          prod.n,
-          quantity:      qty,
-          price_at_sale: price,
-          cost_at_sale:  cost,
-          total_amount:  price * qty,
-          category_name: prod.catName,
+          totalRealAmount += price * qty;
+          totalProfit += (price - cost) * qty;
+
+          items.push({
+            product_id:    prod._id,
+            name:          prod.n,
+            quantity:      qty,
+            price_at_sale: price,
+            cost_at_sale:  cost,
+            total_amount:  price * qty,
+            category_name: prod.catName,
+          });
+        }
+
+        // Diskon acak (10% peluang kena diskon 5–20%)
+        let discountAmount = 0;
+        if (Math.random() < 0.10) {
+          const discPct = pick([5, 10, 15, 20]);
+          discountAmount = Math.round((totalRealAmount * discPct) / 100);
+        }
+        const totalAmount = totalRealAmount - discountAmount;
+
+        const method = pick(paymentMethods);
+        const yy = String(date.getFullYear());
+        const mm = String(date.getMonth() + 1).padStart(2, "0");
+        const dd = String(date.getDate()).padStart(2, "0");
+
+        globalIdx++;
+        transactions.push({
+          receipt_number: `WP-${yy}${mm}${dd}-${String(globalIdx).padStart(4, "0")}`,
+          userId:          ownerId.toString(),
+          customer_name:   pick(customerNames),
+          total_amount:    totalAmount,
+          total_real_amount: totalRealAmount,
+          discount_amount: discountAmount,
+          profit:          totalProfit - discountAmount,
+          payment_method:  method,
+          amount_paid:     method === "cash"
+                             ? totalAmount + pick([0, 5000, 10000, 20000, 50000])
+                             : totalAmount,
+          change_amount:   method === "cash"
+                             ? pick([0, 5000, 10000, 20000, 50000])
+                             : 0,
+          items,
+          status:    "completed",
+          createdAt: date,
+          updatedAt: date,
         });
       }
-
-      // Diskon acak (10% peluang kena diskon 5–20%)
-      let discountAmount = 0;
-      if (Math.random() < 0.10) {
-        const discPct  = pick([5, 10, 15, 20]);
-        discountAmount = Math.round((totalRealAmount * discPct) / 100);
-      }
-      const totalAmount = totalRealAmount - discountAmount;
-
-      const method = pick(paymentMethods);
-      const date   = getRandomMarchDate();
-      const day    = String(date.getDate()).padStart(2, "0");
-
-      transactions.push({
-        receipt_number: `WP-202603${day}-${String(i + 1).padStart(4, "0")}`,
-        userId:          ownerId.toString(),
-        customer_name:   pick(customerNames),
-        total_amount:    totalAmount,
-        total_real_amount: totalRealAmount,
-        discount_amount: discountAmount,
-        profit:          totalProfit - discountAmount,
-        payment_method:  method,
-        amount_paid:     method === "cash"
-                           ? totalAmount + pick([0, 5000, 10000, 20000, 50000])
-                           : totalAmount,
-        change_amount:   method === "cash"
-                           ? pick([0, 5000, 10000, 20000, 50000])
-                           : 0,
-        items,
-        status:    "completed",
-        createdAt: date,
-        updatedAt: date,
-      });
     }
 
-    await mongoose.connection.db.collection("transactions").insertMany(transactions);
+    // Insert in batches untuk performa
+    const BATCH = 500;
+    for (let i = 0; i < transactions.length; i += BATCH) {
+      await mongoose.connection.db.collection("transactions").insertMany(
+        transactions.slice(i, i + BATCH)
+      );
+    }
 
     // ── 8. RINGKASAN ────────────────────────────────────────────────────────
     const totalRevenue = transactions.reduce((s, t) => s + t.total_amount, 0);
@@ -746,7 +787,7 @@ seedRouter.get("/full-setup", async (c) => {
 
     return c.json({
       success: true,
-      message: "🔥 MEGA SEED V5 BERHASIL! Data lengkap Maret 2026 siap pakai.",
+      message: `🔥 MEGA SEED V6 BERHASIL! ${transactions.length} transaksi (1 Mar – 8 Mei 2026) siap pakai.`,
       summary: {
         entity:       "WuzPay Coffee & Eatery",
         users:        2,
@@ -756,7 +797,7 @@ seedRouter.get("/full-setup", async (c) => {
         transactions: transactions.length,
         totalRevenue: `Rp ${totalRevenue.toLocaleString("id-ID")}`,
         totalProfit:  `Rp ${totalProfitAll.toLocaleString("id-ID")}`,
-        period:       "1 – 31 Maret 2026",
+        period:       "1 Maret – 8 Mei 2026",
       },
     });
 

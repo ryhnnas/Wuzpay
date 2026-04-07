@@ -4,6 +4,7 @@
     "npm:@supabase/supabase-js@2": "2.95.3",
     "npm:bcryptjs@*": "2.4.3",
     "npm:bcryptjs@^2.4.3": "2.4.3",
+    "npm:dotenv@*": "17.4.1",
     "npm:hono@4": "4.12.9",
     "npm:jsonwebtoken@*": "9.0.3",
     "npm:jsonwebtoken@9": "9.0.3",
@@ -117,6 +118,9 @@
       "dependencies": [
         "ms"
       ]
+    },
+    "dotenv@17.4.1": {
+      "integrity": "sha512-k8DaKGP6r1G30Lx8V4+pCsLzKr8vLmV2paqEj1Y55GdAgJuIqpRp5FfajGF8KtwMxCz9qJc6wUIJnm053d/WCw=="
     },
     "ecdsa-sig-formatter@1.0.11": {
       "integrity": "sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==",

@@ -15,7 +15,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5000', // Sesuaikan dengan PORT di .env backend
+        target: 'http://localhost:8000', // Sesuaikan dengan PORT di .env backend
         changeOrigin: true,
         secure: false,
       },

@@ -1,7 +1,7 @@
 import { Product, Category, Customer, Supplier, Transaction, Discount, CashDrawer, User } from '@/types';
 
 // Ambil Base URL dari .env atau fallback ke localhost
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // ==================== ENDPOINT CONFIGURATION ====================
 const API_ENDPOINTS = {
@@ -481,13 +481,13 @@ export const permissionsAPI = {
 // INGREDIENT
 export const ingredientsAPI = {
   getAll: async () => {
-    const res = await fetch('http://localhost:5000/api/ingredients');
+    const res = await fetch('http://localhost:8000/api/ingredients');
     if (!res.ok) throw new Error('Gagal fetch ingredients');
     return (await res.json()).data;
   },
   addStock: async (id: string, amount: number) => {
     // Nanti kita buat endpoint khusus untuk update stok manual
-    const res = await fetch(`http://localhost:5000/api/ingredients/${id}/add-stock`, {
+    const res = await fetch(`http://localhost:8000/api/ingredients/${id}/add-stock`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ amount })
@@ -496,7 +496,7 @@ export const ingredientsAPI = {
     return await res.json();
   },
   saveOCR: async (items: any[]) => {
-    const res = await fetch('http://localhost:5000/api/ingredients/ocr-bulk', {
+    const res = await fetch('http://localhost:8000/api/ingredients/ocr-bulk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items })
@@ -505,7 +505,7 @@ export const ingredientsAPI = {
     return await res.json();
   },
   delete: async (id: string) => {
-    const res = await fetch(`http://localhost:5000/api/ingredients/${id}`, {
+    const res = await fetch(`http://localhost:8000/api/ingredients/${id}`, {
       method: 'DELETE'
     });
     if (!res.ok) throw new Error('Gagal menghapus bahan baku');
