@@ -98,7 +98,7 @@ auth.delete('/users/:id', async (c) => {
     if (error) return c.json({ error }, 401);
 
     if (user.role !== 'owner' && user.role !== 'admin') {
-        return c.json({ error: 'Forbidden' }, 403);
+      return c.json({ error: 'Forbidden' }, 403);
     }
 
     const targetId = c.req.param('id');

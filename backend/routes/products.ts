@@ -11,8 +11,9 @@ products.get("/", async (c) => {
   try {
     // .populate menggantikan JOIN di SQL
     const productsData = await Product.find()
-      .populate('category_id', 'name') 
-      .sort({ stock_quantity: 1, name: 1 });
+      .populate('category_id', 'name')
+      .populate('recipe.ingredient_id', 'name stock_quantity unit cost_per_unit')
+      .sort({ name: 1 });
 
     return c.json({ products: productsData || [] });
   } catch (error) {
@@ -81,8 +82,8 @@ products.post("/import", async (c) => {
         };
 
         const updatedProduct = await Product.findOneAndUpdate(
-          filter, 
-          payload, 
+          filter,
+          payload,
           { upsert: true, new: true, rawResult: true }
         );
 

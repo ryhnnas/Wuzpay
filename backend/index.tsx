@@ -20,6 +20,7 @@ import permissionsRoutes from "./routes/permissions.ts";
 import pendingOrders from "./routes/pending_orders.ts";
 import receiptRoutes from './routes/receipt_settings.ts';
 import seedRouter from "./routes/seed.ts";
+import ingredientRoutes from "./routes/ingredient.ts";
 
 // Jalankan Koneksi MongoDB
 await connectDB();
@@ -58,6 +59,7 @@ app.route(`${BASE_PATH}/analytics`, analyticsRoutes);
 app.route("/api/pending-orders", pendingOrders);
 app.route(`${BASE_PATH}/permissions`, permissionsRoutes);
 app.route(`${BASE_PATH}/receipt-settings`, receiptRoutes);
+app.route("/api/ingredients", ingredientRoutes);
 
 // 4. Health Check
 app.get("/health", (c: Context) => c.json({
