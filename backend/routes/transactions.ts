@@ -1,6 +1,7 @@
 import { Hono } from "npm:hono";
 import { Transaction } from "../models/Transaction.ts";
 import { Product, StockLog } from "../models/Product.ts";
+import { Ingredient } from "../models/Ingredient.ts"; // TAMBAHAN: Import model Ingredient
 import { verifyAuth } from "../middleware/auth.ts";
 import mongoose from "npm:mongoose";
 
@@ -34,7 +35,7 @@ transactions.get("/", async (c) => {
   }
 });
 
-// ==================== 2. CREATE TRANSACTION ====================
+// ==================== 2. CREATE TRANSACTION (BOM LOGIC) ====================
 transactions.post("/", async (c) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -60,33 +61,61 @@ transactions.post("/", async (c) => {
     const processedItems = [];
 
     for (const item of body.items) {
+      // Fetch produk beserta resepnya
       const product = await Product.findById(item.product_id || item.id).session(session);
       if (!product) throw new Error(`Produk ${item.name} tidak ditemukan`);
 
       const qty = parseInt(item.quantity);
       const priceAtSale = parseFloat(item.price_at_sale || product.price);
-      const costAtSale = parseFloat(product.cost_price || product.cost || 0);
+      let calculatedCost = 0; // Akan dihitung dari total harga bahan baku
 
-      totalGrossProfit += (priceAtSale - costAtSale) * qty;
+      // --- LOGIKA BILL OF MATERIALS (BOM) ---
+      if (product.recipe && product.recipe.length > 0) {
+        for (const recipeItem of product.recipe) {
+          const ingredient = await Ingredient.findById(recipeItem.ingredient_id).session(session);
 
-      product.stock_quantity -= qty;
-      await product.save({ session });
+          if (!ingredient) {
+            console.warn(`Peringatan: Bahan baku tidak ditemukan untuk produk ${product.name}`);
+            continue;
+          }
 
-      await StockLog.create([{
-        product_id: product._id,
-        user_id: user.id,
-        previous_stock: product.stock_quantity + qty,
-        added_stock: -qty,
-        current_stock: product.stock_quantity,
-        type: 'reduction'
-      }], { session });
+          // Hitung total bahan yang terpakai (Kebutuhan per porsi * Jumlah pesanan)
+          const amountToDeduct = recipeItem.amount_needed * qty;
+
+          // Hitung modal secara dinamis (Harga bahan per unit * jumlah yang dipakai)
+          calculatedCost += ((ingredient.cost_per_unit || 0) * recipeItem.amount_needed);
+
+          const previousStock = ingredient.stock_quantity || 0;
+
+          // Kurangi stok bahan baku utama
+          ingredient.stock_quantity = previousStock - amountToDeduct;
+          await ingredient.save({ session });
+
+          // Catat riwayat log dengan sumber "sales_deduction"
+          await StockLog.create([{
+            ingredient_id: ingredient._id,
+            user_id: user.id,
+            previous_stock: previousStock,
+            added_stock: -amountToDeduct,
+            current_stock: ingredient.stock_quantity,
+            type: 'reduction',
+            source: 'sales_deduction'
+          }], { session });
+        }
+      } else {
+        // Fallback: Jika produk belum punya resep, gunakan cost lama atau 0 agar sistem kasir tidak error
+        calculatedCost = parseFloat(product.cost_price || product.cost || 0);
+      }
+      // --------------------------------------
+
+      totalGrossProfit += (priceAtSale - calculatedCost) * qty;
 
       processedItems.push({
         product_id: product._id,
         name: product.name,
         quantity: qty,
         price_at_sale: priceAtSale,
-        cost_at_sale: costAtSale,
+        cost_at_sale: calculatedCost, // Menyimpan modal real-time dari bahan baku
         total_amount: qty * priceAtSale,
         category_name: item.category_name || "Umum"
       });
@@ -99,7 +128,7 @@ transactions.post("/", async (c) => {
       discount_amount: discountAmount,
       profit: totalGrossProfit - discountAmount,
       payment_method: body.payment_method || "cash",
-      receipt_number: receiptNumber, // Pake receipt_number mang biar sinkron
+      receipt_number: receiptNumber,
       items: processedItems,
       status: "completed"
     }], { session });
@@ -116,7 +145,7 @@ transactions.post("/", async (c) => {
   }
 });
 
-// ==================== 3. UPDATE TRANSACTION ITEMS (INI YANG HILANG MANG!) ====================
+// ==================== 3. UPDATE TRANSACTION ITEMS ====================
 transactions.put("/:id/items", async (c) => {
   const id = c.req.param("id");
   try {
@@ -125,14 +154,14 @@ transactions.put("/:id/items", async (c) => {
 
     const updated = await Transaction.findByIdAndUpdate(
       id,
-      { 
-        $set: { 
-          items, 
-          total_amount, 
-          total_real_amount, 
+      {
+        $set: {
+          items,
+          total_amount,
+          total_real_amount,
           profit,
           updatedAt: new Date()
-        } 
+        }
       },
       { new: true }
     );

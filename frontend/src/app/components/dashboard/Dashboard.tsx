@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { 
-  TrendingUp, ShoppingCart, DollarSign, Package, Calendar, 
+import {
+  TrendingUp, ShoppingCart, DollarSign, Package, Calendar,
   Clock, Loader2, Award, AlertTriangle, CreditCard, Wallet, Receipt, BarChart2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
@@ -8,11 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from "@/app/components/ui/input";
 import { Badge } from "@/app/components/ui/badge";
 import {
-  BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, 
-  CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+  BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import { transactionsAPI, productsAPI } from '@/services/api';
-import { cn } from "@/app/components/ui/utils"; 
+import { transactionsAPI, productsAPI, ingredientsAPI } from '@/services/api';
+import { cn } from "@/app/components/ui/utils";
 import { toast } from 'sonner';
 
 export function Dashboard() {
@@ -21,6 +21,7 @@ export function Dashboard() {
   const [endDate, setEndDate] = useState("");
   const [transactions, setTransactions] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [ingredients, setIngredients] = useState<any[]>([]);
   const [summaryData, setSummaryData] = useState({ totalRevenue: 0, totalProfit: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -31,12 +32,12 @@ export function Dashboard() {
   const loadDashboardData = async () => {
     setIsLoading(true);
     try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const user = JSON.parse(localStorage.getItem('user_data') || '{}');
       const entityId = user.entity_id;
 
       let sStr = "";
       let eStr = "";
-      
+
       const now = new Date();
       const offset = now.getTimezoneOffset() * 60000;
       const localISOTime = new Date(now - offset).toISOString();
@@ -51,30 +52,38 @@ export function Dashboard() {
         sStr = start.toISOString().split('T')[0] + 'T00:00:00.000Z';
         eStr = `${todayStr}T23:59:59.999Z`;
       } else if (dateRange === 'month') {
-        // 🔥 Arahkan ke periode Seed Maret 2026
-        sStr = "2026-03-01T00:00:00.000Z";
-        eStr = "2026-03-31T23:59:59.999Z";
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        sStr = firstDay.toISOString().split('T')[0] + 'T00:00:00.000Z';
+        eStr = lastDay.toISOString().split('T')[0] + 'T23:59:59.999Z';
       } else if (dateRange === 'custom') {
         if (!startDate || !endDate) { setIsLoading(false); return; }
         sStr = `${startDate}T00:00:00.000Z`;
         eStr = `${endDate}T23:59:59.999Z`;
       }
 
-      // Hit API WuzPay Backend dengan entity_id
-      const [transList, prodList] = await Promise.all([
-        transactionsAPI.getAll({ entity_id: entityId, startDate: sStr, endDate: eStr }),
-        productsAPI.getAll({ entity_id: entityId })
+      // Hit API WuzPay Backend
+      const [transList, prodList, ingList] = await Promise.all([
+        transactionsAPI.getAll({ startDate: sStr, endDate: eStr }),
+        productsAPI.getAll(),
+        ingredientsAPI.getAll()
       ]);
 
       const finalTrans = Array.isArray(transList) ? transList : [];
       setTransactions(finalTrans);
       setProducts(Array.isArray(prodList) ? prodList : []);
-      
-      // Hitung summary manual dari hasil MongoDB agar akurat dengan Seed
+      setIngredients(Array.isArray(ingList) ? ingList : []);
+
+      // Hitung summary manual dari hasil MongoDB agar akurat
       const totalRev = finalTrans.reduce((sum, t) => sum + (t.total_amount || 0), 0);
+      const totalProf = finalTrans.reduce((sum, t) => {
+        if (typeof t.profit === 'number') return sum + t.profit;
+        return sum + ((t.total_amount || 0) * 0.4); // fallback legacy
+      }, 0);
+
       setSummaryData({
         totalRevenue: totalRev,
-        totalProfit: totalRev * 0.4 // Profit margin cafe 40%
+        totalProfit: totalProf
       });
 
     } catch (error) {
@@ -91,14 +100,37 @@ export function Dashboard() {
     const totalCost = totalRevenue - totalProfit;
     const count = transactions.length;
     const avgPerStruk = count > 0 ? totalRevenue / count : 0;
-    
+
     return { totalRevenue, totalProfit, totalCost, count, avgPerStruk };
   }, [summaryData, transactions.length]);
 
-  const lowStockProducts = useMemo(() => {
-    // MongoDB menggunakan field stock sesuai seed
-    return products.filter(p => (p.stock || p.stock_quantity || 0) < 20).sort((a, b) => (a.stock || 0) - (b.stock || 0));
-  }, [products]);
+  // Hitung ketersediaan porsi menu berdasarkan resep (bottleneck bahan baku)
+  const lowStockMenus = useMemo(() => {
+    return products
+      .map((product: any) => {
+        const recipe = product.recipe || [];
+        if (recipe.length === 0) return null;
+
+        let minPortions = Infinity;
+        for (const r of recipe) {
+          const amountNeeded = Number(r.amount_needed) || 1;
+          // ingredient_id bisa sudah populated (object) atau string
+          const ing = r.ingredient_id?._id
+            ? r.ingredient_id // sudah populated
+            : ingredients.find((i: any) => (i._id || i.id) === r.ingredient_id);
+
+          if (!ing) { minPortions = 0; break; }
+          const stock = Number(ing.stock_quantity) || 0;
+          const portions = Math.floor(stock / amountNeeded);
+          minPortions = Math.min(minPortions, portions);
+        }
+
+        if (minPortions === Infinity) minPortions = 0;
+        return { name: product.name, portions: minPortions };
+      })
+      .filter((item): item is { name: string; portions: number } => item !== null && item.portions <= 10)
+      .sort((a, b) => a.portions - b.portions);
+  }, [products, ingredients]);
 
   const chartData = useMemo(() => {
     const isToday = dateRange === 'today' || (dateRange === 'custom' && startDate === endDate);
@@ -111,7 +143,11 @@ export function Dashboard() {
           return d.getHours() === hour;
         });
         const rev = hourlyTrans.reduce((sum, t) => sum + (Number(t.total_amount || t.total) || 0), 0);
-        const prof = rev * 0.4;
+        const prof = hourlyTrans.reduce((sum, t) => {
+          if (typeof t.profit === 'number') return sum + t.profit;
+          return sum + ((Number(t.total_amount || t.total) || 0) * 0.4);
+        }, 0);
+
         return {
           label: `${hour.toString().padStart(2, '0')}:00`,
           transaksi: hourlyTrans.length,
@@ -141,7 +177,7 @@ export function Dashboard() {
       }
 
       const rev = Math.round(Number(t.total_amount || t.total) || 0);
-      const prof = rev * 0.4;
+      const prof = typeof t.profit === 'number' ? Math.round(t.profit) : Math.round(rev * 0.4);
 
       dailyMap[isoKey].transaksi += 1;
       dailyMap[isoKey].pendapatan += rev;
@@ -166,24 +202,24 @@ export function Dashboard() {
   }, [transactions]);
 
   const paymentData = useMemo(() => {
-      const getMethod = (m) => (m || 'LAINNYA').toLowerCase().trim();
+    const getMethod = (m: string) => (m || 'LAINNYA').toLowerCase().trim();
 
-      const cashTrans = transactions.filter(t => getMethod(t.payment_method) === 'cash' || getMethod(t.payment_method) === 'tunai');
-      const midtransTrans = transactions.filter(t => getMethod(t.payment_method) === 'qris');
-      const gopayTrans = transactions.filter(t => getMethod(t.payment_method) === 'gopay');
-      const tfTrans = transactions.filter(t => getMethod(t.payment_method) === 'transfer' || getMethod(t.payment_method) === 'tf');
-      const otherTrans = transactions.filter(t => !['cash', 'tunai', 'qris', 'gopay', 'transfer', 'tf'].includes(getMethod(t.payment_method)));
+    const cashTrans = transactions.filter(t => getMethod(t.payment_method) === 'cash' || getMethod(t.payment_method) === 'tunai');
+    const midtransTrans = transactions.filter(t => getMethod(t.payment_method) === 'qris');
+    const gopayTrans = transactions.filter(t => getMethod(t.payment_method) === 'gopay');
+    const tfTrans = transactions.filter(t => getMethod(t.payment_method) === 'transfer' || getMethod(t.payment_method) === 'tf');
+    const otherTrans = transactions.filter(t => !['cash', 'tunai', 'qris', 'gopay', 'transfer', 'tf'].includes(getMethod(t.payment_method)));
 
-      const data = [
-        { name: 'Tunai', count: cashTrans.length, value: cashTrans.reduce((sum, t) => sum + (Number(t.total_amount || 0)), 0), color: '#f59e0b' },
-        { name: 'QRIS', count: midtransTrans.length, value: midtransTrans.reduce((sum, t) => sum + (Number(t.total_amount || 0)), 0), color: '#8b5cf6' },
-        { name: 'Gopay', count: gopayTrans.length, value: gopayTrans.reduce((sum, t) => sum + (Number(t.total_amount || 0)), 0), color: '#ec4899' },
-        { name: 'Transfer', count: tfTrans.length, value: tfTrans.reduce((sum, t) => sum + (Number(t.total_amount || 0)), 0), color: '#3b82f6' },
-        { name: 'Lainnya', count: otherTrans.length, value: otherTrans.reduce((sum, t) => sum + (Number(t.total_amount || 0)), 0), color: '#94a3b8' },
-      ];
+    const data = [
+      { name: 'Tunai', count: cashTrans.length, value: cashTrans.reduce((sum, t) => sum + (Number(t.total_amount || 0)), 0), color: '#f59e0b' },
+      { name: 'QRIS', count: midtransTrans.length, value: midtransTrans.reduce((sum, t) => sum + (Number(t.total_amount || 0)), 0), color: '#8b5cf6' },
+      { name: 'Gopay', count: gopayTrans.length, value: gopayTrans.reduce((sum, t) => sum + (Number(t.total_amount || 0)), 0), color: '#ec4899' },
+      { name: 'Transfer', count: tfTrans.length, value: tfTrans.reduce((sum, t) => sum + (Number(t.total_amount || 0)), 0), color: '#3b82f6' },
+      { name: 'Lainnya', count: otherTrans.length, value: otherTrans.reduce((sum, t) => sum + (Number(t.total_amount || 0)), 0), color: '#94a3b8' },
+    ];
 
-      return data.filter(p => p.count > 0);
-    }, [transactions]);
+    return data.filter(p => p.count > 0);
+  }, [transactions]);
 
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
@@ -211,7 +247,7 @@ export function Dashboard() {
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e2e8f0" strokeWidth="0.5"/>
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e2e8f0" strokeWidth="0.5" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#grid)" />
@@ -323,7 +359,7 @@ export function Dashboard() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                   <XAxis dataKey="label" fontSize={10} fontWeight={900} axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
-                  <YAxis fontSize={10} fontWeight={900} axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} width={60} formatter={(value) => formatNumber(value)} />
+                  <YAxis fontSize={10} fontWeight={900} axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} width={60} tickFormatter={(value) => formatNumber(value)} />
                   <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '11px', background: 'rgba(255,255,255,0.95)' }} formatter={(value) => formatNumber(Number(value))} />
                   <Area type="monotone" dataKey="pendapatan" stroke="#f59e0b" strokeWidth={3} fill="url(#revGrad)" name="Pendapatan" />
                 </AreaChart>
@@ -338,17 +374,23 @@ export function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 h-[320px] overflow-y-auto bg-gradient-to-b from-white/50 to-red-50/20">
-              {lowStockProducts.length > 0 ? lowStockProducts.map((p, i) => (
+              {lowStockMenus.length > 0 ? lowStockMenus.map((menu, i) => (
                 <div key={i} className="px-4 py-3 flex items-center justify-between border-b border-gray-100/50 hover:bg-orange-50/40 transition-colors duration-200 group">
                   <div className="min-w-0">
-                    <p className="font-black text-[11px] uppercase text-gray-800 truncate">{p.name}</p>
+                    <p className="font-black text-[11px] uppercase text-gray-800 truncate">{menu.name}</p>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase">Sisa porsi</p>
                   </div>
-                  <Badge className="font-black text-[10px] border-none px-2.5 py-1 rounded-lg bg-red-100 text-red-700 shrink-0">{p.stock || p.stock_quantity}</Badge>
+                  <Badge className={cn(
+                    "font-black text-[10px] border-none px-2.5 py-1 rounded-lg shrink-0",
+                    menu.portions <= 3 ? "bg-red-100 text-red-700" : menu.portions <= 10 ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"
+                  )}>
+                    {menu.portions} porsi
+                  </Badge>
                 </div>
               )) : (
                 <div className="h-full flex flex-col items-center justify-center text-gray-400 p-6 text-center">
                   <Package className="size-8 mb-2 opacity-20" />
-                  <p className="text-[10px] font-bold uppercase">Stok Aman Terkendali</p>
+                  <p className="text-[10px] font-bold uppercase">Semua Menu Tersedia</p>
                 </div>
               )}
             </CardContent>
@@ -368,7 +410,7 @@ export function Dashboard() {
                 <BarChart data={chartData} margin={{ left: -10 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                   <XAxis dataKey="label" fontSize={10} fontWeight={800} axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
-                  <YAxis fontSize={10} fontWeight={800} axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} width={60} formatter={(value) => formatNumber(value)} />
+                  <YAxis fontSize={10} fontWeight={800} axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} width={60} tickFormatter={(value) => formatNumber(value)} />
                   <Tooltip contentStyle={{ borderRadius: '12px', background: 'rgba(255,255,255,0.95)' }} formatter={(value) => formatNumber(Number(value))} />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase' }} />
                   <Bar dataKey="pendapatan" fill="#10b981" radius={[4, 4, 0, 0]} name="Pendapatan" />
@@ -381,7 +423,7 @@ export function Dashboard() {
           <Card className="rounded-[32px] bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shadow-2xl border border-slate-800 hover:border-orange-500/50 transition-all duration-500 group">
             <CardContent className="p-8 h-full flex flex-col justify-between min-h-[380px] relative overflow-hidden">
               <div className="absolute inset-0 opacity-20 pointer-events-none">
-                <svg className="w-full h-full"><pattern id="gridPattern" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="white" strokeWidth="0.5" opacity="0.2"/></pattern><rect width="100%" height="100%" fill="url(#gridPattern)"/></svg>
+                <svg className="w-full h-full"><pattern id="gridPattern" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="white" strokeWidth="0.5" opacity="0.2" /></pattern><rect width="100%" height="100%" fill="url(#gridPattern)" /></svg>
               </div>
               <div className="flex justify-between items-start relative z-10">
                 <div className="p-4 bg-orange-600 rounded-2xl transition-all duration-300"><Clock className="size-8 text-white" /></div>

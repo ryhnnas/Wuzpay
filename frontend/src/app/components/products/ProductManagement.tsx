@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { 
-  Plus, Search, Edit, Trash2, Upload, Download, Package, 
-  AlertCircle, Loader2, Save, ChevronLeft, ChevronRight, Image as ImageIcon
+import {
+  Plus, Search, Edit, Trash2, Upload, Download, Package,
+  AlertCircle, Loader2, Save, ChevronLeft, ChevronRight, Image as ImageIcon,
+  ChefHat
 } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -17,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/app/components/ui/select';
 import { ScrollArea } from '@/app/components/ui/scroll-area';
-import { productsAPI, categoriesAPI } from '@/services/api';
+import { productsAPI, categoriesAPI, ingredientsAPI } from '@/services/api';
 import { toast } from 'sonner';
 import { cn } from "@/app/components/ui/utils";
 
@@ -25,9 +26,10 @@ export function ProductManagement() {
   // --- STATES ---
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [ingredients, setIngredients] = useState<any[]>([]); // State untuk bahan baku
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -37,11 +39,10 @@ export function ProductManagement() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // FORM DATA - cost_price kuncian utama mang!
+
   const [formData, setFormData] = useState<any>({
     name: '', sku: '', description: '', category_id: '',
-    price: 0, cost_price: 0, stock_quantity: 0, image_url: '',
+    price: 0, image_url: '', recipe: []
   });
 
   // --- LIFECYCLE ---
@@ -52,12 +53,14 @@ export function ProductManagement() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [productsData, categoriesData] = await Promise.all([
+      const [productsData, categoriesData, ingredientsData] = await Promise.all([
         productsAPI.getAll(),
         categoriesAPI.getAll(),
+        ingredientsAPI.getAll(), // Tarik data bahan baku dari database
       ]);
       setProducts(Array.isArray(productsData) ? productsData : []);
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+      setIngredients(Array.isArray(ingredientsData) ? ingredientsData : []);
     } catch (error) {
       toast.error("Gagal sinkronisasi database WuzPay");
     } finally {
@@ -69,11 +72,11 @@ export function ProductManagement() {
   const filteredProducts = products
     .filter(product => {
       const matchesSearch = product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          product.sku?.toLowerCase().includes(searchQuery.toLowerCase());
-      
+        product.sku?.toLowerCase().includes(searchQuery.toLowerCase());
+
       const catId = product.category_id?._id || product.category_id;
       const matchesCategory = selectedCategory === 'all' || catId === selectedCategory;
-      
+
       return matchesSearch && matchesCategory;
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -85,26 +88,64 @@ export function ProductManagement() {
     setCurrentPage(1);
   }, [selectedCategory, searchQuery]);
 
-  // --- ACTIONS ---
+  // --- ACTIONS: PRODUCT ---
   const handleAddProduct = () => {
     setEditingProduct(null);
-    setFormData({ name: '', sku: '', description: '', category_id: '', price: 0, cost_price: 0, stock_quantity: 0, image_url: '' });
+    setFormData({ name: '', sku: '', description: '', category_id: '', price: 0, image_url: '', recipe: [] });
     setShowProductDialog(true);
   };
 
   const handleEditProduct = (product: any) => {
     setEditingProduct(product);
+    // Normalisasi: pastikan ingredient_id selalu string ID, bukan populated object
+    const normalizedRecipe = (product.recipe || []).map((r: any) => ({
+      ingredient_id: r.ingredient_id?._id || r.ingredient_id || '',
+      amount_needed: r.amount_needed || 0,
+    }));
     setFormData({
       name: product.name || '',
       description: product.description || '',
       sku: product.sku || '',
       price: product.price || 0,
-      cost_price: product.cost_price || 0, // Ambil dari DB mang
-      stock_quantity: product.stock_quantity || 0,
       category_id: product.category_id?._id || product.category_id || '',
       image_url: product.image_url || '',
+      recipe: normalizedRecipe,
     });
     setShowProductDialog(true);
+  };
+
+  // --- ACTIONS: RECIPE BUILDER ---
+  const handleAddRecipeItem = () => {
+    setFormData((prev: any) => ({
+      ...prev,
+      recipe: [...prev.recipe, { ingredient_id: '', amount_needed: 1 }]
+    }));
+  };
+
+  const handleRecipeChange = (index: number, field: string, value: any) => {
+    const newRecipe = [...formData.recipe];
+    newRecipe[index] = { ...newRecipe[index], [field]: value };
+
+    // Jika yang diubah adalah ingredient_id, cek apakah sudah ada di baris lain
+    if (field === 'ingredient_id' && value) {
+      const existingIdx = newRecipe.findIndex((r: any, i: number) => i !== index && r.ingredient_id === value);
+      if (existingIdx !== -1) {
+        // Gabungkan qty ke baris yang sudah ada
+        const currentQty = parseFloat(newRecipe[existingIdx].amount_needed) || 0;
+        const addedQty = parseFloat(newRecipe[index].amount_needed) || 1;
+        newRecipe[existingIdx].amount_needed = currentQty + addedQty;
+        // Hapus baris duplikat
+        newRecipe.splice(index, 1);
+        toast.info('Bahan baku sudah ada di resep, kuantitas digabungkan.');
+      }
+    }
+
+    setFormData({ ...formData, recipe: newRecipe });
+  };
+
+  const handleRemoveRecipeItem = (index: number) => {
+    const newRecipe = formData.recipe.filter((_: any, i: number) => i !== index);
+    setFormData({ ...formData, recipe: newRecipe });
   };
 
   const handleSaveProduct = async () => {
@@ -112,13 +153,18 @@ export function ProductManagement() {
       toast.error('Nama dan Harga Jual wajib diisi');
       return;
     }
+
+    // Validasi resep agar tidak ada ID atau amount kosong
+    const cleanRecipe = formData.recipe.filter((r: any) => r.ingredient_id && r.amount_needed > 0);
+    const finalData = { ...formData, recipe: cleanRecipe };
+
     try {
       if (editingProduct) {
         const targetId = editingProduct._id || editingProduct.id;
-        await productsAPI.update(targetId, formData);
+        await productsAPI.update(targetId, finalData);
         toast.success('Katalog WuzPay diperbarui');
       } else {
-        await productsAPI.create(formData);
+        await productsAPI.create(finalData);
         toast.success('Menu baru ditambahkan ke WuzPay');
       }
       setShowProductDialog(false);
@@ -146,7 +192,7 @@ export function ProductManagement() {
     }).format(amount || 0);
   };
 
-  // --- IMPORT EXPORT LOGIC (INI YANG TADI ILANG MANG) ---
+  // --- IMPORT EXPORT LOGIC ---
   const handleExportExcel = () => {
     try {
       toast.info("Menyiapkan file excel...");
@@ -164,7 +210,7 @@ export function ProductManagement() {
     setIsImporting(true);
 
     const loadingToast = toast.loading("Sedang mengimpor data produk...");
-    
+
     try {
       const response = await productsAPI.import(fData);
       if (response.success) {
@@ -194,15 +240,21 @@ export function ProductManagement() {
   return (
     <div className="space-y-8 p-8 animate-in fade-in duration-500 font-sans">
       {/* HEADER SECTION */}
-      <div className="flex justify-end mb-6">
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={handleExportExcel} className="rounded-[20px] font-black text-[10px] uppercase tracking-widest border-gray-100 h-14 px-6">
-            <Download className="mr-2 size-4 text-orange-600" /> Export
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h2 className="font-black text-3xl uppercase tracking-tighter italic text-orange-600">
+            Katalog <span className="text-orange-600">Menu</span>
+          </h2>
+          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Pengaturan Resep dan HPP Produk Utama</p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button variant="outline" onClick={handleExportExcel} className="rounded-[20px] font-black text-[10px] uppercase tracking-widest border-gray-100 h-14 px-6 hover:bg-orange-50 hover:text-orange-600 transition-all">
+            <Download className="mr-2 size-4" /> Export
           </Button>
-          <Button variant="outline" onClick={() => setShowImportDialog(true)} className="rounded-[20px] font-black text-[10px] uppercase tracking-widest border-gray-100 h-14 px-6">
-            <Upload className="mr-2 size-4 text-orange-600" /> Import
+          <Button variant="outline" onClick={() => setShowImportDialog(true)} className="rounded-[20px] font-black text-[10px] uppercase tracking-widest border-gray-100 h-14 px-6 hover:bg-orange-50 hover:text-orange-600 transition-all">
+            <Upload className="mr-2 size-4" /> Import
           </Button>
-          <Button onClick={handleAddProduct} className="bg-orange-600 hover:bg-orange-600 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest shadow-xl h-14 px-8 transition-all active:scale-95">
+          <Button onClick={handleAddProduct} className="bg-orange-600 hover:bg-orange-700 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-orange-200 h-14 px-8 transition-all active:scale-95">
             <Plus className="mr-2 size-5" /> Tambah Menu
           </Button>
         </div>
@@ -211,7 +263,7 @@ export function ProductManagement() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         {/* CATEGORY PILLS */}
         <div className="flex flex-wrap gap-2 order-2 md:order-1">
-          <button 
+          <button
             onClick={() => setSelectedCategory('all')}
             className={cn(
               "px-6 h-11 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
@@ -219,7 +271,7 @@ export function ProductManagement() {
             )}
           >Semua</button>
           {categories.map(cat => (
-            <button 
+            <button
               key={cat._id || cat.id}
               onClick={() => setSelectedCategory(cat._id || cat.id)}
               className={cn(
@@ -250,8 +302,9 @@ export function ProductManagement() {
               <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest text-gray-400 py-8 pl-10">Gambar</TableHead>
               <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400">Info Produk</TableHead>
               <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400">Kategori</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 text-center">Harga & Margin</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 text-center">Stok</TableHead>
+              <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 text-center">Harga Jual</TableHead>
+              <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 text-center">HPP</TableHead>
+              <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 text-center">Komposisi Resep</TableHead>
               <TableHead className="text-right text-[10px] font-black uppercase tracking-widest text-gray-400 pr-10">Kontrol</TableHead>
             </TableRow>
           </TableHeader>
@@ -261,9 +314,9 @@ export function ProductManagement() {
                 <TableRow key={product._id || product.id} className="hover:bg-orange-50/20 transition-all border-b border-gray-50 group">
                   <TableCell className="py-6 pl-10">
                     <div className="size-16 rounded-2xl overflow-hidden shadow-sm ring-2 ring-white group-hover:scale-105 transition-transform duration-500">
-                      <img 
-                        src={product.image_url || '/logo.jpeg'} 
-                        className="size-full object-cover" 
+                      <img
+                        src={product.image_url || '/logo.jpeg'}
+                        className="size-full object-cover"
                         onError={(e: any) => e.target.src = '/logo.jpeg'}
                       />
                     </div>
@@ -278,16 +331,33 @@ export function ProductManagement() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-center">
-                    {/* COST PRICE DISPLAY FIX */}
-                    <div className="text-[10px] text-gray-300 font-bold line-through italic">{formatRupiah(product.cost_price)}</div>
                     <div className="font-black text-orange-600 text-sm tracking-tighter italic">{formatRupiah(product.price)}</div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge className={cn(
-                      "text-[10px] font-black border-none px-4 py-1.5 rounded-full shadow-sm italic",
-                      (product.stock_quantity || 0) <= 5 ? "bg-red-500 text-white animate-pulse" : "bg-emerald-500 text-white"
-                    )}>
-                      {product.stock_quantity || 0} PCS
+                    {(() => {
+                      const recipe = product.recipe || [];
+                      if (recipe.length === 0) return <span className="text-[10px] text-gray-300 font-bold">—</span>;
+                      const hpp = recipe.reduce((sum: number, r: any) => {
+                        const ing = r.ingredient_id?._id ? r.ingredient_id : ingredients.find((i: any) => (i._id || i.id) === r.ingredient_id);
+                        const costPerUnit = Number(ing?.cost_per_unit) || 0;
+                        const amountNeeded = Number(r.amount_needed) || 0;
+                        return sum + (costPerUnit * amountNeeded);
+                      }, 0);
+                      const margin = product.price - hpp;
+                      const marginPercent = product.price > 0 ? Math.round((margin / product.price) * 100) : 0;
+                      return (
+                        <div>
+                          <div className="font-black text-xs text-gray-600 tracking-tighter">{formatRupiah(hpp)}</div>
+                          <div className={`text-[9px] font-black ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            Margin {marginPercent}%
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none px-3 py-1 text-[10px] font-black shadow-sm italic rounded-full">
+                      {product.recipe?.length || 0} Bahan Baku
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right pr-10">
@@ -304,7 +374,7 @@ export function ProductManagement() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-32 text-gray-300 uppercase font-black text-[10px] italic">Menu tidak ditemukan</TableCell>
+                <TableCell colSpan={7} className="text-center py-32 text-gray-300 uppercase font-black text-[10px] italic">Menu tidak ditemukan</TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -340,10 +410,10 @@ export function ProductManagement() {
               <p className="text-sm font-black uppercase tracking-tighter text-orange-600 leading-none mb-2">Pilih File Master Produk</p>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest italic">Format: .xlsx atau .csv (Max 5MB)</p>
             </div>
-            <Input 
-              type="file" 
-              accept=".xlsx, .xls, .csv" 
-              className="absolute inset-0 opacity-0 cursor-pointer" 
+            <Input
+              type="file"
+              accept=".xlsx, .xls, .csv"
+              className="absolute inset-0 opacity-0 cursor-pointer"
               onChange={(e) => setImportFile(e.target.files?.[0] || null)}
             />
             {importFile && (
@@ -354,8 +424,8 @@ export function ProductManagement() {
           </div>
           <DialogFooter className="mt-10 flex gap-4">
             <Button variant="ghost" onClick={() => setShowImportDialog(false)} className="rounded-2xl font-black text-[10px] uppercase h-14 flex-1">Batal</Button>
-            <Button 
-              onClick={handleImportExcel} 
+            <Button
+              onClick={handleImportExcel}
               disabled={!importFile || isImporting}
               className="bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black shadow-xl shadow-orange-100 flex-1 h-14 uppercase tracking-widest text-[10px]"
             >
@@ -368,79 +438,131 @@ export function ProductManagement() {
 
       {/* MODAL FORM ADD/EDIT */}
       <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
-        <DialogContent className="max-w-2xl rounded-[40px] border-none shadow-2xl p-10 bg-white">
+        <DialogContent className="sm:max-w-4xl w-[95vw] rounded-[40px] border-none shadow-2xl p-6 sm:p-10 bg-white overflow-hidden">
           <DialogHeader className="mb-8">
             <DialogTitle className="uppercase font-black tracking-tighter text-3xl italic underline decoration-orange-500 decoration-4">
               {editingProduct ? 'Update' : 'Registrasi'} <span className="text-orange-600">Menu</span>
             </DialogTitle>
             <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">Integrasi Database WuzPay Sindangsari</p>
           </DialogHeader>
-          
-          <ScrollArea className="max-h-[65vh] pr-6">
-            <div className="grid gap-8 py-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-1.5">
+
+          <ScrollArea className="max-h-[65vh] w-full overflow-x-hidden">
+            <div className="flex flex-col gap-8 py-4 pr-2 sm:pr-4 w-full min-w-0">
+
+              {/* BASIC INFO */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full min-w-0">
+                <div className="space-y-1.5 min-w-0">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Nama Produk *</Label>
-                  <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="rounded-2xl bg-gray-50/50 border-gray-100 h-14 font-black uppercase px-6 focus:ring-2 focus:ring-orange-500 transition-all" placeholder="CONTOH: ES KOPI SUSU..." />
+                  <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full rounded-2xl bg-gray-50/50 border-gray-100 h-14 font-black uppercase px-6 focus:ring-2 focus:ring-orange-500 transition-all" placeholder="CONTOH: ES KOPI SUSU..." />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 min-w-0">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">SKU / Kode Unik</Label>
-                  <Input value={formData.sku} onChange={(e) => setFormData({...formData, sku: e.target.value})} className="rounded-2xl bg-gray-50/50 border-gray-100 h-14 font-black px-6 focus:ring-2 focus:ring-orange-600 transition-all italic text-orange-600" placeholder="WUZ-001..." />
+                  <Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} className="w-full rounded-2xl bg-gray-50/50 border-gray-100 h-14 font-black px-6 focus:ring-2 focus:ring-orange-600 transition-all italic text-orange-600" placeholder="WUZ-001..." />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Kategori Menu</Label>
-                <Select value={formData.category_id} onValueChange={(val) => setFormData({...formData, category_id: val})}>
-                  <SelectTrigger className="rounded-2xl bg-gray-50/50 border-gray-100 h-14 font-black uppercase px-6 text-xs tracking-widest">
-                    <SelectValue placeholder="PILIH KATEGORI..." />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-none shadow-xl">
-                    {categories.map((cat) => (
-                      <SelectItem key={cat._id || cat.id} value={cat._id || cat.id} className="font-black uppercase text-[10px] tracking-widest">{cat.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Harga Modal (Cost)</Label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-gray-300">Rp</span>
-                    {/* COST PRICE FORM FIX */}
-                    <Input type="number" value={formData.cost_price} onChange={(e) => setFormData({...formData, cost_price: parseFloat(e.target.value)})} className="rounded-2xl bg-gray-50/50 border-gray-100 h-14 font-black pl-12 px-12 focus:ring-2 focus:ring-orange-500 transition-all" />
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full min-w-0">
+                <div className="space-y-1.5 min-w-0">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Kategori Menu</Label>
+                  <Select value={formData.category_id} onValueChange={(val) => setFormData({ ...formData, category_id: val })}>
+                    <SelectTrigger className="w-full h-14 min-h-[56px] rounded-2xl bg-gray-50/50 border-gray-100 px-6 text-xs font-black uppercase tracking-widest flex items-center">
+                      <SelectValue placeholder="PILIH KATEGORI..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-none shadow-xl">
+                      {categories.map((cat) => (
+                        <SelectItem key={cat._id || cat.id} value={cat._id || cat.id} className="font-black uppercase text-[10px] tracking-widest">{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 min-w-0">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-orange-600 ml-4">Harga Jual (Price)</Label>
-                  <div className="relative">
+                  <div className="relative w-full">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-orange-300">Rp</span>
-                    <Input type="number" value={formData.price} onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value)})} className="rounded-2xl bg-orange-50/50 border-orange-100 h-14 font-black pl-12 px-12 text-orange-600 focus:ring-2 focus:ring-orange-600 transition-all" />
+                    <Input
+                      type="number"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
+                      className="w-full h-14 min-h-[56px] rounded-2xl bg-orange-50/50 border-orange-100 pl-12 pr-6 text-orange-600 font-black focus:ring-2 focus:ring-orange-600 transition-all"
+                    />
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Stok Inventori</Label>
-                  <Input type="number" value={formData.stock_quantity} onChange={(e) => setFormData({...formData, stock_quantity: parseInt(e.target.value)})} className="rounded-2xl bg-gray-50/50 border-gray-100 h-14 font-black px-6 focus:ring-2 focus:ring-orange-500 transition-all text-center" />
+              {/* RECIPE BUILDER SECTION */}
+              <div className="w-full mt-5 p-6 sm:p-8 bg-gray-50/50 rounded-[32px] border border-gray-100 relative min-w-0">
+                <div className="absolute -top-4 left-8 bg-white px-4 py-1 rounded-full border border-gray-100 shadow-sm flex items-center gap-2">
+                  <ChefHat className="size-4 text-orange-600" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Resep Bahan Baku</span>
                 </div>
-                {/* GAMBAR URL BALIK LAGI MANG! */}
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Gambar URL</Label>
-                  <Input value={formData.image_url} onChange={(e) => setFormData({...formData, image_url: e.target.value})} className="rounded-2xl bg-gray-50/50 border-gray-100 h-14 font-bold px-6 focus:ring-2 focus:ring-orange-500 transition-all text-xs" placeholder="https://images.unsplash.com/..." />
+
+                <div className="space-y-4 mt-2 w-full">
+                  {formData.recipe.length === 0 ? (
+                    <div className="text-center py-6">
+                      <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest italic">Belum ada bahan baku yang ditambahkan.</p>
+                    </div>
+                  ) : (
+                    formData.recipe.map((r: any, idx: number) => (
+                      <div key={idx} className="flex gap-3 items-center animate-in fade-in slide-in-from-top-2 duration-300 w-full overflow-hidden">
+                        <div className="min-w-0 flex-1">
+                          <Select value={r.ingredient_id} onValueChange={(val: string) => handleRecipeChange(idx, 'ingredient_id', val)}>
+                            <SelectTrigger className="w-full rounded-2xl bg-white border-none shadow-sm h-12 font-black uppercase px-4 text-[10px] sm:text-xs tracking-widest text-orange-600 overflow-hidden">
+                              <span className="block truncate w-full text-left">
+                                {r.ingredient_id
+                                  ? (() => {
+                                    const found = ingredients.find((i: any) => (i._id || i.id) === r.ingredient_id);
+                                    return found ? `${found.name} (${found.unit})` : 'BAHAN TIDAK DITEMUKAN';
+                                  })()
+                                  : 'PILIH BAHAN BAKU...'
+                                }
+                              </span>
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl border-none shadow-xl">
+                              {ingredients.map((ing) => (
+                                <SelectItem key={ing._id || ing.id} value={ing._id || ing.id} className="font-black uppercase text-[10px] tracking-widest">
+                                  {ing.name} ({ing.unit})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <Input
+                          type="number"
+                          placeholder="Qty"
+                          value={r.amount_needed || ''}
+                          onChange={(e) => handleRecipeChange(idx, 'amount_needed', parseFloat(e.target.value))}
+                          className="w-24 shrink-0 rounded-2xl bg-white border-none shadow-sm h-12 font-black text-center focus:ring-2 focus:ring-orange-500 transition-all text-xs px-2"
+                        />
+
+                        <Button type="button" size="icon" variant="ghost" onClick={() => handleRemoveRecipeItem(idx)} className="size-12 shrink-0 rounded-2xl hover:bg-red-100 text-red-500 bg-white shadow-sm transition-all">
+                          <Trash2 className="size-5" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+
+                  <Button type="button" variant="outline" onClick={handleAddRecipeItem} className="w-full mt-4 border-dashed border-2 border-gray-200 h-14 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-orange-600 hover:border-orange-200 hover:bg-orange-50/50 transition-all">
+                    <Plus className="size-4 mr-2" /> Tambah Komposisi Resep
+                  </Button>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Deskripsi / Komposisi</Label>
-                <Input value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="rounded-2xl bg-gray-50/50 border-gray-100 h-14 font-bold px-6 focus:ring-2 focus:ring-orange-500 transition-all" placeholder="Penjelasan singkat menu..." />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full min-w-0">
+                <div className="space-y-1.5 min-w-0">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Deskripsi / Info Menu</Label>
+                  <Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full rounded-2xl bg-gray-50/50 border-gray-100 h-14 font-bold px-6 focus:ring-2 focus:ring-orange-500 transition-all" placeholder="Penjelasan singkat menu..." />
+                </div>
+                <div className="space-y-1.5 min-w-0">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Gambar URL</Label>
+                  <Input value={formData.image_url} onChange={(e) => setFormData({ ...formData, image_url: e.target.value })} className="w-full rounded-2xl bg-gray-50/50 border-gray-100 h-14 font-bold px-6 focus:ring-2 focus:ring-orange-500 transition-all text-xs" placeholder="https://images.unsplash.com/..." />
+                </div>
               </div>
+
             </div>
           </ScrollArea>
 
-          <DialogFooter className="mt-12 flex gap-4">
+          <DialogFooter className="mt-8 flex gap-4">
             <Button variant="ghost" onClick={() => setShowProductDialog(false)} className="rounded-2xl font-black text-[10px] uppercase h-14 flex-1 tracking-widest text-gray-300">Batal</Button>
             <Button onClick={handleSaveProduct} className="bg-orange-600 hover:bg-orange-600 text-white rounded-2xl font-black shadow-2xl flex-[2] h-14 uppercase tracking-widest text-xs transition-all active:scale-95">
               KONFIRMASI & SIMPAN MENU

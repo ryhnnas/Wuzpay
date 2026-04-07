@@ -4,7 +4,7 @@ import { Button } from '@/app/components/ui/button';
 import { Avatar, AvatarFallback } from '@/app/components/ui/avatar';
 import { Badge } from '@/app/components/ui/badge';
 import { User as UserType, Product } from '@/types';
-import { productsAPI } from '@/services/api';
+import { ingredientsAPI } from '@/services/api';
 import { cn } from '@/app/components/ui/utils';
 
 interface HeaderProps {
@@ -24,9 +24,10 @@ const pageTitle: Record<string, string> = {
   dashboard: 'Dashboard Analytics',
   pos: 'Kasir',
   products: 'Katalog Produk',
-  stock: 'Kontrol Inventori',
+  stock: 'Stok Menu',
   contacts: 'Mitra & Pelanggan',
   discounts: 'Manajemen Promo',
+  ingredients: 'Stok Bahan Baku',
   'cash-drawer': 'Buka/Tutup Kasir',
   reports: 'Laporan Penjualan',
   'ai-insights': 'Business Intelligence',
@@ -37,18 +38,20 @@ const pageTitle: Record<string, string> = {
 export function Header({ user, currentPage, onOpenPendingOrders, pendingCount = 0 }: HeaderProps) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
-  // Logika Cek Stok Real-time (Polling 60 detik)
+  // Logika Cek Stok Bahan Baku Real-time (Polling 60 detik)
   useEffect(() => {
     const checkSystems = async () => {
       try {
-        const products = await productsAPI.getAll();
-        // MongoDB menggunakan stock_quantity
-        const lowStockItems = products.filter((p: Product) => Number(p.stock_quantity ?? 0) <= 5);
-        
-        const currentStockNotifs = lowStockItems.map(p => ({
-          id: `low-stock-${p._id || p.id}`,
+        const ingredientsData = await ingredientsAPI.getAll();
+        const items = Array.isArray(ingredientsData) ? ingredientsData : [];
+
+        // Cek bahan baku yang stoknya <= 5
+        const lowStockItems = items.filter((ing: any) => (ing.stock_quantity ?? 0) <= 5);
+
+        const currentStockNotifs = lowStockItems.map((ing: any) => ({
+          id: `low-stock-${ing._id || ing.id}`,
           type: 'stock' as const,
-          message: `Stok ${p.name} menipis! Sisa ${p.stock_quantity}`
+          message: `Stok "${ing.name}" menipis! Sisa ${ing.stock_quantity || 0} ${ing.unit || 'pcs'}`
         }));
 
         setNotifications(prev => {
@@ -65,7 +68,7 @@ export function Header({ user, currentPage, onOpenPendingOrders, pendingCount = 
     };
 
     checkSystems();
-    const interval = setInterval(checkSystems, 60000); 
+    const interval = setInterval(checkSystems, 60000);
     return () => clearInterval(interval);
   }, [user]);
 
@@ -88,8 +91,8 @@ export function Header({ user, currentPage, onOpenPendingOrders, pendingCount = 
           {/* TOMBOL DAFTAR PESANAN - HANYA DI POS */}
           {currentPage === 'pos' && (
             <div className="relative">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={onOpenPendingOrders}
                 className={cn(
@@ -109,8 +112,8 @@ export function Header({ user, currentPage, onOpenPendingOrders, pendingCount = 
 
           {/* Notifikasi Bell */}
           <div className="relative">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               className={cn(
                 "rounded-2xl transition-all duration-300",
@@ -138,7 +141,7 @@ export function Header({ user, currentPage, onOpenPendingOrders, pendingCount = 
                 {user?.role || "Staff"}
               </p>
             </div>
-            
+
             <Avatar className="size-9 ring-4 ring-white shadow-sm transition-transform group-hover:scale-105">
               <AvatarFallback className="bg-orange-600 text-white font-black text-xs uppercase">
                 {user?.name ? user.name.substring(0, 2) : (user?.email ? user.email.substring(0, 2) : "??")}
@@ -151,8 +154,8 @@ export function Header({ user, currentPage, onOpenPendingOrders, pendingCount = 
       {/* Floating Notifications Container */}
       <div className="fixed top-24 right-8 z-50 flex flex-col gap-4 w-80 pointer-events-none">
         {notifications.map((n) => (
-          <div 
-            key={n.id} 
+          <div
+            key={n.id}
             className={cn(
               "pointer-events-auto flex items-start gap-4 p-5 rounded-[24px] shadow-2xl backdrop-blur-xl border-l-8 animate-in slide-in-from-right-full duration-500 bg-white/95",
               n.type === 'stock' ? "border-orange-500" : "border-red-600"
@@ -170,7 +173,7 @@ export function Header({ user, currentPage, onOpenPendingOrders, pendingCount = 
                 <ServerCrash className="size-5" />
               )}
             </div>
-            
+
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1">
                 {n.type === 'stock' ? 'Peringatan Inventori' : 'Error Critical'}
@@ -178,7 +181,7 @@ export function Header({ user, currentPage, onOpenPendingOrders, pendingCount = 
               <p className="text-[11px] text-gray-500 font-bold leading-relaxed italic">{n.message}</p>
             </div>
 
-            <button 
+            <button
               onClick={() => removeNotif(n.id)}
               className="text-gray-300 hover:text-orange-600 transition-colors"
             >

@@ -20,7 +20,7 @@ entities.post("/customers", async (c) => {
     const sessionId = c.req.header('X-Session-ID') || null;
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
-    
+
     const body = await c.req.json();
     const customer = await Customer.create(body);
     return c.json({ customer });
@@ -45,7 +45,7 @@ entities.post("/suppliers", async (c) => {
     const sessionId = c.req.header('X-Session-ID') || null;
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
-    
+
     const body = await c.req.json();
     const supplier = await Supplier.create(body);
     return c.json({ supplier });
@@ -73,9 +73,9 @@ entities.post("/discounts", async (c) => {
     const sessionId = c.req.header('X-Session-ID') || null;
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
-    
+
     const body = await c.req.json();
-    
+
     // Siapkan data bersih
     const discountData: any = {
       name: body.name,
@@ -89,7 +89,7 @@ entities.post("/discounts", async (c) => {
     if (body.scope === 'product' && mongoose.Types.ObjectId.isValid(body.product_id)) {
       discountData.product_id = body.product_id;
     }
-    
+
     if (body.scope === 'category' && mongoose.Types.ObjectId.isValid(body.category_id)) {
       discountData.category_id = body.category_id;
     }
@@ -105,16 +105,16 @@ entities.post("/discounts", async (c) => {
 
 // DELETE Generic (Bisa dipakai buat customer/supplier/discount)
 entities.delete("/:type/:id", async (c) => {
-    try {
-      const { type, id } = c.req.param();
-      if (type === 'customers') await Customer.findByIdAndDelete(id);
-      else if (type === 'suppliers') await Supplier.findByIdAndDelete(id);
-      else if (type === 'discounts') await Discount.findByIdAndDelete(id);
-      
-      return c.json({ success: true });
-    } catch (error) {
-      return c.json({ error: 'Delete failed' }, 500);
-    }
+  try {
+    const { type, id } = c.req.param();
+    if (type === 'customers') await Customer.findByIdAndDelete(id);
+    else if (type === 'suppliers') await Supplier.findByIdAndDelete(id);
+    else if (type === 'discounts') await Discount.findByIdAndDelete(id);
+
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ error: 'Delete failed' }, 500);
+  }
 });
 
 export default entities;
