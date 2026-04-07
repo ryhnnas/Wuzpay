@@ -1,8 +1,9 @@
 import { Hono } from "npm:hono";
 import { Transaction } from "../models/Transaction.ts";
 import { Product, StockLog } from "../models/Product.ts";
-import { Ingredient } from "../models/Ingredient.ts"; // TAMBAHAN: Import model Ingredient
+import { Ingredient } from "../models/Ingredient.ts";
 import { verifyAuth } from "../middleware/auth.ts";
+import { parseDateRange } from "../lib/date.ts";
 import mongoose from "npm:mongoose";
 
 const transactions = new Hono();
@@ -20,11 +21,7 @@ transactions.get("/", async (c) => {
 
     const filter: any = {};
     if (startDate && endDate) {
-      // FIX TANGGAL: Cari dari jam 00:00:00 sampe 23:59:59 mang!
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      const { start, end } = parseDateRange(startDate, endDate);
       filter.createdAt = { $gte: start, $lte: end };
     }
 

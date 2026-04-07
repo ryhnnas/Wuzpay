@@ -66,13 +66,13 @@ export function ReportsSection() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [dateFrom, dateTo]);
 
   const loadData = async () => {
     setIsLoading(true);
     try {
       const [tData, pData] = await Promise.all([
-        transactionsAPI.getAll(),
+        transactionsAPI.getAll({ startDate: dateFrom, endDate: dateTo }),
         productsAPI.getAll()
       ]);
       setTransactions(Array.isArray(tData) ? tData : []);
@@ -90,24 +90,18 @@ export function ReportsSection() {
     }).format(amount || 0);
   };
 
-  // ==================== LOGIK FILTERING MONGODB ====================
+  // ==================== LOGIK FILTERING (PAYMENT & SEARCH ONLY) ====================
+  // Tanggal sudah difilter di server via API, client hanya filter payment & search
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
-      // Ambil field createdAt atau created_at sesuai model mongo
-      const d = new Date(t.createdAt || t.created_at);
-      if (!isValid(d)) return false;
-      
-      const transDate = format(d, 'yyyy-MM-dd');
-      
-      const matchesDate = transDate >= dateFrom && transDate <= dateTo;
       const matchesPayment = paymentFilter === 'all' || t.payment_method?.toLowerCase() === paymentFilter.toLowerCase();
       const matchesSearch = 
         (t.receipt_number?.toLowerCase().includes(searchQuery.toLowerCase())) || 
         (t.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()));
       
-      return matchesDate && matchesPayment && matchesSearch;
+      return matchesPayment && matchesSearch;
     }).sort((a, b) => new Date(b.createdAt || b.created_at).getTime() - new Date(a.createdAt || a.created_at).getTime());
-  }, [transactions, dateFrom, dateTo, paymentFilter, searchQuery]);
+  }, [transactions, paymentFilter, searchQuery]);
 
   const handleFilterClick = (type: string) => {
     setActiveFilter(type);
@@ -130,7 +124,7 @@ export function ReportsSection() {
     currentPage * itemsPerPage
   );
 
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, paymentFilter, searchQuery]);
+  useEffect(() => { setCurrentPage(1); }, [paymentFilter, searchQuery]);
 
   // ==================== LOGIK SUMMARY ====================
   const summary = useMemo(() => ({

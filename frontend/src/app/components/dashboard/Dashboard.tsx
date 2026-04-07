@@ -39,30 +39,26 @@ export function Dashboard() {
       let eStr = "";
 
       const now = new Date();
+      // Helper: format Date ke yyyy-MM-dd lokal
+      const toLocalDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const todayStr = toLocalDate(now);
 
       if (dateRange === 'today') {
-        // Midnight hari ini (local timezone) → dikonversi ke UTC otomatis
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-        sStr = todayStart.toISOString();
-        eStr = todayEnd.toISOString();
+        sStr = todayStr;
+        eStr = todayStr;
       } else if (dateRange === 'week') {
-        const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
-        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-        sStr = weekStart.toISOString();
-        eStr = todayEnd.toISOString();
+        const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+        sStr = toLocalDate(weekAgo);
+        eStr = todayStr;
       } else if (dateRange === 'month') {
         const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 1); // awal bulan berikutnya
-        sStr = firstDay.toISOString();
-        eStr = lastDay.toISOString();
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0); // hari terakhir bulan ini
+        sStr = toLocalDate(firstDay);
+        eStr = toLocalDate(lastDay);
       } else if (dateRange === 'custom') {
         if (!startDate || !endDate) { setIsLoading(false); return; }
-        // Parse tanggal custom ke local timezone lalu konversi ke UTC
-        const [sy, sm, sd] = startDate.split('-').map(Number);
-        const [ey, em, ed] = endDate.split('-').map(Number);
-        sStr = new Date(sy, sm - 1, sd).toISOString();
-        eStr = new Date(ey, em - 1, ed + 1).toISOString(); // +1 hari supaya inclusive
+        sStr = startDate; // sudah format yyyy-MM-dd dari input
+        eStr = endDate;
       }
 
       // Hit API WuzPay Backend

@@ -2,6 +2,7 @@ import { Hono } from "npm:hono";
 import { Transaction } from "../models/Transaction.ts";
 import { Product } from "../models/Product.ts";
 import { verifyAuth } from "../middleware/auth.ts";
+import { parseDateRange, getTodayRangeWIB } from "../lib/date.ts";
 
 const analytics = new Hono();
 
@@ -18,10 +19,7 @@ analytics.get("/reports/sales", async (c) => {
 
     const filter: any = {};
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      const { start, end } = parseDateRange(startDate, endDate);
       filter.createdAt = { $gte: start, $lte: end };
     }
 
@@ -56,10 +54,7 @@ analytics.get("/reports/summary", async (c) => {
 
     const filter: any = {};
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      const { start, end } = parseDateRange(startDate, endDate);
       filter.createdAt = { $gte: start, $lte: end };
     }
 
@@ -100,10 +95,7 @@ analytics.get("/reports/product-sales", async (c) => {
 
     const filter: any = {};
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      const { start, end } = parseDateRange(startDate, endDate);
       filter.createdAt = { $gte: start, $lte: end };
     }
 
@@ -153,10 +145,8 @@ analytics.get("/ai/insights", async (c) => {
       });
     }
 
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const todayTrans = await Transaction.find({ createdAt: { $gte: startOfToday } });
+    const { start: todayStart, end: todayEnd } = getTodayRangeWIB();
+    const todayTrans = await Transaction.find({ createdAt: { $gte: todayStart, $lte: todayEnd } });
 
     if (todayTrans.length > 0) {
       const totalRev = todayTrans.reduce((sum, t) => sum + t.total_amount, 0);
@@ -183,10 +173,7 @@ analytics.get("/reports/category-sales", async (c) => {
 
     const filter: any = {};
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      const { start, end } = parseDateRange(startDate, endDate);
       filter.createdAt = { $gte: start, $lte: end };
     }
 
@@ -228,10 +215,7 @@ analytics.get("/reports/qris", async (c) => {
     const filter: any = { payment_method: 'qris' }; // Kunci utama: Cuma QRIS mang!
     
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      const { start, end } = parseDateRange(startDate, endDate);
       filter.createdAt = { $gte: start, $lte: end };
     }
 
