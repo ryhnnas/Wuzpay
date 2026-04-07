@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { 
-  LayoutDashboard, ShoppingCart, Package, Users, FileText, 
+import {
+  LayoutDashboard, ShoppingCart, Package, Users, FileText,
   Settings, Brain, TrendingUp, Wallet, Tag, LogOut,
-  ChevronDown, ChevronRight, BarChart3, QrCode, Menu, X, Layers, Printer, ShieldCheck 
+  ChevronDown, ChevronRight, BarChart3, QrCode, Menu, X, Layers, Printer, ShieldCheck, Wheat
 } from 'lucide-react'; // <--- BarChart3 sudah masuk barisan mang!
 import { Button } from '@/app/components/ui/button';
 import { ScrollArea } from '@/app/components/ui/scroll-area';
@@ -31,6 +31,7 @@ const menuGroups = [
     items: [
       { id: 'kategories', label: 'Kategori', icon: Layers },
       { id: 'products', label: 'Produk', icon: Package },
+      { id: 'ingredients', label: 'Bahan Baku', icon: Wheat },
       { id: 'stock', label: 'Stok', icon: Wallet },
       { id: 'contacts', label: 'Kontak', icon: Users },
       { id: 'discounts', label: 'Diskon', icon: Tag },
@@ -41,9 +42,9 @@ const menuGroups = [
     icon: FileText,
     items: [
       { id: 'cash-drawer', label: 'Cash Drawer', icon: Wallet },
-      { id: 'product-sales', label: 'Penjualan Barang', icon: BarChart3 }, 
-      { id: 'category-sales', label: 'Penjualan Per Kategori', icon: Layers }, 
-      { id: 'qris-reports', label: 'Laporan QRIS', icon: QrCode }, 
+      { id: 'product-sales', label: 'Penjualan Barang', icon: BarChart3 },
+      { id: 'category-sales', label: 'Penjualan Per Kategori', icon: Layers },
+      { id: 'qris-reports', label: 'Laporan QRIS', icon: QrCode },
       { id: 'reports', label: 'Laporan', icon: FileText },
     ]
   },
@@ -77,7 +78,7 @@ export function Sidebar({ activeMenu, onMenuChange, userRole, allowedMenus = [] 
       setOpenGroups([title]);
       return;
     }
-    setOpenGroups(prev => 
+    setOpenGroups(prev =>
       prev.includes(title) ? prev.filter(t => t !== title) : [...prev, title]
     );
   };
@@ -89,8 +90,8 @@ export function Sidebar({ activeMenu, onMenuChange, userRole, allowedMenus = [] 
 
   return (
     <aside className={cn(
-      "relative flex h-screen flex-col border-r bg-white transition-all duration-300 ease-in-out shadow-sm", 
-      isCollapsed ? "w-16" : "w-52"
+      "relative flex h-screen flex-col border-r bg-white transition-all duration-300 ease-in-out shadow-sm",
+      isCollapsed ? "w-16" : "w-60"
     )}>
       <Button
         variant="ghost"
@@ -102,19 +103,19 @@ export function Sidebar({ activeMenu, onMenuChange, userRole, allowedMenus = [] 
       </Button>
 
       <div className={cn(
-        "flex h-20 items-center border-b bg-white transition-all duration-300 shrink-0", 
+        "flex h-20 items-center border-b bg-white transition-all duration-300 shrink-0",
         isCollapsed ? "justify-center px-0" : "px-4"
       )}>
-       
-          <img className='mx-auto' src="/logo.png" alt="Logo" width={100} />
-        
+
+        <img className='mx-auto' src="/logo.png" alt="Logo" width={100} />
+
       </div>
 
-      <div className="flex-1 min-h-0 w-full overflow-hidden"> 
+      <div className="flex-1 min-h-0 w-full overflow-hidden">
         <ScrollArea className="h-full w-full">
           <div className="px-3 py-6 space-y-4">
             {menuGroups.map((group) => {
-              const filteredItems = group.items.filter(item => 
+              const filteredItems = group.items.filter(item =>
                 allowedMenus.includes(item.id) || userRole === 'owner' || userRole === 'admin'
               );
               if (filteredItems.length === 0) return null;
@@ -156,8 +157,8 @@ export function Sidebar({ activeMenu, onMenuChange, userRole, allowedMenus = [] 
                             )}
                             onClick={() => onMenuChange(item.id)}
                           >
-                            <Icon className={cn("mr-2 size-3.5", isActive ? "text-white" : "")} />
-                            {item.label}
+                            <Icon className={cn("mr-2 size-3.5 shrink-0", isActive ? "text-white" : "")} />
+                            <span className="truncate">{item.label}</span>
                           </Button>
                         );
                       })}
@@ -171,8 +172,8 @@ export function Sidebar({ activeMenu, onMenuChange, userRole, allowedMenus = [] 
       </div>
 
       <div className="shrink-0 p-4 border-t bg-white mt-auto">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           className={cn(
             "text-red-600 hover:bg-red-50 rounded-xl transition-all font-black uppercase text-[10px] tracking-widest h-11 border border-gray-50 shadow-sm",
             isCollapsed ? "size-11 p-0 justify-center mx-auto flex" : "w-full justify-start px-4"

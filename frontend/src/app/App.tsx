@@ -26,6 +26,7 @@ import SettingStruk from './components/setting/SettingStruk';
 import SettingPrint from './components/setting/SettingPrint';
 import SettingAkses from './components/setting/SettingAkses';
 import { authAPI, pendingOrdersAPI, permissionsAPI } from '@/services/api';
+import { IngredientManagement } from './components/products/IngredientManagement';
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(authAPI.getCachedUser());
@@ -33,7 +34,7 @@ function App() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(!authAPI.getCachedUser());
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [showPendingListDialog, setShowPendingListDialog] = useState(false);
-  
+
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [isPermsLoading, setIsPermsLoading] = useState(true);
 
@@ -55,12 +56,12 @@ function App() {
     try {
       setIsPermsLoading(true);
       const data = await permissionsAPI.getAll();
-      
+
       if (Array.isArray(data)) {
-        const myPerms = data.find((p: any) => 
+        const myPerms = data.find((p: any) =>
           p.role_name.toLowerCase() === role.toLowerCase()
         );
-        
+
         if (myPerms && myPerms.allowed_menus) {
           setUserPermissions(myPerms.allowed_menus);
         } else {
@@ -79,15 +80,15 @@ function App() {
   useEffect(() => {
     const initApp = async () => {
       const token = localStorage.getItem('auth_token');
-      if (!token) { 
+      if (!token) {
         setIsCheckingAuth(false);
         setIsPermsLoading(false);
-        return; 
+        return;
       }
       try {
         const user = await authAPI.getCurrentUser();
         setCurrentUser(user);
-        
+
         if (user.role) {
           await loadUserPermissions(user.role);
         }
@@ -97,8 +98,8 @@ function App() {
 
       } catch (error) {
         handleLogout();
-      } finally { 
-        setIsCheckingAuth(false); 
+      } finally {
+        setIsCheckingAuth(false);
       }
     };
 
@@ -108,7 +109,7 @@ function App() {
       if (localStorage.getItem('auth_token')) {
         loadPendingOrdersFromDB();
       }
-    }, 30000); 
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [loadPendingOrdersFromDB, loadUserPermissions]);
@@ -172,15 +173,16 @@ function App() {
     switch (activeMenu) {
       case 'pos':
         return (
-          <POSScreen 
-            pendingOrders={pendingOrders} 
+          <POSScreen
+            pendingOrders={pendingOrders}
             setPendingOrders={setPendingOrders}
             showPendingListDialog={showPendingListDialog}
             setShowPendingListDialog={setShowPendingListDialog}
-            refreshPendingOrders={loadPendingOrdersFromDB} 
+            refreshPendingOrders={loadPendingOrdersFromDB}
           />
         );
       case 'dashboard': return <Dashboard />;
+      case 'ingredients': return <IngredientManagement />;
       case 'products': return <ProductManagement />;
       case 'stock': return <StockManagement />;
       case 'contacts': return <CustomerManagement />;
@@ -212,18 +214,18 @@ function App() {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
-      <Sidebar 
-        activeMenu={activeMenu} 
-        onMenuChange={setActiveMenu} 
-        userRole={currentUser?.role || ''} 
-        allowedMenus={userPermissions} 
+      <Sidebar
+        activeMenu={activeMenu}
+        onMenuChange={setActiveMenu}
+        userRole={currentUser?.role || ''}
+        allowedMenus={userPermissions}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header 
-          user={currentUser} 
-          currentPage={activeMenu} 
-          pendingCount={pendingOrders.length} 
-          onOpenPendingOrders={() => setShowPendingListDialog(true)} 
+        <Header
+          user={currentUser}
+          currentPage={activeMenu}
+          pendingCount={pendingOrders.length}
+          onOpenPendingOrders={() => setShowPendingListDialog(true)}
         />
         <main className="flex-1 overflow-auto bg-white/50">
           {renderContent()}
