@@ -310,6 +310,7 @@ export const transactionsAPI = {
       total_amount: tx.total_amount || tx.total,
       payment_method: tx.payment_method || tx.paymentMethod,
       items: tx.items.map((i: any) => ({
+        ...i,
         product_id: String(i.product_id || i.id).trim(),
         quantity: i.quantity,
         price_at_sale: i.price_at_sale || i.price,
