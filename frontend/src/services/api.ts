@@ -463,6 +463,87 @@ export const aiAPI = {
     });
     return res.response;
   },
+  streamChat: async (
+    prompt: string,
+    history: any[],
+    handlers: {
+      onStage?: (stage: string, message?: string) => void;
+      onChunk: (chunk: string) => void;
+      onDone?: (payload: { response: string; suggested_questions?: string[] }) => void;
+      onError?: (message: string) => void;
+    }
+  ) => {
+    const token = getAuthToken();
+    const sessionId = getSessionId();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+    };
+
+    if (token && token !== "undefined" && token !== "null") {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    if (sessionId && sessionId !== "null" && sessionId !== "undefined") {
+      headers['X-Session-ID'] = sessionId;
+    }
+
+    const base = API_BASE_URL.replace(/\/$/, '');
+    const path = API_ENDPOINTS.ai.chat.replace(/^\//, '');
+    const finalUrl = `${base}/${path}`;
+
+    const response = await fetch(finalUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ prompt, history, stream: true }),
+    });
+
+    if (!response.ok || !response.body) {
+      const errorData = await response.json().catch(() => ({ error: 'Server Error' }));
+      throw new Error(errorData.error || errorData.message || `HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let streamError: string | null = null;
+
+    const processEvent = (rawEvent: string) => {
+      const lines = rawEvent.split('\n');
+      const eventLine = lines.find((line) => line.startsWith('event:'));
+      const dataLine = lines.find((line) => line.startsWith('data:'));
+      const eventName = eventLine ? eventLine.replace('event:', '').trim() : 'message';
+      const dataText = dataLine ? dataLine.replace('data:', '').trim() : '{}';
+
+      try {
+        const payload = JSON.parse(dataText);
+        if (eventName === 'stage') handlers.onStage?.(payload.stage, payload.message);
+        if (eventName === 'chunk') handlers.onChunk(payload.text || '');
+        if (eventName === 'done') handlers.onDone?.(payload);
+        if (eventName === 'error') {
+          const msg = payload.message || 'Terjadi kesalahan streaming AI.';
+          handlers.onError?.(msg);
+          streamError = msg;
+        }
+      } catch {
+        // ignore malformed event payload
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split('\n\n');
+      buffer = events.pop() || '';
+      events.forEach(processEvent);
+    }
+
+    if (streamError) {
+      throw new Error(streamError);
+    }
+  },
   getInsights: async () => apiRequest(API_ENDPOINTS.ai.insights),
   processReceipt: async (file: File) => {
     const formData = new FormData();

@@ -1,9 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Upload, Sparkles, Loader2, Zap } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
-import { ScrollArea } from '@/app/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/app/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { aiAPI } from '@/services/api';
@@ -16,18 +15,92 @@ interface Message {
   timestamp: Date;
 }
 
+const CHAT_STORAGE_KEY = 'wuzpay_ai_chat_history_v1';
+
+const DEFAULT_GREETING: Message = {
+  id: '1',
+  role: 'assistant',
+  content: 'Halo! Saya adalah WuzPay AI. Saya memiliki akses ke data penjualan, stok, dan performa tokomu. Apa yang ingin kamu analisis hari ini?',
+  timestamp: new Date(),
+};
+
+const STAGE_LABELS: Record<string, string> = {
+  analyzing: 'Menganalisis pertanyaan...',
+  fetching_data: 'Mengambil data bisnis...',
+  composing_answer: 'Menyusun jawaban...',
+};
+
+function renderInlineMarkdown(text: string) {
+  const pieces = text.split(/(\*\*[^*]+\*\*)/g);
+  return pieces.map((piece, idx) => {
+    if (piece.startsWith('**') && piece.endsWith('**') && piece.length > 4) {
+      return <strong key={idx}>{piece.slice(2, -2)}</strong>;
+    }
+    return <React.Fragment key={idx}>{piece}</React.Fragment>;
+  });
+}
+
+function renderAssistantContent(content: string) {
+  const lines = content.split('\n').filter((line, idx, arr) => !(line.trim() === '' && arr[idx - 1]?.trim() === ''));
+  const nodes: React.ReactNode[] = [];
+  let listItems: string[] = [];
+
+  const flushList = () => {
+    if (listItems.length === 0) return;
+    nodes.push(
+      <ul key={`list-${nodes.length}`} className="list-disc pl-5 my-1 space-y-1">
+        {listItems.map((item, idx) => <li key={idx}>{renderInlineMarkdown(item)}</li>)}
+      </ul>
+    );
+    listItems = [];
+  };
+
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || /^\d+\.\s/.test(trimmed)) {
+      listItems.push(trimmed.replace(/^(-|\*|\d+\.)\s/, ''));
+      return;
+    }
+
+    flushList();
+    if (trimmed.includes('|') && trimmed.split('|').length > 2) {
+      nodes.push(
+        <pre key={`table-${idx}`} className="text-xs bg-white/70 rounded-xl p-2 overflow-x-auto">{trimmed}</pre>
+      );
+      return;
+    }
+
+    nodes.push(
+      <p key={`p-${idx}`} className="my-1">
+        {renderInlineMarkdown(line)}
+      </p>
+    );
+  });
+
+  flushList();
+  return nodes;
+}
+
 export function AIAssistant() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Halo! Saya adalah WuzPay AI. Saya memiliki akses ke data penjualan, stok, dan performa tokomu. Apa yang ingin kamu analisis hari ini?',
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+      if (!raw) return [DEFAULT_GREETING];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length === 0) return [DEFAULT_GREETING];
+      return parsed.map((m: any) => ({
+        ...m,
+        timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+      }));
+    } catch {
+      return [DEFAULT_GREETING];
+    }
+  });
   const [inputMessage, setInputMessage] = useState('');
   const [activeTab, setActiveTab] = useState('chat');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState('analyzing');
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto scroll ke pesan terbaru
@@ -37,33 +110,76 @@ export function AIAssistant() {
     }
   }, [messages, isLoading]);
 
+  useEffect(() => {
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
+    const now = Date.now();
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: now.toString(),
       role: 'user',
       content: inputMessage,
       timestamp: new Date(),
     };
+    const assistantMessageId = (now + 1).toString();
+    const placeholderAssistant: Message = {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+    };
 
-    setMessages(prev => [...prev, userMessage]);
+    const historySnapshot = [...messages];
+    setMessages(prev => [...prev, userMessage, placeholderAssistant]);
     const currentInput = inputMessage;
     setInputMessage('');
     setIsLoading(true);
+    setLoadingStage('analyzing');
+    setSuggestedQuestions([]);
 
     try {
-      // Menghubungi backend Hono yang sudah terintegrasi dengan Gemini
-      const response = await aiAPI.chat(currentInput, messages);
-      
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, aiMessage]);
+      await aiAPI.streamChat(currentInput, historySnapshot, {
+        onStage: (stage) => setLoadingStage(stage || 'analyzing'),
+        onChunk: (chunk) => {
+          if (!chunk) return;
+          setMessages(prev => prev.map(msg => (
+            msg.id === assistantMessageId
+              ? { ...msg, content: `${msg.content}${chunk}` }
+              : msg
+          )));
+        },
+        onDone: ({ response, suggested_questions }) => {
+          if (response) {
+            setMessages(prev => prev.map(msg => (
+              msg.id === assistantMessageId
+                ? { ...msg, content: response }
+                : msg
+            )));
+          }
+          setSuggestedQuestions(Array.isArray(suggested_questions) ? suggested_questions.slice(0, 3) : []);
+        },
+        onError: (message) => {
+          throw new Error(message);
+        }
+      });
     } catch (error: any) {
+      try {
+        const fallback = await aiAPI.chat(currentInput, historySnapshot);
+        setMessages(prev => prev.map(msg => (
+          msg.id === assistantMessageId
+            ? { ...msg, content: fallback || 'WuzPay AI sedang sibuk. Coba lagi nanti.' }
+            : msg
+        )));
+      } catch {
+        setMessages(prev => prev.map(msg => (
+          msg.id === assistantMessageId
+            ? { ...msg, content: 'WuzPay AI sedang sibuk. Coba lagi nanti.' }
+            : msg
+        )));
+      }
       toast.error(error.message || 'WuzPay AI sedang sibuk. Coba lagi nanti.');
     } finally {
       setIsLoading(false);
@@ -80,19 +196,23 @@ export function AIAssistant() {
         setIsLoading(true);
         const toastId = toast.loading('WuzPay AI sedang membaca nota...');
         try {
-          const result = await aiAPI.processReceipt(file);
+          const result = await aiAPI.scanReceiptOCR(file);
           toast.success('Nota berhasil diproses!', { id: toastId });
           
           let aiResponseText = `Berhasil membaca nota!\n\n`;
-          if (result.data) {
-             aiResponseText += `🛒 Toko: ${result.data.store_name}\n`;
-             aiResponseText += `📅 Tanggal: ${new Date(result.data.date).toLocaleString('id-ID')}\n`;
-             aiResponseText += `💰 Total: Rp ${result.data.total_amount.toLocaleString('id-ID')}\n\n`;
-             if (result.data.items && result.data.items.length > 0) {
+          const data = result?.data || result;
+          if (data) {
+             aiResponseText += `📅 Tanggal: ${data.tanggal || '-'}\n`;
+             aiResponseText += `💰 Total: Rp ${(Number(data.total_belanja || 0)).toLocaleString('id-ID')}\n\n`;
+             if (Array.isArray(data.items) && data.items.length > 0) {
                aiResponseText += `Rincian Item:\n`;
-               result.data.items.forEach((item: any) => {
-                 aiResponseText += `- ${item.name} (${item.qty}x) = Rp ${item.price.toLocaleString('id-ID')}\n`;
+               data.items.forEach((item: any) => {
+                 const qty = Number(item.kuantitas || 0);
+                 const price = Number(item.harga_per_barang || 0);
+                 aiResponseText += `- ${item.nama_barang || 'Tanpa Nama'} (${qty}x) = Rp ${price.toLocaleString('id-ID')}\n`;
                });
+             } else {
+               aiResponseText += `Belum ada item yang terbaca dari nota.`;
              }
           }
           if (result.message) {
@@ -138,7 +258,7 @@ export function AIAssistant() {
           <h2 className="font-black text-3xl uppercase tracking-tighter text-orange-600 italic">
             WuzPay AI <span className="text-orange-600">Assistant</span>
           </h2>
-          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">Analisis Bisnis Real-Time via Gemini</p>
+          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">Analisis Bisnis Real-Time by WuzPay AI</p>
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -176,7 +296,13 @@ export function AIAssistant() {
                             : 'bg-orange-50/50 text-gray-800 rounded-tl-none border border-orange-100/50'
                         }`}
                       >
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed font-medium">{message.content}</p>
+                        {message.role === 'assistant' ? (
+                          <div className="whitespace-pre-wrap text-sm leading-relaxed font-medium">
+                            {renderAssistantContent(message.content)}
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed font-medium">{message.content}</p>
+                        )}
                         <p className={`mt-2 text-[9px] font-black uppercase tracking-widest opacity-50`}>
                           {message.timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                         </p>
@@ -195,7 +321,9 @@ export function AIAssistant() {
                       </Avatar>
                       <div className="rounded-[24px] bg-gray-50 p-4 flex items-center gap-2">
                         <Loader2 className="size-4 animate-spin text-orange-600" />
-                        <span className="text-xs font-black uppercase tracking-widest text-gray-400">WuzPay sedang berpikir...</span>
+                        <span className="text-xs font-black uppercase tracking-widest text-gray-400">
+                          {STAGE_LABELS[loadingStage] || 'WuzPay AI sedang berpikir...'}
+                        </span>
                       </div>
                     </div>
                   )}
@@ -218,6 +346,22 @@ export function AIAssistant() {
                     </Button>
                   ))}
                 </div>
+
+                {suggestedQuestions.length > 0 && (
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {suggestedQuestions.map((q, i) => (
+                      <Button
+                        key={`${q}-${i}`}
+                        variant="outline"
+                        className="rounded-xl border-orange-100 text-[10px] font-black uppercase tracking-widest hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition-all py-1 h-8"
+                        onClick={() => setInputMessage(q)}
+                        disabled={isLoading}
+                      >
+                        {q}
+                      </Button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Input Area */}
                 <div className="flex gap-2 bg-gray-50 p-2 rounded-[24px] border border-gray-100 focus-within:ring-2 focus-within:ring-orange-500 transition-all">

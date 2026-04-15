@@ -249,9 +249,9 @@ Format:
   "strategy": "[Kesimpulan strategi utama bulan ini]"
 }`;
         // Ambil dari backend (via aiAPI) 
-        console.log("WuzPay AI is generating Insights with prompt:", aiPrompt);
+        console.log("WuzPay AI is generating insights with prompt:", aiPrompt);
         const aiRaw = await aiAPI.chat(aiPrompt, []);
-        console.log("Raw Gemini Output:", aiRaw);
+        console.log("Raw WuzPay AI output:", aiRaw);
 
         const jsonMatch = aiRaw.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
@@ -262,7 +262,7 @@ Format:
              console.log("Missing keys in AI JSON", aiData);
           }
         } else {
-          console.warn("No JSON match found in Gemini output.");
+          console.warn("No JSON match found in WuzPay AI output.");
         }
       } catch (error) {
         console.error('AI Narrative Generation failed, fallback to static:', error);

@@ -191,6 +191,143 @@ export const TOOL_DECLARATIONS = [
         }
       },
       {
+        name: "compare_periods",
+        description: "Bandingkan metrik bisnis antara dua periode dan hitung perubahan absolut + persentase. Gunakan untuk pertanyaan seperti 'bulan ini vs bulan lalu' atau 'minggu ini dibanding minggu lalu'.",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            metric: {
+              type: "STRING",
+              enum: ["revenue", "profit", "transactions", "avg_transaction"],
+              description: "Metrik utama yang akan dibandingkan"
+            },
+            current_period: {
+              type: "STRING",
+              enum: ["today", "week", "month", "custom"],
+              description: "Periode utama yang dianalisis"
+            },
+            current_start_date: {
+              type: "STRING",
+              description: "Tanggal awal current_period jika custom (YYYY-MM-DD)"
+            },
+            current_end_date: {
+              type: "STRING",
+              description: "Tanggal akhir current_period jika custom (YYYY-MM-DD)"
+            },
+            compare_with: {
+              type: "STRING",
+              enum: ["previous_period", "same_period_last_week", "same_period_last_month", "custom"],
+              description: "Cara memilih periode pembanding"
+            },
+            compare_start_date: {
+              type: "STRING",
+              description: "Tanggal awal periode pembanding jika compare_with=custom (YYYY-MM-DD)"
+            },
+            compare_end_date: {
+              type: "STRING",
+              description: "Tanggal akhir periode pembanding jika compare_with=custom (YYYY-MM-DD)"
+            }
+          },
+          required: ["metric", "current_period", "compare_with"]
+        }
+      },
+      {
+        name: "search_transactions",
+        description: "Cari daftar transaksi dengan filter fleksibel: tanggal, metode pembayaran, customer, item produk, dan rentang nominal. Gunakan ketika user tidak punya nomor struk spesifik.",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            start_date: {
+              type: "STRING",
+              description: "Tanggal awal pencarian (YYYY-MM-DD)"
+            },
+            end_date: {
+              type: "STRING",
+              description: "Tanggal akhir pencarian (YYYY-MM-DD)"
+            },
+            payment_method: {
+              type: "STRING",
+              enum: ["cash", "qris", "gopay", "transfer"],
+              description: "Filter metode pembayaran (opsional)"
+            },
+            customer_name: {
+              type: "STRING",
+              description: "Filter nama customer (opsional, partial match)"
+            },
+            product_name: {
+              type: "STRING",
+              description: "Filter transaksi yang memuat nama produk tertentu (opsional)"
+            },
+            min_amount: {
+              type: "NUMBER",
+              description: "Nominal transaksi minimum (opsional)"
+            },
+            max_amount: {
+              type: "NUMBER",
+              description: "Nominal transaksi maksimum (opsional)"
+            },
+            limit: {
+              type: "INTEGER",
+              description: "Jumlah maksimal hasil (default 20, max 50)"
+            }
+          }
+        }
+      },
+      {
+        name: "get_customer_stats",
+        description: "Ambil statistik pelanggan: total pelanggan unik, pelanggan paling sering transaksi, dan pelanggan dengan spending tertinggi.",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            period: {
+              type: "STRING",
+              enum: ["week", "month", "custom"],
+              description: "Periode data pelanggan"
+            },
+            start_date: {
+              type: "STRING",
+              description: "Tanggal awal jika period=custom (YYYY-MM-DD)"
+            },
+            end_date: {
+              type: "STRING",
+              description: "Tanggal akhir jika period=custom (YYYY-MM-DD)"
+            },
+            limit: {
+              type: "INTEGER",
+              description: "Jumlah top customer yang ditampilkan (default 10, max 20)"
+            }
+          },
+          required: ["period"]
+        }
+      },
+      {
+        name: "get_discount_analysis",
+        description: "Analisis diskon penjualan: total diskon, rasio diskon terhadap omzet, dan transaksi dengan diskon terbesar.",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            period: {
+              type: "STRING",
+              enum: ["week", "month", "custom"],
+              description: "Periode analisis diskon"
+            },
+            start_date: {
+              type: "STRING",
+              description: "Tanggal awal jika period=custom (YYYY-MM-DD)"
+            },
+            end_date: {
+              type: "STRING",
+              description: "Tanggal akhir jika period=custom (YYYY-MM-DD)"
+            },
+            limit: {
+              type: "INTEGER",
+              description: "Jumlah transaksi diskon terbesar yang ditampilkan (default 10, max 20)"
+            }
+          },
+          required: ["period"]
+        }
+      },
+      {
         name: "get_hourly_sales",
         description: "Ambil pola penjualan per jam (jam sibuk/ramai). Gunakan untuk pertanyaan tentang jam ramai, jam sibuk, peak hours, kapan paling rame.",
         parameters: {
@@ -235,6 +372,32 @@ function getDateRange(period: string, startDate?: string, endDate?: string): { s
 }
 
 const formatRp = (v: number) => `Rp ${Math.round(v).toLocaleString('id-ID')}`;
+
+async function aggregateSummaryByDateRange(start: Date, end: Date) {
+  const result = await Transaction.aggregate([
+    { $match: { createdAt: { $gte: start, $lt: end } } },
+    {
+      $group: {
+        _id: null,
+        revenue: { $sum: "$total_amount" },
+        profit: { $sum: "$profit" },
+        transaction_count: { $sum: 1 },
+      }
+    }
+  ]);
+
+  const summary = result[0] || { revenue: 0, profit: 0, transaction_count: 0 };
+  const avgTransaction = summary.transaction_count > 0
+    ? summary.revenue / summary.transaction_count
+    : 0;
+
+  return {
+    revenue: summary.revenue,
+    profit: summary.profit,
+    transactions: summary.transaction_count,
+    avg_transaction: avgTransaction,
+  };
+}
 
 // ==================== TOOL EXECUTORS ====================
 
@@ -581,6 +744,235 @@ async function exec_get_hourly_sales(args: any) {
   };
 }
 
+async function exec_compare_periods(args: any) {
+  const currentRange = getDateRange(
+    args.current_period || "month",
+    args.current_start_date,
+    args.current_end_date
+  );
+
+  let compareRange: { start: Date; end: Date };
+  if (args.compare_with === "custom" && args.compare_start_date && args.compare_end_date) {
+    compareRange = getDateRange("custom", args.compare_start_date, args.compare_end_date);
+  } else {
+    const spanMs = currentRange.end.getTime() - currentRange.start.getTime();
+    if (args.compare_with === "same_period_last_week") {
+      compareRange = {
+        start: new Date(currentRange.start.getTime() - (7 * 24 * 60 * 60 * 1000)),
+        end: new Date(currentRange.end.getTime() - (7 * 24 * 60 * 60 * 1000)),
+      };
+    } else if (args.compare_with === "same_period_last_month") {
+      compareRange = {
+        start: new Date(currentRange.start.getTime() - (30 * 24 * 60 * 60 * 1000)),
+        end: new Date(currentRange.end.getTime() - (30 * 24 * 60 * 60 * 1000)),
+      };
+    } else {
+      compareRange = {
+        start: new Date(currentRange.start.getTime() - spanMs),
+        end: new Date(currentRange.start.getTime()),
+      };
+    }
+  }
+
+  const [currentSummary, compareSummary] = await Promise.all([
+    aggregateSummaryByDateRange(currentRange.start, currentRange.end),
+    aggregateSummaryByDateRange(compareRange.start, compareRange.end),
+  ]);
+
+  const metric = args.metric || "revenue";
+  const currentValue = Number(currentSummary[metric as keyof typeof currentSummary] || 0);
+  const compareValue = Number(compareSummary[metric as keyof typeof compareSummary] || 0);
+  const diff = currentValue - compareValue;
+  const percentChange = compareValue === 0 ? (currentValue > 0 ? 100 : 0) : (diff / compareValue) * 100;
+
+  return {
+    metric,
+    current_period: {
+      start_date: currentRange.start.toISOString().split("T")[0],
+      end_date: new Date(currentRange.end.getTime() - 1).toISOString().split("T")[0],
+      ...currentSummary,
+    },
+    compare_period: {
+      start_date: compareRange.start.toISOString().split("T")[0],
+      end_date: new Date(compareRange.end.getTime() - 1).toISOString().split("T")[0],
+      ...compareSummary,
+    },
+    comparison: {
+      current_value: currentValue,
+      compare_value: compareValue,
+      difference: diff,
+      difference_formatted: metric === "transactions" ? `${Math.round(diff)}` : formatRp(diff),
+      percent_change: Math.round(percentChange * 10) / 10,
+      trend: diff > 0 ? "naik" : diff < 0 ? "turun" : "stagnan",
+    }
+  };
+}
+
+async function exec_search_transactions(args: any) {
+  const query: any = {};
+  const limit = Math.min(Number(args.limit || 20), 50);
+
+  if (args.start_date || args.end_date) {
+    const start = args.start_date ? new Date(args.start_date) : new Date("1970-01-01");
+    const end = args.end_date ? new Date(args.end_date) : new Date();
+    end.setDate(end.getDate() + 1);
+    query.createdAt = { $gte: start, $lt: end };
+  }
+  if (args.payment_method) query.payment_method = args.payment_method;
+  if (args.customer_name) query.customer_name = { $regex: args.customer_name, $options: "i" };
+  if (args.min_amount !== undefined || args.max_amount !== undefined) {
+    query.total_amount = {};
+    if (args.min_amount !== undefined) query.total_amount.$gte = Number(args.min_amount);
+    if (args.max_amount !== undefined) query.total_amount.$lte = Number(args.max_amount);
+  }
+  if (args.product_name) {
+    query["items.name"] = { $regex: args.product_name, $options: "i" };
+  }
+
+  const rows = await Transaction.find(query)
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+
+  return {
+    filters_applied: {
+      start_date: args.start_date || null,
+      end_date: args.end_date || null,
+      payment_method: args.payment_method || null,
+      customer_name: args.customer_name || null,
+      product_name: args.product_name || null,
+      min_amount: args.min_amount ?? null,
+      max_amount: args.max_amount ?? null,
+    },
+    count: rows.length,
+    transactions: rows.map((tx: any) => ({
+      receipt_number: tx.receipt_number,
+      date: tx.createdAt,
+      customer_name: tx.customer_name,
+      payment_method: tx.payment_method,
+      total_amount: tx.total_amount,
+      total_amount_formatted: formatRp(tx.total_amount),
+      discount_amount: tx.discount_amount,
+      item_count: Array.isArray(tx.items) ? tx.items.length : 0,
+    })),
+  };
+}
+
+async function exec_get_customer_stats(args: any) {
+  const { start, end } = getDateRange(args.period || "month", args.start_date, args.end_date);
+  const limit = Math.min(Number(args.limit || 10), 20);
+
+  const stats = await Transaction.aggregate([
+    { $match: { createdAt: { $gte: start, $lt: end } } },
+    {
+      $group: {
+        _id: { $ifNull: ["$customer_name", "Pelanggan Umum"] },
+        transaction_count: { $sum: 1 },
+        total_spending: { $sum: "$total_amount" },
+        total_profit: { $sum: "$profit" },
+      }
+    },
+    { $sort: { total_spending: -1 } }
+  ]);
+
+  return {
+    period: args.period,
+    unique_customers: stats.length,
+    top_by_spending: stats.slice(0, limit).map((row: any, idx: number) => ({
+      rank: idx + 1,
+      customer_name: row._id,
+      transaction_count: row.transaction_count,
+      total_spending: row.total_spending,
+      total_spending_formatted: formatRp(row.total_spending),
+      total_profit: row.total_profit,
+      total_profit_formatted: formatRp(row.total_profit),
+    })),
+    top_by_frequency: [...stats]
+      .sort((a: any, b: any) => b.transaction_count - a.transaction_count)
+      .slice(0, limit)
+      .map((row: any, idx: number) => ({
+        rank: idx + 1,
+        customer_name: row._id,
+        transaction_count: row.transaction_count,
+        total_spending: row.total_spending,
+        total_spending_formatted: formatRp(row.total_spending),
+      })),
+  };
+}
+
+async function exec_get_discount_analysis(args: any) {
+  const { start, end } = getDateRange(args.period || "month", args.start_date, args.end_date);
+  const limit = Math.min(Number(args.limit || 10), 20);
+
+  const [summaryRows, topDiscountRows] = await Promise.all([
+    Transaction.aggregate([
+      { $match: { createdAt: { $gte: start, $lt: end } } },
+      {
+        $group: {
+          _id: null,
+          transaction_count: { $sum: 1 },
+          discounted_transactions: {
+            $sum: {
+              $cond: [{ $gt: ["$discount_amount", 0] }, 1, 0]
+            }
+          },
+          total_discount: { $sum: "$discount_amount" },
+          total_revenue: { $sum: "$total_amount" },
+          total_gross: { $sum: "$total_real_amount" },
+          total_profit: { $sum: "$profit" },
+        }
+      }
+    ]),
+    Transaction.find({
+      createdAt: { $gte: start, $lt: end },
+      discount_amount: { $gt: 0 },
+    })
+      .sort({ discount_amount: -1, createdAt: -1 })
+      .limit(limit)
+      .lean()
+  ]);
+
+  const summary = summaryRows[0] || {
+    transaction_count: 0,
+    discounted_transactions: 0,
+    total_discount: 0,
+    total_revenue: 0,
+    total_gross: 0,
+    total_profit: 0,
+  };
+
+  const discountRate = summary.total_gross > 0 ? (summary.total_discount / summary.total_gross) * 100 : 0;
+  const discountCoverage = summary.transaction_count > 0
+    ? (summary.discounted_transactions / summary.transaction_count) * 100
+    : 0;
+
+  return {
+    period: args.period,
+    summary: {
+      transaction_count: summary.transaction_count,
+      discounted_transactions: summary.discounted_transactions,
+      discounted_transaction_rate_percent: Math.round(discountCoverage * 10) / 10,
+      total_discount: summary.total_discount,
+      total_discount_formatted: formatRp(summary.total_discount),
+      total_revenue: summary.total_revenue,
+      total_revenue_formatted: formatRp(summary.total_revenue),
+      total_profit: summary.total_profit,
+      total_profit_formatted: formatRp(summary.total_profit),
+      discount_rate_percent: Math.round(discountRate * 10) / 10,
+    },
+    largest_discount_transactions: topDiscountRows.map((tx: any) => ({
+      receipt_number: tx.receipt_number,
+      date: tx.createdAt,
+      customer_name: tx.customer_name,
+      payment_method: tx.payment_method,
+      discount_amount: tx.discount_amount,
+      discount_amount_formatted: formatRp(tx.discount_amount),
+      total_amount: tx.total_amount,
+      total_amount_formatted: formatRp(tx.total_amount),
+    })),
+  };
+}
+
 // ==================== EXECUTOR REGISTRY ====================
 const EXECUTORS: Record<string, (args: any) => Promise<any>> = {
   get_sales_summary: exec_get_sales_summary,
@@ -593,6 +985,10 @@ const EXECUTORS: Record<string, (args: any) => Promise<any>> = {
   get_transaction_detail: exec_get_transaction_detail,
   get_profit_report: exec_get_profit_report,
   get_payment_method_stats: exec_get_payment_method_stats,
+  compare_periods: exec_compare_periods,
+  search_transactions: exec_search_transactions,
+  get_customer_stats: exec_get_customer_stats,
+  get_discount_analysis: exec_get_discount_analysis,
   get_hourly_sales: exec_get_hourly_sales,
 };
 
