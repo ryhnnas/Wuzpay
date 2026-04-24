@@ -1,6 +1,7 @@
 import { Hono } from "npm:hono";
-import { TOOL_DECLARATIONS, executeTool } from "../lib/ai_tools.ts";
+import { TOOL_DECLARATIONS, executeTool, getRelevantTools } from "../lib/ai_tools.ts";
 import { Ingredient } from "../models/Ingredient.ts";
+import { OcrTask } from "../models/OcrTask.ts";
 import { verifyAuth } from "../middleware/auth.ts";
 
 const ai = new Hono();
@@ -10,36 +11,62 @@ const MAX_AGENT_STEPS = 4;
 
 type StageHandler = (stage: "analyzing" | "fetching_data" | "composing_answer", message?: string) => void;
 
-// ==================== OCR ASYNC QUEUE (SEMAPHORE) ====================
-const ocrQueue: (() => Promise<void>)[] = [];
-let isProcessingOCR = false;
+// ==================== OCR MONGODB WORKER ====================
+let isWorkerRunning = false;
 
-async function processOcrQueue() {
-  if (isProcessingOCR || ocrQueue.length === 0) return;
-  isProcessingOCR = true;
-  while (ocrQueue.length > 0) {
-    const job = ocrQueue.shift();
-    if (job) {
-      try { await job(); }
-      catch (err) { console.error("OCR Queue Error:", err); }
+async function startOcrWorker() {
+  if (isWorkerRunning) return;
+  isWorkerRunning = true;
+  
+  const OCR_SERVICE_URL = Deno.env.get("OCR_SERVICE_URL") || "http://localhost:8001";
+  
+  while (true) {
+    try {
+      const task = await OcrTask.findOneAndUpdate(
+        { status: 'pending' },
+        { status: 'processing' },
+        { sort: { createdAt: 1 }, new: true }
+      );
+
+      if (!task) {
+        await sleep(2000);
+        continue;
+      }
+
+      try {
+        const formData = new FormData();
+        const binaryString = atob(task.file_b64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const file = new File([bytes], "receipt.jpg", { type: task.mime_type });
+        formData.append("file", file);
+
+        const ocrResponse = await fetch(`${OCR_SERVICE_URL}/upload-resit/`, { method: "POST", body: formData });
+        
+        if (!ocrResponse.ok) {
+          throw new Error("Gagal memproses gambar di OCR service");
+        }
+        
+        const result = await ocrResponse.json();
+        task.status = 'completed';
+        task.result = result;
+        await task.save();
+      } catch (err: any) {
+        task.status = 'failed';
+        task.error_message = err.message || "Unknown OCR error";
+        await task.save();
+      }
+    } catch (dbErr) {
+      console.error("OCR Worker DB Error:", dbErr);
+      await sleep(5000);
     }
   }
-  isProcessingOCR = false;
 }
 
-function enqueueOcrTask<T>(task: () => Promise<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    ocrQueue.push(async () => {
-      try {
-        const result = await task();
-        resolve(result);
-      } catch (e) {
-        reject(e);
-      }
-    });
-    processOcrQueue();
-  });
-}
+// Start worker slightly after boot
+setTimeout(startOcrWorker, 1000);
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -103,8 +130,7 @@ function convertProps(props: any): any {
   return result;
 }
 
-function buildGroqTools() {
-  const geminiDecls = (TOOL_DECLARATIONS[0] as any).functionDeclarations;
+function buildGroqTools(geminiDecls: any[]) {
   return geminiDecls.map((fn: any) => ({
     type: "function",
     function: {
@@ -119,9 +145,9 @@ function buildGroqTools() {
   }));
 }
 
-const GROQ_TOOLS = buildGroqTools();
+const ALL_GROQ_TOOLS = buildGroqTools((TOOL_DECLARATIONS[0] as any).functionDeclarations);
 
-async function callGroq(messages: any[], useTools = true): Promise<any> {
+async function callGroq(messages: any[], useTools = true, retries = 3, dynamicTools?: any[]): Promise<any> {
   const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
   const GROQ_API_URL = Deno.env.get("GROQ_API_URL") || "https://api.groq.com/openai/v1";
   const GROQ_MODEL = Deno.env.get("GROQ_MODEL") || "llama-3.3-70b-versatile";
@@ -134,49 +160,68 @@ async function callGroq(messages: any[], useTools = true): Promise<any> {
   };
 
   if (useTools) {
-    body.tools = GROQ_TOOLS;
+    body.tools = dynamicTools && dynamicTools.length > 0 ? buildGroqTools(dynamicTools) : ALL_GROQ_TOOLS;
     body.tool_choice = "auto";
   }
 
-  const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${GROQ_API_KEY}`,
-    },
-    body: JSON.stringify(body),
-  });
+  for (let i = 0; i < retries; i++) {
+    const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify(body),
+    });
 
-  const data = await res.json();
+    const data = await res.json();
 
-  if (!res.ok) {
-    console.error("[Groq] Error:", JSON.stringify(data));
-    if (data?.error?.code === "tool_use_failed" && data?.error?.failed_generation) {
-      const raw = data.error.failed_generation;
-      const match = raw.match(/<function=([a-zA-Z0-9_]+)>?(.*?)<\/function>/);
-      if (match) {
-        const fnName = match[1];
-        const fnArgs = match[2];
-        return {
-          choices: [{
-            finish_reason: "tool_calls",
-            message: {
-              role: "assistant",
-              content: null,
-              tool_calls: [{
-                id: `call_${Date.now()}`,
-                type: "function",
-                function: { name: fnName, arguments: fnArgs }
-              }]
-            }
-          }]
-        };
+    if (!res.ok) {
+      console.error(`[Groq] Attempt ${i + 1} Error:`, JSON.stringify(data));
+      
+      // Handle Rate Limit (429)
+      if (res.status === 429 || data?.error?.code === "rate_limit_exceeded") {
+        const errMsg = data?.error?.message || "";
+        const match = errMsg.match(/try again in ([\d.]+)s/);
+        let waitMs = 5000; // default 5s
+        if (match && match[1]) {
+          waitMs = parseFloat(match[1]) * 1000 + 1000; // add 1s buffer
+        }
+        
+        if (i < retries - 1) {
+          console.log(`[Groq] Rate limited. Waiting ${waitMs}ms before retry...`);
+          await sleep(waitMs);
+          continue;
+        }
       }
-    }
-    throw new Error(data?.error?.message || "Groq API error");
-  }
 
-  return data;
+      if (data?.error?.code === "tool_use_failed" && data?.error?.failed_generation) {
+        const raw = data.error.failed_generation;
+        const match = raw.match(/<function=([a-zA-Z0-9_]+)>?(.*?)<\/function>/);
+        if (match) {
+          const fnName = match[1];
+          const fnArgs = match[2];
+          return {
+            choices: [{
+              finish_reason: "tool_calls",
+              message: {
+                role: "assistant",
+                content: null,
+                tool_calls: [{
+                  id: `call_${Date.now()}`,
+                  type: "function",
+                  function: { name: fnName, arguments: fnArgs }
+                }]
+              }
+            }]
+          };
+        }
+      }
+      throw new Error(data?.error?.message || "Groq API error");
+    }
+
+    return data;
+  }
 }
 
 function generateSuggestedQuestions(prompt: string, usedTools: string[]) {
@@ -304,11 +349,12 @@ async function executeAgentFlow(params: {
     { role: "user", content: prompt },
   ];
 
+  const relevantTools = getRelevantTools(prompt);
   const usedTools: string[] = [];
 
   for (let step = 0; step < MAX_AGENT_STEPS; step++) {
     params.onStage?.("analyzing", `Menganalisis konteks (langkah ${step + 1})`);
-    const result = await callGroq(messages, true);
+    const result = await callGroq(messages, true, 3, relevantTools);
     const choice = result.choices?.[0];
     const message = choice?.message;
     const toolCalls = message?.tool_calls || [];
@@ -505,24 +551,45 @@ ai.post("/scan-receipt-ocr", async (c) => {
     const file = body["file"];
     if (!file) return c.json({ error: "File nota wajib diunggah" }, 400);
 
-    const OCR_SERVICE_URL = Deno.env.get("OCR_SERVICE_URL") || "http://localhost:8001";
-    const formData = new FormData();
+    let fileBuffer: ArrayBuffer;
+    let mimeType = "image/jpeg";
     if (file instanceof File) {
-      formData.append("file", file);
+      fileBuffer = await file.arrayBuffer();
+      mimeType = file.type || "image/jpeg";
     } else {
       return c.json({ error: "Format file tidak valid" }, 400);
     }
 
-    const ocrResponse = await enqueueOcrTask(() =>
-      fetch(`${OCR_SERVICE_URL}/upload-resit/`, { method: "POST", body: formData })
-    );
+    const b64 = btoa(new Uint8Array(fileBuffer).reduce((d, b) => d + String.fromCharCode(b), ""));
 
-    if (!ocrResponse.ok) {
-      return c.json({ error: "Gagal memproses gambar di OCR service" }, 502);
-    }
-    return c.json(await ocrResponse.json());
+    const task = await OcrTask.create({
+      file_b64: b64,
+      mime_type: mimeType,
+      status: 'pending'
+    });
+
+    return c.json({ success: true, task_id: task._id });
+  } catch (error: any) {
+    return c.json({ error: "Gagal membuat task OCR: " + error.message }, 500);
+  }
+});
+
+ai.get("/ocr-status/:id", async (c) => {
+  const auth = await requireAuth(c);
+  if (!auth.ok) return auth.response;
+
+  try {
+    const task = await OcrTask.findById(c.req.param("id"));
+    if (!task) return c.json({ error: "Task tidak ditemukan" }, 404);
+    
+    return c.json({
+      task_id: task._id,
+      status: task.status,
+      result: task.result,
+      error_message: task.error_message
+    });
   } catch {
-    return c.json({ error: "Gagal memproses nota via OCR" }, 500);
+    return c.json({ error: "Format ID salah" }, 400);
   }
 });
 

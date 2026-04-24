@@ -47,14 +47,33 @@ transactions.get("/", async (c) => {
     const startDate = c.req.query('startDate');
     const endDate = c.req.query('endDate');
 
+    const page = parseInt(c.req.query('page') || "1");
+    const limit = parseInt(c.req.query('limit') || "50");
+    const skip = (page - 1) * limit;
+
     const filter: any = {};
     if (startDate && endDate) {
       const { start, end } = parseDateRange(startDate, endDate);
       filter.createdAt = { $gte: start, $lte: end };
     }
 
-    const data = await Transaction.find(filter).sort({ createdAt: -1 });
-    return c.json(data);
+    const total = await Transaction.countDocuments(filter);
+    const data = await Transaction.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('-items.cost_at_sale')
+      .lean();
+
+    return c.json({
+      data,
+      meta: {
+        total,
+        current_page: page,
+        total_pages: Math.ceil(total / limit),
+        limit
+      }
+    });
   } catch (error) {
     return c.json({ error: "Gagal mengambil data transaksi" }, 500);
   }

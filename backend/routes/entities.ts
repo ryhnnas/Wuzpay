@@ -1,14 +1,33 @@
 import { Hono } from "npm:hono";
 import { Customer, Supplier, Discount } from "../models/Entity.ts";
 import { verifyAuth } from "../middleware/auth.ts";
+import mongoose from "npm:mongoose";
 
 const entities = new Hono();
 
 // ==================== CUSTOMERS ====================
 entities.get("/customers", async (c) => {
   try {
-    const customers = await Customer.find().sort({ name: 1 });
-    return c.json({ customers: customers || [] });
+    const page = parseInt(c.req.query('page') || "1");
+    const limit = parseInt(c.req.query('limit') || "50");
+    const skip = (page - 1) * limit;
+
+    const total = await Customer.countDocuments();
+    const customers = await Customer.find()
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    return c.json({
+      customers: customers || [],
+      meta: {
+        total,
+        current_page: page,
+        total_pages: Math.ceil(total / limit),
+        limit
+      }
+    });
   } catch (error) {
     return c.json({ error: 'Failed to fetch customers' }, 500);
   }

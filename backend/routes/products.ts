@@ -9,13 +9,28 @@ const products = new Hono();
 // ==================== GET ALL PRODUCTS ====================
 products.get("/", async (c) => {
   try {
-    // .populate menggantikan JOIN di SQL
+    const page = parseInt(c.req.query('page') || "1");
+    const limit = parseInt(c.req.query('limit') || "50");
+    const skip = (page - 1) * limit;
+
+    const total = await Product.countDocuments();
     const productsData = await Product.find()
       .populate('category_id', 'name')
-      .populate('recipe.ingredient_id', 'name stock_quantity unit cost_per_unit')
-      .sort({ name: 1 });
+      .select('-recipe')
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
-    return c.json({ products: productsData || [] });
+    return c.json({ 
+      products: productsData || [],
+      meta: {
+        total,
+        current_page: page,
+        total_pages: Math.ceil(total / limit),
+        limit
+      }
+    });
   } catch (error) {
     return c.json({ error: 'Failed to fetch products' }, 500);
   }
