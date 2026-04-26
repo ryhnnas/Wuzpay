@@ -1,6 +1,25 @@
 import { Hono } from "npm:hono";
 import { Permission } from "../models/Permission.ts";
 import { verifyAuth } from "../middleware/auth.ts";
+import { z } from "npm:zod";
+import { zValidator } from "npm:@hono/zod-validator";
+
+const permissionSchema = z.object({
+  allowed_menus: z.array(z.string())
+});
+
+const validatePermission = zValidator('json', permissionSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+});
+
+const roleNameSchema = z.object({
+  roleName: z.string()
+});
+
+const validateRoleName = zValidator('param', roleNameSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+});
+
 
 const permissions = new Hono();
 
@@ -15,10 +34,10 @@ permissions.get("/", async (c) => {
 });
 
 // 2. Update hak akses per role (PUT)
-permissions.put("/:roleName", async (c) => {
+permissions.put("/:roleName", validateRoleName, validatePermission, async (c) => {
   try {
-    const roleName = c.req.param("roleName");
-    const body = await c.req.json();
+    const { roleName } = c.req.valid('param');
+    const body = c.req.valid('json');
 
     // findOneAndUpdate memudahkan kita mencari berdasarkan string 'role_name' bukan cuma ID
     const updatedPermission = await Permission.findOneAndUpdate(

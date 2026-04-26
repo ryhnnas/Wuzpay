@@ -3,19 +3,20 @@ import { Transaction } from "../models/Transaction.ts";
 import { Product } from "../models/Product.ts";
 import { verifyAuth } from "../middleware/auth.ts";
 import { parseDateRange, getTodayRangeWIB } from "../lib/date.ts";
+import { validateDateRange, validatePagination } from "../middleware/validator.ts";
+
 
 const analytics = new Hono();
 
 // ==================== REPORTS: SALES BY DATE ====================
-analytics.get("/reports/sales", async (c) => {
+analytics.get("/reports/sales", validateDateRange, async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
     const sessionId = c.req.header('X-Session-ID') || null;
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
 
-    const startDate = c.req.query('startDate');
-    const endDate = c.req.query('endDate');
+    const { startDate, endDate } = c.req.valid('query');
 
     const filter: any = {};
     if (startDate && endDate) {
@@ -47,10 +48,9 @@ analytics.get("/reports/sales", async (c) => {
 });
 
 // ==================== REPORTS: SUMMARY (AGGREGATION) ====================
-analytics.get("/reports/summary", async (c) => {
+analytics.get("/reports/summary", validateDateRange, async (c) => {
   try {
-    const startDate = c.req.query('startDate');
-    const endDate = c.req.query('endDate');
+    const { startDate, endDate } = c.req.valid('query');
 
     const filter: any = {};
     if (startDate && endDate) {
@@ -88,10 +88,9 @@ analytics.get("/reports/summary", async (c) => {
 });
 
 // ==================== REPORTS: PRODUCT SALES ====================
-analytics.get("/reports/product-sales", async (c) => {
+analytics.get("/reports/product-sales", validateDateRange, async (c) => {
   try {
-    const startDate = c.req.query('startDate');
-    const endDate = c.req.query('endDate');
+    const { startDate, endDate } = c.req.valid('query');
 
     const filter: any = {};
     if (startDate && endDate) {
@@ -166,10 +165,9 @@ analytics.get("/ai/insights", async (c) => {
 });
 
 // ==================== REPORTS: CATEGORY SALES ====================
-analytics.get("/reports/category-sales", async (c) => {
+analytics.get("/reports/category-sales", validateDateRange, async (c) => {
   try {
-    const startDate = c.req.query('startDate');
-    const endDate = c.req.query('endDate');
+    const { startDate, endDate } = c.req.valid('query');
 
     const filter: any = {};
     if (startDate && endDate) {
@@ -206,11 +204,10 @@ analytics.get("/reports/category-sales", async (c) => {
 });
 
 // ==================== REPORTS: QRIS TRANSACTIONS (ANTI 404) ====================
-analytics.get("/reports/qris", async (c) => {
+analytics.get("/reports/qris", validateDateRange, validatePagination, async (c) => {
   try {
-    const startDate = c.req.query('startDate');
-    const endDate = c.req.query('endDate');
-    const limit = parseInt(c.req.query('limit') || '20');
+    const { startDate, endDate } = c.req.valid('query');
+    const { limit } = c.req.valid('query');
 
     const filter: any = { payment_method: 'qris' }; // Kunci utama: Cuma QRIS mang!
     

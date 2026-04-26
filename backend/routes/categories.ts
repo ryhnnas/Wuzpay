@@ -1,6 +1,18 @@
 import { Hono } from "npm:hono";
 import { Category } from "../models/Category.ts"; // Import Model MongoDB
 import { verifyAuth } from "../middleware/auth.ts";
+import { z } from "npm:zod";
+import { zValidator } from "npm:@hono/zod-validator";
+import { validateId } from "../middleware/validator.ts";
+
+const categorySchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional()
+});
+
+const validateCategory = zValidator('json', categorySchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+});
 
 const categories = new Hono();
 
@@ -18,7 +30,7 @@ categories.get("/", async (c) => {
 });
 
 // ==================== CREATE CATEGORY ====================
-categories.post("/", async (c) => {
+categories.post("/", validateCategory, async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
     const sessionId = c.req.header('X-Session-ID') || null;
@@ -26,7 +38,7 @@ categories.post("/", async (c) => {
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
     
-    const body = await c.req.json();
+    const body = c.req.valid('json');
     
     // Mongoose handle create_at otomatis lewat timestamps: true
     const category = await Category.create({
@@ -46,7 +58,7 @@ categories.post("/", async (c) => {
 });
 
 // ==================== UPDATE CATEGORY ====================
-categories.put("/:id", async (c) => {
+categories.put("/:id", validateId, validateCategory, async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
     const sessionId = c.req.header('X-Session-ID') || null;
@@ -54,8 +66,8 @@ categories.put("/:id", async (c) => {
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
     
-    const id = c.req.param('id');
-    const body = await c.req.json();
+    const { id } = c.req.valid('param');
+    const body = c.req.valid('json');
 
     // findByIdAndUpdate dengan opsi { new: true } agar mengembalikan data terbaru
     const category = await Category.findByIdAndUpdate(
@@ -77,7 +89,7 @@ categories.put("/:id", async (c) => {
 });
 
 // ==================== DELETE CATEGORY ====================
-categories.delete("/:id", async (c) => {
+categories.delete("/:id", validateId, async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
     const sessionId = c.req.header('X-Session-ID') || null;
@@ -85,7 +97,7 @@ categories.delete("/:id", async (c) => {
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
     
-    const id = c.req.param('id');
+    const { id } = c.req.valid('param');
     
     const result = await Category.findByIdAndDelete(id);
 

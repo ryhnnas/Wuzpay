@@ -1,8 +1,10 @@
 import { Hono } from "npm:hono";
-import { TOOL_DECLARATIONS, executeTool, getRelevantTools } from "../lib/ai_tools.ts";
+import { TOOL_DECLARATIONS, executeTool, getRelevantTools, getRelevantToolsEmbedding } from "../lib/ai_tools.ts";
 import { Ingredient } from "../models/Ingredient.ts";
 import { OcrTask } from "../models/OcrTask.ts";
 import { verifyAuth } from "../middleware/auth.ts";
+import { validateId } from "../middleware/validator.ts";
+
 
 const ai = new Hono();
 
@@ -130,8 +132,8 @@ function convertProps(props: any): any {
   return result;
 }
 
-function buildGroqTools(geminiDecls: any[]) {
-  return geminiDecls.map((fn: any) => ({
+function buildGroqTools(toolDecls: any[]) {
+  return toolDecls.map((fn: any) => ({
     type: "function",
     function: {
       name: fn.name,
@@ -349,7 +351,7 @@ async function executeAgentFlow(params: {
     { role: "user", content: prompt },
   ];
 
-  const relevantTools = getRelevantTools(prompt);
+  const relevantTools = await getRelevantToolsEmbedding(prompt);
   const usedTools: string[] = [];
 
   for (let step = 0; step < MAX_AGENT_STEPS; step++) {
@@ -574,12 +576,13 @@ ai.post("/scan-receipt-ocr", async (c) => {
   }
 });
 
-ai.get("/ocr-status/:id", async (c) => {
+ai.get("/ocr-status/:id", validateId, async (c) => {
   const auth = await requireAuth(c);
   if (!auth.ok) return auth.response;
 
   try {
-    const task = await OcrTask.findById(c.req.param("id"));
+    const { id } = c.req.valid('param');
+    const task = await OcrTask.findById(id);
     if (!task) return c.json({ error: "Task tidak ditemukan" }, 404);
     
     return c.json({

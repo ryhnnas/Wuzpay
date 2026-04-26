@@ -5,6 +5,8 @@ import bcrypt from "npm:bcryptjs";
 import jwt from "npm:jsonwebtoken";
 import { z } from "npm:zod";
 import { zValidator } from "npm:@hono/zod-validator";
+import { validateId } from "../middleware/validator.ts";
+
 
 const auth = new Hono();
 const JWT_SECRET = Deno.env.get("JWT_SECRET") || "supersecretkeywuzpay";
@@ -124,7 +126,7 @@ auth.get('/users', async (c) => {
 });
 
 // ==================== DELETE USER ====================
-auth.delete('/users/:id', async (c) => {
+auth.delete('/users/:id', validateId, async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
     const sessionId = c.req.header('X-Session-ID') || null;
@@ -135,7 +137,7 @@ auth.delete('/users/:id', async (c) => {
       return c.json({ error: 'Forbidden' }, 403);
     }
 
-    const targetId = c.req.param('id');
+    const { id: targetId } = c.req.valid('param');
     const targetUser = await User.findById(targetId);
 
     if (!targetUser) return c.json({ error: 'User tidak ditemukan' }, 404);

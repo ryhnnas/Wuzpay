@@ -3,14 +3,53 @@ import { Product, StockLog } from "../models/Product.ts";
 import { verifyAuth } from "../middleware/auth.ts";
 import * as XLSX from "npm:xlsx";
 import mongoose from "npm:mongoose";
+import { z } from "npm:zod";
+import { zValidator } from "npm:@hono/zod-validator";
+import { validateId, validatePagination } from "../middleware/validator.ts";
+
+const productSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  sku: z.string().optional(),
+  price: z.union([z.string(), z.number()]).transform(v => Number(v)),
+  cost: z.union([z.string(), z.number()]).transform(v => Number(v)),
+  stock_quantity: z.union([z.string(), z.number()]).transform(v => Number(v)),
+  category_id: z.string().regex(/^[0-9a-fA-F]{24}$/).optional().nullable(),
+  recipe: z.array(z.any()).optional()
+});
+
+const validateProduct = zValidator('json', productSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+});
+
+const bulkAddStockSchema = z.object({
+  items: z.array(z.object({
+    product_id: z.string().optional(),
+    product_name: z.string().optional(),
+    amount: z.union([z.string(), z.number()]),
+    price: z.union([z.string(), z.number()]).optional(),
+    cost: z.union([z.string(), z.number()]).optional(),
+    is_new: z.boolean().optional()
+  })).min(1, "Items array wajib diisi")
+});
+
+const validateBulkAddStock = zValidator('json', bulkAddStockSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+});
+
+const addStockSchema = z.object({
+  amount: z.union([z.string(), z.number()])
+});
+
+const validateAddStock = zValidator('json', addStockSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+});
 
 const products = new Hono();
 
 // ==================== GET ALL PRODUCTS ====================
-products.get("/", async (c) => {
+products.get("/", validatePagination, async (c) => {
   try {
-    const page = parseInt(c.req.query('page') || "1");
-    const limit = parseInt(c.req.query('limit') || "50");
+    const { page, limit } = c.req.valid('query');
     const skip = (page - 1) * limit;
 
     const total = await Product.countDocuments();
@@ -134,18 +173,14 @@ products.get("/stock/logs", async (c) => {
 });
 
 // ==================== BULK ADD STOCK (FROM RECEIPT SCAN) ====================
-products.post("/bulk-add-stock", async (c) => {
+products.post("/bulk-add-stock", validateBulkAddStock, async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
     const sessionId = c.req.header('X-Session-ID') || null;
     const { user, error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
 
-    const { items } = await c.req.json();
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return c.json({ error: 'Items array wajib diisi' }, 400);
-    }
+    const { items } = c.req.valid('json');
 
     const results = { updated: 0, created: 0, errors: [] as any[] };
 
@@ -211,15 +246,15 @@ products.post("/bulk-add-stock", async (c) => {
   }
 });
 
-products.post("/:id/add-stock", async (c) => {
+products.post("/:id/add-stock", validateId, validateAddStock, async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
     const sessionId = c.req.header('X-Session-ID') || null;
     const { user, error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
 
-    const id = c.req.param("id");
-    const { amount } = await c.req.json();
+    const { id } = c.req.valid('param');
+    const { amount } = c.req.valid('json');
 
     const product = await Product.findById(id);
     if (!product) return c.json({ error: "Produk tidak ditemukan" }, 404);
@@ -246,9 +281,10 @@ products.post("/:id/add-stock", async (c) => {
 });
 
 // ==================== CRUD BASIC ====================
-products.get("/:id", async (c) => {
+products.get("/:id", validateId, async (c) => {
   try {
-    const product = await Product.findById(c.req.param('id')).populate('category_id');
+    const { id } = c.req.valid('param');
+    const product = await Product.findById(id).populate('category_id');
     if (!product) return c.json({ error: 'Not found' }, 404);
     return c.json({ product });
   } catch (error) {
@@ -256,14 +292,11 @@ products.get("/:id", async (c) => {
   }
 });
 
-products.post("/", async (c) => {
+products.post("/", validateProduct, async (c) => {
   try {
-    const body = await c.req.json();
+    const body = c.req.valid('json');
     const product = await Product.create({
-      ...body,
-      price: Number(body.price),
-      cost: Number(body.cost),
-      stock_quantity: Number(body.stock_quantity)
+      ...body
     });
 
     return c.json({ product });
@@ -272,16 +305,14 @@ products.post("/", async (c) => {
   }
 });
 
-products.put("/:id", async (c) => {
+products.put("/:id", validateId, validateProduct, async (c) => {
   try {
-    const body = await c.req.json();
+    const { id } = c.req.valid('param');
+    const body = c.req.valid('json');
     const product = await Product.findByIdAndUpdate(
-      c.req.param('id'),
+      id,
       {
-        ...body,
-        price: Number(body.price),
-        cost: Number(body.cost),
-        stock_quantity: Number(body.stock_quantity)
+        ...body
       },
       { new: true }
     );
@@ -293,9 +324,10 @@ products.put("/:id", async (c) => {
   }
 });
 
-products.delete("/:id", async (c) => {
+products.delete("/:id", validateId, async (c) => {
   try {
-    const product = await Product.findByIdAndDelete(c.req.param('id'));
+    const { id } = c.req.valid('param');
+    const product = await Product.findByIdAndDelete(id);
     if (!product) return c.json({ error: "Produk tidak ditemukan" }, 404);
     return c.json({ success: true });
   } catch (error) {

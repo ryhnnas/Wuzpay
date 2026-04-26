@@ -1,0 +1,19 @@
+FROM denoland/deno:alpine-1.42.0
+
+WORKDIR /app
+
+# Cache dependencies
+COPY deps.ts* ./
+RUN if [ -f deps.ts ]; then deno cache deps.ts; fi
+
+# Copy source code
+COPY . .
+
+# Cache main entrypoint
+RUN deno cache index.tsx
+
+# Expose port
+EXPOSE 6060
+
+# Run
+CMD ["run", "-A", "--unstable-detect-cjs", "--env-file=.env.staging", "index.tsx"]

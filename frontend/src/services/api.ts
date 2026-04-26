@@ -221,15 +221,23 @@ export const productsAPI = {
 
   getById: async (id: string) => apiRequest<{ product: any }>(API_ENDPOINTS.products.getById(id)),
 
-  create: async (p: any) => apiRequest(API_ENDPOINTS.products.create, {
-    method: 'POST',
-    body: JSON.stringify({ ...p, stock_quantity: p.stock_quantity || p.stock }),
-  }),
+  create: async (p: any) => {
+    const payload = { ...p, stock_quantity: p.stock_quantity || p.stock };
+    if (payload.category_id === '') payload.category_id = null;
+    return apiRequest(API_ENDPOINTS.products.create, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
 
-  update: async (id: string, p: any) => apiRequest(API_ENDPOINTS.products.update(id), {
-    method: 'PUT',
-    body: JSON.stringify({ ...p, stock_quantity: p.stock_quantity ?? p.stock }),
-  }),
+  update: async (id: string, p: any) => {
+    const payload = { ...p, stock_quantity: p.stock_quantity ?? p.stock };
+    if (payload.category_id === '') payload.category_id = null;
+    return apiRequest(API_ENDPOINTS.products.update(id), {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
 
   delete: async (id: string) => apiRequest(API_ENDPOINTS.products.delete(id), { method: 'DELETE' }),
 

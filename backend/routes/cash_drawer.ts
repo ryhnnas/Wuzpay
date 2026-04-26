@@ -1,6 +1,31 @@
 import { Hono } from "npm:hono";
 import { CashDrawer } from "../models/CashDrawer.ts";
 import { verifyAuth } from "../middleware/auth.ts";
+import { z } from "npm:zod";
+import { zValidator } from "npm:@hono/zod-validator";
+import { validateId } from "../middleware/validator.ts";
+
+const createCashDrawerSchema = z.object({
+  starting_cash: z.union([z.string(), z.number()]).transform(v => Number(v)),
+  ending_cash: z.union([z.string(), z.number()]).optional().nullable(),
+  staffname: z.string().optional(),
+  notes: z.string().optional()
+});
+
+const validateCreateCashDrawer = zValidator('json', createCashDrawerSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+});
+
+const updateCashDrawerSchema = z.object({
+  starting_cash: z.union([z.string(), z.number()]).optional(),
+  ending_cash: z.union([z.string(), z.number()]).optional().nullable(),
+  notes: z.string().optional(),
+  staffname: z.string().optional()
+});
+
+const validateUpdateCashDrawer = zValidator('json', updateCashDrawerSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+});
 
 const cashDrawer = new Hono();
 
@@ -21,14 +46,14 @@ cashDrawer.get("/", async (c) => {
 });
 
 // 2. BUKA KAS BARU (POST)
-cashDrawer.post("/", async (c) => {
+cashDrawer.post("/", validateCreateCashDrawer, async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
     const sessionId = c.req.header('X-Session-ID') || null;
     const { user, error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
     
-    const body = await c.req.json();
+    const body = c.req.valid('json');
     
     const hasClosing = body.ending_cash !== null && body.ending_cash !== undefined && body.ending_cash !== "";
 
@@ -51,15 +76,15 @@ cashDrawer.post("/", async (c) => {
 });
 
 // 3. UPDATE / EDIT / TUTUP KAS (PUT)
-cashDrawer.put("/:id", async (c) => {
+cashDrawer.put("/:id", validateId, validateUpdateCashDrawer, async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
     const sessionId = c.req.header('X-Session-ID') || null;
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
 
-    const id = c.req.param('id');
-    const body = await c.req.json();
+    const { id } = c.req.valid('param');
+    const body = c.req.valid('json');
 
     const updateData: any = {};
     if (body.starting_cash !== undefined) updateData.starting_cash = Number(body.starting_cash);
@@ -81,14 +106,15 @@ cashDrawer.put("/:id", async (c) => {
 });
 
 // 4. HAPUS DATA (DELETE)
-cashDrawer.delete("/:id", async (c) => {
+cashDrawer.delete("/:id", validateId, async (c) => {
   try {
     const authHeader = c.req.header('Authorization') || null;
     const sessionId = c.req.header('X-Session-ID') || null;
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
 
-    await CashDrawer.findByIdAndDelete(c.req.param('id'));
+    const { id } = c.req.valid('param');
+    await CashDrawer.findByIdAndDelete(id);
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
