@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.staging
+    container_name: wuzpay_backend_staging
+    ports:
+      - "1111:5000"
+    environment:
+      - NODE_ENV=staging
+    restart: unless-stopped
+    volumes:
+      - ./backend/wuzpay-audit.log:/app/wuzpay-audit.log
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.staging
+      args:
+        # Since this is staging, we map the API URL to the staging server's address
+        # Replace localhost with your staging domain/IP if needed
+        VITE_API_URL: http://156.67.220.207:1111
+    container_name: wuzpay_frontend_staging
+    ports:
+      - "1112:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

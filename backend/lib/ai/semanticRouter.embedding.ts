@@ -1,6 +1,12 @@
 import { TOOL_DECLARATIONS } from "./toolDeclarations.ts";
 import { getRelevantTools as getRelevantToolsKeyword } from "./semanticRouter.ts";
-import { pipeline } from "npm:@xenova/transformers";
+import { pipeline, env } from "npm:@xenova/transformers";
+import { Buffer } from "node:buffer";
+
+// Inject Buffer globally for onnxruntime-node compatibility in Deno
+if (typeof (globalThis as any).Buffer === "undefined") {
+  (globalThis as any).Buffer = Buffer;
+}
 
 function cosineSimilarity(vecA: number[], vecB: number[]): number {
   let dotProduct = 0;

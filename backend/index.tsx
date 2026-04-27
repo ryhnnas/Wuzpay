@@ -38,10 +38,7 @@ const BASE_PATH = "/api";
 app.use('*', logger());
 app.use('*', secureHeaders());
 app.use("/*", cors({
-  origin: [
-    "http://localhost:5173",
-    "https://wuzpay.vercel.app" // Sesuaikan dengan domain deployment barumu nanti
-  ],
+  origin: (origin) => origin || "*", // Mengizinkan semua origin secara dinamis
   allowHeaders: ["Content-Type", "Authorization", "X-Session-ID"],
   allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   exposeHeaders: ["X-Session-ID"],

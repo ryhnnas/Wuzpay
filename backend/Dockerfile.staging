@@ -1,4 +1,4 @@
-FROM denoland/deno:alpine-1.42.0
+FROM denoland/deno:latest
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN if [ -f deps.ts ]; then deno cache deps.ts; fi
 COPY . .
 
 # Cache main entrypoint
-RUN deno cache index.tsx
+RUN deno install --allow-scripts --entrypoint index.tsx
 
 # Expose port
 EXPOSE 6060
