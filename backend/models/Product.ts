@@ -33,5 +33,22 @@ const ProductSchema = new mongoose.Schema({
   userId: String,
 }, { timestamps: true });
 
+// Indexes
+ProductSchema.index({ name: 1 });
+ProductSchema.index({ category_id: 1 });
+StockLogSchema.index({ ingredient_id: 1, createdAt: -1 });
+
+import { invalidateCache } from "../lib/ai/utils/cache.ts";
+
+const invalidateProductCache = () => {
+  invalidateCache("product_list");
+};
+
+ProductSchema.post('save', invalidateProductCache);
+ProductSchema.post('findOneAndUpdate', invalidateProductCache);
+ProductSchema.post('updateOne', invalidateProductCache);
+ProductSchema.post('findOneAndDelete', invalidateProductCache);
+ProductSchema.post('deleteOne', invalidateProductCache);
+
 export const Product = mongoose.model("Product", ProductSchema);
 export const StockLog = mongoose.model("StockLog", StockLogSchema);

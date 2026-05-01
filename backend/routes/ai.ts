@@ -1,67 +1,127 @@
 import { Hono } from "npm:hono";
-import { TOOL_DECLARATIONS, executeTool } from "../lib/ai_tools.ts";
+import { TOOL_DECLARATIONS, executeTool, getRelevantTools, getRelevantToolsEmbedding } from "../lib/ai_tools.ts";
 import { Ingredient } from "../models/Ingredient.ts";
+import { OcrTask } from "../models/OcrTask.ts";
+import { verifyAuth } from "../middleware/auth.ts";
+import { validateId } from "../middleware/validator.ts";
+
 
 const ai = new Hono();
 
-// ==================== OCR ASYNC QUEUE (SEMAPHORE) ====================
-// Berfungsi menahan request OCR agar berjalan SATU-PERSATU, menghindari server Python OOM
-const ocrQueue: (() => Promise<void>)[] = [];
-let isProcessingOCR = false;
+const MAX_PROMPT_LENGTH = 2000;
+const MAX_AGENT_STEPS = 4;
 
-async function processOcrQueue() {
-  if (isProcessingOCR || ocrQueue.length === 0) return;
-  isProcessingOCR = true;
-  while (ocrQueue.length > 0) {
-    const job = ocrQueue.shift();
-    if (job) {
-      try { await job(); } 
-      catch (err) { console.error("OCR Queue Error:", err); }
+type StageHandler = (stage: "analyzing" | "fetching_data" | "composing_answer", message?: string) => void;
+
+// ==================== OCR MONGODB WORKER ====================
+let isWorkerRunning = false;
+
+async function startOcrWorker() {
+  if (isWorkerRunning) return;
+  isWorkerRunning = true;
+  
+  const OCR_SERVICE_URL = Deno.env.get("OCR_SERVICE_URL") || "http://localhost:8001";
+  
+  while (true) {
+    try {
+      const task = await OcrTask.findOneAndUpdate(
+        { status: 'pending' },
+        { status: 'processing' },
+        { sort: { createdAt: 1 }, new: true }
+      );
+
+      if (!task) {
+        await sleep(2000);
+        continue;
+      }
+
+      try {
+        const formData = new FormData();
+        const binaryString = atob(task.file_b64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const file = new File([bytes], "receipt.jpg", { type: task.mime_type });
+        formData.append("file", file);
+
+        const ocrResponse = await fetch(`${OCR_SERVICE_URL}/upload-resit/`, { method: "POST", body: formData });
+        
+        if (!ocrResponse.ok) {
+          throw new Error("Gagal memproses gambar di OCR service");
+        }
+        
+        const result = await ocrResponse.json();
+        task.status = 'completed';
+        task.result = result;
+        await task.save();
+      } catch (err: any) {
+        task.status = 'failed';
+        task.error_message = err.message || "Unknown OCR error";
+        await task.save();
+      }
+    } catch (dbErr) {
+      console.error("OCR Worker DB Error:", dbErr);
+      await sleep(5000);
     }
   }
-  isProcessingOCR = false;
 }
 
-function enqueueOcrTask<T>(task: () => Promise<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    ocrQueue.push(async () => {
-      try {
-        const result = await task();
-        resolve(result);
-      } catch (e) {
-        reject(e);
-      }
-    });
-    // Picu antrean jika sedang nganggur
-    processOcrQueue();
-  });
+// Start worker slightly after boot
+setTimeout(startOcrWorker, 1000);
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// ==================== SYSTEM INSTRUCTION ====================
+async function requireAuth(c: any): Promise<{ ok: true; user: any } | { ok: false; response: Response }> {
+  const authHeader = c.req.header("Authorization") || null;
+  const sessionId = c.req.header("X-Session-ID") || null;
+  const authResult = await verifyAuth(authHeader, sessionId);
+  if (authResult.error || !authResult.user) {
+    return { ok: false, response: c.json({ error: authResult.error || "Unauthorized" }, authResult.status || 401) };
+  }
+  return { ok: true, user: authResult.user };
+}
+
+function sanitizePrompt(input: string) {
+  return String(input || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_PROMPT_LENGTH);
+}
+
 function getSystemInstruction() {
-  const t = new Date();
-  const dayName = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"][t.getDay()];
-  const dateStr = t.toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' });
-  
-  return `Kamu adalah WuzPay AI Assistant, asisten cerdas untuk sistem POS (Point of Sale) bernama WuzPay.
-Konteks Waktu Saat Ini: ${dayName}, ${dateStr}
+  const now = new Date();
+  const dayName = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"][now.getDay()];
+  const dateStr = now.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 
-ATURAN:
-1. Jawab dalam Bahasa Indonesia yang natural dan singkat
-2. Gunakan tools/function yang tersedia untuk mengambil data dari database sebelum menjawab
-3. Jangan pernah mengarang data — selalu ambil dari tools
-4. Berikan insight yang actionable dan relevan
-5. Format angka rupiah dengan "Rp" dan pemisah titik (contoh: Rp 1.500.000)
-6. Jika data kosong, beritahu user dengan jujur
-7. Jika diminta saran, berikan rekomendasi berdasarkan data aktual
-8. Untuk pertanyaan bulan/tanggal tertentu atau hari spesifik (seperti "kemarin"), gunakan period="custom" dengan start_date dan end_date (YYYY-MM-DD) yang sesuai dengan Konteks Waktu Saat Ini.`;
+  return `Kamu adalah WuzPay AI Assistant, konsultan operasional dan pertumbuhan bisnis F&B untuk sistem POS WuzPay.
+Konteks waktu saat ini: ${dayName}, ${dateStr}.
+
+ATURAN WAJIB:
+1. Selalu jawab dalam Bahasa Indonesia yang natural, ringkas, dan profesional.
+2. Untuk pertanyaan berbasis data, prioritaskan panggil tools yang tersedia sebelum menyimpulkan.
+3. Dilarang mengarang data. Jika data kosong, jujur dan jelaskan keterbatasannya.
+4. Sajikan jawaban dalam struktur jelas:
+   - Ringkasan singkat
+   - Temuan utama (bullet points)
+   - Rekomendasi aksi praktis
+5. Angka uang wajib format Rupiah: "Rp 1.500.000".
+6. Jika ada anomali (penurunan tajam, margin rendah, stok kritis), sorot secara proaktif.
+7. Untuk pertanyaan tanggal spesifik (misal "kemarin", "bulan lalu"), gunakan period="custom" atau tool perbandingan agar range akurat.
+8. Jika data hasil tool menunjukkan 0 transaksi, jangan langsung asumsi toko tutup; sarankan validasi periode/filter.
+9. Berikan jawaban tegas dan actionable, hindari paragraf panjang.
+
+CONTOH GAYA JAWABAN:
+- "Omzet minggu ini Rp X, naik Y% dibanding minggu lalu."
+- "Fokus aksi: 1) Restock item A, 2) Dorong promo jam sepi 14:00-16:00."
+- "Data belum cukup untuk simpulan final, coba perluas periode 30 hari."`;
 }
 
-// ==================== GROQ TOOL FORMAT ====================
-// Konversi dari Gemini format ke OpenAI/Groq format
-// Gemini pakai "STRING", "INTEGER", "OBJECT" → OpenAI pakai "string", "integer", "object"
 function convertProps(props: any): any {
-  if (!props || typeof props !== 'object') return props;
+  if (!props || typeof props !== "object") return props;
   const result: any = {};
   for (const [key, val] of Object.entries(props as Record<string, any>)) {
     const converted: any = { ...val };
@@ -72,9 +132,8 @@ function convertProps(props: any): any {
   return result;
 }
 
-function buildGroqTools() {
-  const geminiDecls = (TOOL_DECLARATIONS[0] as any).functionDeclarations;
-  return geminiDecls.map((fn: any) => ({
+function buildGroqTools(toolDecls: any[]) {
+  return toolDecls.map((fn: any) => ({
     type: "function",
     function: {
       name: fn.name,
@@ -88,10 +147,9 @@ function buildGroqTools() {
   }));
 }
 
-const GROQ_TOOLS = buildGroqTools();
+const ALL_GROQ_TOOLS = buildGroqTools((TOOL_DECLARATIONS[0] as any).functionDeclarations);
 
-// ==================== GROQ API CALL ====================
-async function callGroq(messages: any[], useTools = true): Promise<any> {
+async function callGroq(messages: any[], useTools = true, retries = 3, dynamicTools?: any[]): Promise<any> {
   const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
   const GROQ_API_URL = Deno.env.get("GROQ_API_URL") || "https://api.groq.com/openai/v1";
   const GROQ_MODEL = Deno.env.get("GROQ_MODEL") || "llama-3.3-70b-versatile";
@@ -104,186 +162,255 @@ async function callGroq(messages: any[], useTools = true): Promise<any> {
   };
 
   if (useTools) {
-    body.tools = GROQ_TOOLS;
+    body.tools = dynamicTools && dynamicTools.length > 0 ? buildGroqTools(dynamicTools) : ALL_GROQ_TOOLS;
     body.tool_choice = "auto";
   }
 
-  const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${GROQ_API_KEY}`,
-    },
-    body: JSON.stringify(body),
-  });
+  for (let i = 0; i < retries; i++) {
+    const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify(body),
+    });
 
-  const data = await res.json();
+    const data = await res.json();
 
-  if (!res.ok) {
-    console.error("[Groq] Error:", JSON.stringify(data));
-    
-    // Fallback khusus untuk Groq Tool Use Error
-    // Kadang Llama 3 miss 1 karakter syntax (misal <function=nama{...}> lupa tutup >)
-    if (data?.error?.code === "tool_use_failed" && data?.error?.failed_generation) {
-      console.warn("[Groq] Recovering from tool_use_failed by parsing raw generation...");
-      const raw = data.error.failed_generation;
+    if (!res.ok) {
+      console.error(`[Groq] Attempt ${i + 1} Error:`, JSON.stringify(data));
       
-      // Match pattern like: <function=get_sales_summary{"period":"today"}</function>
-      const match = raw.match(/<function=([a-zA-Z0-9_]+)>?(.*?)<\/function>/);
-      if (match) {
-        const fnName = match[1];
-        const fnArgs = match[2];
-        return {
-          choices: [{
-            finish_reason: "tool_calls",
-            message: {
-              role: "assistant",
-              content: null,
-              tool_calls: [{
-                id: `call_${Date.now()}`,
-                type: "function",
-                function: { name: fnName, arguments: fnArgs }
-              }]
-            }
-          }]
-        };
+      // Handle Rate Limit (429)
+      if (res.status === 429 || data?.error?.code === "rate_limit_exceeded") {
+        const errMsg = data?.error?.message || "";
+        const match = errMsg.match(/try again in ([\d.]+)s/);
+        let waitMs = 5000; // default 5s
+        if (match && match[1]) {
+          waitMs = parseFloat(match[1]) * 1000 + 1000; // add 1s buffer
+        }
+        
+        if (i < retries - 1) {
+          console.log(`[Groq] Rate limited. Waiting ${waitMs}ms before retry...`);
+          await sleep(waitMs);
+          continue;
+        }
       }
+
+      if (data?.error?.code === "tool_use_failed" && data?.error?.failed_generation) {
+        const raw = data.error.failed_generation;
+        const match = raw.match(/<function=([a-zA-Z0-9_]+)>?(.*?)<\/function>/);
+        if (match) {
+          const fnName = match[1];
+          const fnArgs = match[2];
+          return {
+            choices: [{
+              finish_reason: "tool_calls",
+              message: {
+                role: "assistant",
+                content: null,
+                tool_calls: [{
+                  id: `call_${Date.now()}`,
+                  type: "function",
+                  function: { name: fnName, arguments: fnArgs }
+                }]
+              }
+            }]
+          };
+        }
+      }
+      throw new Error(data?.error?.message || "Groq API error");
     }
 
-    throw new Error(data?.error?.message || "Groq API error");
+    return data;
   }
-
-  return data;
 }
 
-// ==================== POST /chat ====================
-ai.post("/chat", async (c) => {
-  try {
-    const body = await c.req.json().catch(() => ({}));
-    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+function generateSuggestedQuestions(prompt: string, usedTools: string[]) {
+  const lower = prompt.toLowerCase();
+  const byTools: Record<string, string[]> = {
+    get_sales_summary: [
+      "Bandingkan omzet minggu ini dengan minggu lalu",
+      "Produk apa paling berkontribusi ke omzet?",
+      "Ada jam ramai tertentu hari ini?"
+    ],
+    get_top_products: [
+      "Produk paling sepi bulan ini apa saja?",
+      "Perlu promo untuk produk ranking bawah?",
+      "Bandingkan top products minggu vs bulan"
+    ],
+    get_low_stock_ingredients: [
+      "Prediksi bahan yang habis 3 hari ke depan",
+      "Prioritas restock berdasarkan produk terlaris",
+      "Bahan mana paling sering dipakai?"
+    ],
+    compare_periods: [
+      "Apa penyebab perubahan performa ini?",
+      "Strategi agar periode berikutnya naik 10%",
+      "Bandingkan juga profit, bukan cuma omzet"
+    ],
+    search_transactions: [
+      "Cari transaksi dengan diskon terbesar",
+      "Filter transaksi metode QRIS minggu ini",
+      "Daftar customer dengan transaksi tertinggi"
+    ],
+  };
 
-    // Fallback mode tanpa API key
-    if (!GROQ_API_KEY) {
-      return await handleSimulationMode(c, body);
-    }
+  for (const tool of usedTools) {
+    if (byTools[tool]) return byTools[tool];
+  }
 
-    const prompt = body.prompt || body.message || "";
-    const history = Array.isArray(body.history) ? body.history : [];
-
-    // Build messages array (OpenAI format)
-    const messages: any[] = [
-      { role: "system", content: getSystemInstruction() },
-      ...history.map((m: any) => ({
-        role: m.role === "assistant" ? "assistant" : "user",
-        content: m.content || m.text || "",
-      })),
+  if (lower.includes("stok")) {
+    return [
+      "Bahan mana yang paling urgent untuk restock?",
+      "Bagaimana dampak stok kritis ke penjualan?",
+      "Rekomendasi stok aman untuk 7 hari ke depan"
     ];
+  }
 
-    if (prompt) {
-      messages.push({ role: "user", content: prompt });
+  return [
+    "Bandingkan performa minggu ini dengan minggu lalu",
+    "Apa 3 aksi prioritas untuk meningkatkan profit?",
+    "Ada anomali atau risiko yang harus saya perhatikan?"
+  ];
+}
+
+async function runSimulationMode(prompt: string) {
+  const lowerPrompt = prompt.toLowerCase();
+  let responseText = "";
+  const usedTools: string[] = [];
+
+  if (lowerPrompt.match(/laris|terjual|top|best|produk.*paling/)) {
+    usedTools.push("get_top_products");
+    const r = await executeTool("get_top_products", { period: "month", limit: 5 });
+    responseText = formatFallbackResponse("get_top_products", r);
+  } else if (lowerPrompt.match(/stok|habis|kritis|sisa|restock|bahan/)) {
+    usedTools.push("get_low_stock_ingredients");
+    const r = await executeTool("get_low_stock_ingredients", { threshold: 10 });
+    responseText = formatFallbackResponse("get_low_stock_ingredients", r);
+  } else if (lowerPrompt.match(/omzet|penjualan|revenue|pendapatan|hari ini/)) {
+    usedTools.push("get_sales_summary");
+    const r = await executeTool("get_sales_summary", { period: "today" });
+    responseText = formatFallbackResponse("get_sales_summary", r);
+  } else if (lowerPrompt.match(/profit|laba|untung|margin/)) {
+    usedTools.push("get_profit_report");
+    const r = await executeTool("get_profit_report", { period: "month" });
+    responseText = formatFallbackResponse("get_profit_report", r);
+  } else {
+    usedTools.push("get_sales_summary", "get_low_stock_ingredients");
+    const sales = await executeTool("get_sales_summary", { period: "today" });
+    const lowStock = await executeTool("get_low_stock_ingredients", { threshold: 10 });
+    responseText = `📊 Ringkasan Hari Ini (Mode Tanpa API Key)\n\n`;
+    responseText += `💰 Penjualan: ${sales.total_revenue_formatted} dari ${sales.transaction_count} transaksi\n`;
+    responseText += `📈 Profit: ${sales.total_profit_formatted}\n`;
+    if (lowStock.count > 0) {
+      responseText += `\n⚠️ ${lowStock.count} bahan baku stok rendah:\n`;
+      lowStock.ingredients.forEach((i: any) => {
+        responseText += `  • ${i.name}: ${i.stock_remaining} ${i.unit} (${i.status})\n`;
+      });
     }
+    responseText += `\n💡 Atur GROQ_API_KEY di backend/.env untuk AI yang lebih cerdas.`;
+  }
 
-    // ======= CALL 1: Kirim ke Groq + tools =======
-    console.log("[AI Chat] Call 1: Sending to Groq...");
-    const call1 = await callGroq(messages, true);
+  return { response: responseText, usedTools };
+}
 
-    const choice = call1.choices?.[0];
+async function executeAgentFlow(params: {
+  prompt: string;
+  history: any[];
+  onStage?: StageHandler;
+}) {
+  const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+  const prompt = sanitizePrompt(params.prompt);
+  const history = Array.isArray(params.history) ? params.history : [];
+
+  if (!prompt) {
+    return {
+      response: "Silakan masukkan pertanyaan analisis yang ingin kamu lihat.",
+      suggestedQuestions: generateSuggestedQuestions("", []),
+      usedTools: [] as string[],
+    };
+  }
+
+  if (!GROQ_API_KEY) {
+    params.onStage?.("fetching_data", "Mode fallback tanpa LLM");
+    const simulation = await runSimulationMode(prompt);
+    return {
+      response: simulation.response,
+      suggestedQuestions: generateSuggestedQuestions(prompt, simulation.usedTools),
+      usedTools: simulation.usedTools,
+    };
+  }
+
+  const messages: any[] = [
+    { role: "system", content: getSystemInstruction() },
+    ...history.map((m: any) => ({
+      role: m.role === "assistant" ? "assistant" : "user",
+      content: m.content || m.text || "",
+    })),
+    { role: "user", content: prompt },
+  ];
+
+  const relevantTools = await getRelevantToolsEmbedding(prompt);
+  const usedTools: string[] = [];
+
+  for (let step = 0; step < MAX_AGENT_STEPS; step++) {
+    params.onStage?.("analyzing", `Menganalisis konteks (langkah ${step + 1})`);
+    const result = await callGroq(messages, true, 3, relevantTools);
+    const choice = result.choices?.[0];
     const message = choice?.message;
+    const toolCalls = message?.tool_calls || [];
 
-    // Cek apakah Groq ingin memanggil tool
-    if (choice?.finish_reason === "tool_calls" && message?.tool_calls?.length > 0) {
-      const toolCall = message.tool_calls[0]; // ambil tool pertama
-      const fnName = toolCall.function.name;
-      let fnArgs: any = {};
+    if (choice?.finish_reason === "tool_calls" && toolCalls.length > 0) {
+      params.onStage?.("fetching_data", `Mengambil data dari ${toolCalls.length} tool`);
+      messages.push({
+        role: "assistant",
+        content: message?.content || null,
+        tool_calls: toolCalls,
+      });
 
-      try {
-        fnArgs = JSON.parse(toolCall.function.arguments || "{}");
-      } catch {
-        fnArgs = {};
-      }
-
-      console.log(`[AI Chat] Groq wants to call: ${fnName}(${JSON.stringify(fnArgs)})`);
-
-      // ======= EXECUTE TOOL =======
-      const toolResult = await executeTool(fnName, fnArgs);
-
-      // ======= CALL 2: Kirim hasil tool → Groq susun jawaban =======
-      console.log("[AI Chat] Call 2: Sending tool result to Groq...");
-      const call2Messages = [
-        ...messages,
-        // Response model (dengan tool_calls)
-        {
-          role: "assistant",
-          content: message.content || null,
-          tool_calls: message.tool_calls,
-        },
-        // Hasil tool
-        {
+      const toolResults = await Promise.all(toolCalls.map(async (toolCall: any) => {
+        let fnArgs: any = {};
+        try {
+          fnArgs = JSON.parse(toolCall.function?.arguments || "{}");
+        } catch {
+          fnArgs = {};
+        }
+        const fnName = toolCall.function?.name || "unknown_tool";
+        usedTools.push(fnName);
+        const toolResult = await executeTool(fnName, fnArgs);
+        return {
           role: "tool",
           tool_call_id: toolCall.id,
           content: JSON.stringify(toolResult),
-        },
-      ];
+        };
+      }));
 
-      const call2 = await callGroq(call2Messages, false); // call 2 tanpa tools
-      const finalText = call2.choices?.[0]?.message?.content || "";
-
-      console.log("[AI Chat] Success! 2-call flow completed.");
-      return c.json({ response: finalText || formatFallbackResponse(fnName, toolResult) });
+      messages.push(...toolResults);
+      params.onStage?.("composing_answer", "Menyusun jawaban berbasis data terbaru");
+      continue;
     }
 
-    // Groq langsung jawab teks (pertanyaan umum)
-    const directText = message?.content || "";
-    console.log("[AI Chat] Groq answered directly without tool call.");
-    return c.json({ response: directText || "Maaf, AI sedang tidak bisa merespon." });
-
-  } catch (err: any) {
-    console.error("[AI Chat] Error:", err);
-    return c.json({ response: `Maaf, terjadi kesalahan: ${err.message}` });
-  }
-});
-
-// ==================== SIMULATION MODE ====================
-async function handleSimulationMode(c: any, body: any) {
-  const prompt = (body.prompt || body.message || "").toLowerCase();
-
-  try {
-    let responseText = "";
-
-    if (prompt.match(/laris|terjual|top|best|produk.*paling/)) {
-      const r = await executeTool("get_top_products", { period: "month", limit: 5 });
-      responseText = formatFallbackResponse("get_top_products", r);
-    } else if (prompt.match(/stok|habis|kritis|sisa|restock|bahan/)) {
-      const r = await executeTool("get_low_stock_ingredients", { threshold: 10 });
-      responseText = formatFallbackResponse("get_low_stock_ingredients", r);
-    } else if (prompt.match(/omzet|penjualan|revenue|pendapatan|hari ini/)) {
-      const r = await executeTool("get_sales_summary", { period: "today" });
-      responseText = formatFallbackResponse("get_sales_summary", r);
-    } else if (prompt.match(/profit|laba|untung|margin/)) {
-      const r = await executeTool("get_profit_report", { period: "month" });
-      responseText = formatFallbackResponse("get_profit_report", r);
-    } else {
-      const sales = await executeTool("get_sales_summary", { period: "today" });
-      const lowStock = await executeTool("get_low_stock_ingredients", { threshold: 10 });
-      responseText = `📊 Ringkasan Hari Ini (Mode Tanpa API Key)\n\n`;
-      responseText += `💰 Penjualan: ${sales.total_revenue_formatted} dari ${sales.transaction_count} transaksi\n`;
-      responseText += `📈 Profit: ${sales.total_profit_formatted}\n`;
-      if (lowStock.count > 0) {
-        responseText += `\n⚠️ ${lowStock.count} bahan baku stok rendah:\n`;
-        lowStock.ingredients.forEach((i: any) => {
-          responseText += `  • ${i.name}: ${i.stock_remaining} ${i.unit} (${i.status})\n`;
-        });
-      }
-      responseText += `\n💡 Atur GROQ_API_KEY di backend/.env untuk AI yang lebih cerdas.`;
+    const finalText = message?.content || "";
+    if (finalText.trim()) {
+      return {
+        response: finalText,
+        suggestedQuestions: generateSuggestedQuestions(prompt, usedTools),
+        usedTools,
+      };
     }
-
-    return c.json({ response: responseText });
-  } catch (err) {
-    return c.json({ response: "Mode simulasi: Gagal mengambil data dari database." });
   }
+
+  params.onStage?.("composing_answer", "Finalisasi jawaban");
+  const finalAttempt = await callGroq(messages, false);
+  const finalText = finalAttempt.choices?.[0]?.message?.content || "";
+  return {
+    response: finalText || "Maaf, saya belum bisa menyusun jawaban final saat ini. Coba ulangi dengan pertanyaan lebih spesifik.",
+    suggestedQuestions: generateSuggestedQuestions(prompt, usedTools),
+    usedTools,
+  };
 }
 
-// ==================== FALLBACK FORMATTER ====================
 function formatFallbackResponse(toolName: string, data: any): string {
   if (data?.error) return `⚠️ ${data.error}`;
 
@@ -304,8 +431,105 @@ function formatFallbackResponse(toolName: string, data: any): string {
   }
 }
 
+function streamSse(c: any, run: (send: (event: string, payload: any) => void) => Promise<void>) {
+  const stream = new ReadableStream({
+    start(controller) {
+      const encoder = new TextEncoder();
+      const send = (event: string, payload: any) => {
+        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`));
+      };
+      (async () => {
+        try {
+          await run(send);
+        } catch (error: any) {
+          send("error", { message: error?.message || "Terjadi kesalahan streaming AI." });
+        } finally {
+          controller.close();
+        }
+      })();
+    }
+  });
+
+  return c.newResponse(stream, 200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+  });
+}
+
+// ==================== POST /chat ====================
+ai.post("/chat", async (c) => {
+  const auth = await requireAuth(c);
+  if (!auth.ok) return auth.response;
+
+  const body = await c.req.json().catch(() => ({}));
+  const promptRaw = body.prompt || body.message || "";
+  const prompt = sanitizePrompt(promptRaw);
+  const history = Array.isArray(body.history) ? body.history : [];
+  const wantsStream = Boolean(body.stream) || String(c.req.header("accept") || "").includes("text/event-stream");
+
+  if (!prompt) {
+    if (wantsStream) {
+      return streamSse(c, async (send) => {
+        send("done", {
+          response: "Silakan masukkan pertanyaan analisis yang ingin kamu lihat.",
+          suggested_questions: generateSuggestedQuestions("", []),
+        });
+      });
+    }
+    return c.json({
+      response: "Silakan masukkan pertanyaan analisis yang ingin kamu lihat.",
+      suggested_questions: generateSuggestedQuestions("", []),
+    });
+  }
+
+  if (promptRaw.length > MAX_PROMPT_LENGTH) {
+    const warning = `Pertanyaan terlalu panjang. Maksimal ${MAX_PROMPT_LENGTH} karakter agar analisis tetap akurat.`;
+    if (wantsStream) {
+      return streamSse(c, async (send) => send("error", { message: warning }));
+    }
+    return c.json({ response: warning }, 400);
+  }
+
+  if (wantsStream) {
+    return streamSse(c, async (send) => {
+      const flow = await executeAgentFlow({
+        prompt,
+        history,
+        onStage: (stage, message) => send("stage", { stage, message }),
+      });
+
+      const words = flow.response.split(/(\s+)/);
+      for (const token of words) {
+        if (!token) continue;
+        send("chunk", { text: token });
+        await sleep(8);
+      }
+
+      send("done", {
+        response: flow.response,
+        suggested_questions: flow.suggestedQuestions,
+      });
+    });
+  }
+
+  try {
+    const flow = await executeAgentFlow({ prompt, history });
+    return c.json({
+      response: flow.response,
+      suggested_questions: flow.suggestedQuestions,
+    });
+  } catch (err: any) {
+    console.error("[AI Chat] Error:", err);
+    return c.json({ response: `Maaf, terjadi kesalahan: ${err.message}` });
+  }
+});
+
 // ==================== GET /insights ====================
 ai.get("/insights", async (c) => {
+  const auth = await requireAuth(c);
+  if (!auth.ok) return auth.response;
+
   const lowStock = await Ingredient.countDocuments({ stock_quantity: { $lt: 10 } });
   return c.json([
     { id: "1", type: "trend", title: "Insight Bisnis", description: "Gunakan fitur chat AI untuk menganalisa penjualanmu.", action: "Chat Sekarang" },
@@ -315,37 +539,67 @@ ai.get("/insights", async (c) => {
 
 // ==================== SCAN RECEIPT ====================
 ai.post("/process-receipt", async (c) => {
+  const auth = await requireAuth(c);
+  if (!auth.ok) return auth.response;
   return c.json({ error: "Gunakan /scan-receipt-ocr atau /scan-receipt-vision" }, 410);
 });
 
 ai.post("/scan-receipt-ocr", async (c) => {
+  const auth = await requireAuth(c);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await c.req.parseBody();
     const file = body["file"];
     if (!file) return c.json({ error: "File nota wajib diunggah" }, 400);
 
-    const OCR_SERVICE_URL = Deno.env.get("OCR_SERVICE_URL") || "http://localhost:8001";
-    const formData = new FormData();
+    let fileBuffer: ArrayBuffer;
+    let mimeType = "image/jpeg";
     if (file instanceof File) {
-      formData.append("file", file);
+      fileBuffer = await file.arrayBuffer();
+      mimeType = file.type || "image/jpeg";
     } else {
       return c.json({ error: "Format file tidak valid" }, 400);
     }
 
-    const ocrResponse = await enqueueOcrTask(() => 
-      fetch(`${OCR_SERVICE_URL}/upload-resit/`, { method: "POST", body: formData })
-    );
+    const b64 = btoa(new Uint8Array(fileBuffer).reduce((d, b) => d + String.fromCharCode(b), ""));
 
-    if (!ocrResponse.ok) {
-      return c.json({ error: "Gagal memproses gambar di OCR service" }, 502);
-    }
-    return c.json(await ocrResponse.json());
-  } catch (err: any) {
-    return c.json({ error: "Gagal memproses nota via OCR" }, 500);
+    const task = await OcrTask.create({
+      file_b64: b64,
+      mime_type: mimeType,
+      status: 'pending'
+    });
+
+    return c.json({ success: true, task_id: task._id });
+  } catch (error: any) {
+    return c.json({ error: "Gagal membuat task OCR: " + error.message }, 500);
+  }
+});
+
+ai.get("/ocr-status/:id", validateId, async (c) => {
+  const auth = await requireAuth(c);
+  if (!auth.ok) return auth.response;
+
+  try {
+    const { id } = c.req.valid('param');
+    const task = await OcrTask.findById(id);
+    if (!task) return c.json({ error: "Task tidak ditemukan" }, 404);
+    
+    return c.json({
+      task_id: task._id,
+      status: task.status,
+      result: task.result,
+      error_message: task.error_message
+    });
+  } catch {
+    return c.json({ error: "Format ID salah" }, 400);
   }
 });
 
 ai.post("/scan-receipt-vision", async (c) => {
+  const auth = await requireAuth(c);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await c.req.parseBody();
     const file = body["file"];
@@ -365,7 +619,6 @@ ai.post("/scan-receipt-vision", async (c) => {
     }
 
     const b64 = btoa(new Uint8Array(fileBuffer).reduce((d, b) => d + String.fromCharCode(b), ""));
-
     const SYSTEM_PROMPT = `Anda adalah mesin ekstraksi data resit yang presisi. Balas HANYA dengan JSON murni tanpa markdown. Format:
 {"tanggal":"YYYY-MM-DD atau null","total_belanja":integer atau null,"items":[{"nama_barang":"string","kuantitas":integer atau null,"harga_per_barang":integer atau null}]}`;
 
@@ -378,7 +631,13 @@ ai.post("/scan-receipt-vision", async (c) => {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: [{ type: "text", text: "Ekstrak data dari resit:" }, { type: "image_url", image_url: { url: `data:${mimeType};base64,${b64}` } }] },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Ekstrak data dari resit:" },
+              { type: "image_url", image_url: { url: `data:${mimeType};base64,${b64}` } }
+            ]
+          },
         ],
       }),
     });
@@ -386,9 +645,13 @@ ai.post("/scan-receipt-vision", async (c) => {
     if (!res.ok) return c.json({ error: "Gagal memproses gambar" }, 502);
     const result = await res.json();
     let parsed;
-    try { parsed = JSON.parse(result.choices?.[0]?.message?.content); } catch { parsed = { tanggal: null, total_belanja: null, items: [] }; }
+    try {
+      parsed = JSON.parse(result.choices?.[0]?.message?.content);
+    } catch {
+      parsed = { tanggal: null, total_belanja: null, items: [] };
+    }
     return c.json({ success: true, data: parsed });
-  } catch (err: any) {
+  } catch {
     return c.json({ error: "Gagal memproses nota via Vision" }, 500);
   }
 });

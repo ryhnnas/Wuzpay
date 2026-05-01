@@ -1,0 +1,31 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@std/assert@*": "1.0.19",
+    "jsr:@std/internal@^1.0.12": "1.0.13"
+  },
+  "jsr": {
+    "@std/assert@1.0.19": {
+      "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    },
+    "@std/internal@1.0.13": {
+      "integrity": "2f9546691d4ac2d32859c82dff284aaeac980ddeca38430d07941e7e288725c0"
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@xenova/transformers@^2.17.2",
+        "npm:concurrently@^9.2.1",
+        "npm:dotenv@^16.6.1",
+        "npm:html-to-image@^1.11.13",
+        "npm:lru-cache@^11.3.5",
+        "npm:mongoose@^8.23.0",
+        "npm:nodemon@3"
+      ]
+    }
+  }
+}

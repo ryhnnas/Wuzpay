@@ -1,0 +1,28 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Run Unit Tests
+        run: cd backend && deno test -A lib/ai/
+
+      - name: Build Backend Docker Image
+        run: docker build -t wuzpay-backend:staging -f backend/Dockerfile.staging backend/
+
+      # Langkah deployment (opsional, sesuaikan dengan target infrastruktur)
+      # - name: Deploy to Server
+      #   run: ./deploy.sh staging

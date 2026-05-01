@@ -1,5 +1,27 @@
 import { Hono } from "npm:hono";
 import { ReceiptSetting } from "../models/ReceiptSetting.ts";
+import { z } from "npm:zod";
+import { zValidator } from "npm:@hono/zod-validator";
+
+const receiptSchema = z.object({
+  store_name: z.string().optional(),
+  address: z.string().optional(),
+  footer_text: z.string().optional(),
+  logo_url: z.string().optional(),
+  show_logo: z.boolean().optional(),
+  paper_size: z.string().optional(),
+  auto_print: z.boolean().optional(),
+  max_chars: z.union([z.string(), z.number()]).transform(v => Number(v)).optional(),
+  font_family: z.string().optional(),
+  font_size: z.union([z.string(), z.number()]).transform(v => Number(v)).optional(),
+  margin_h: z.union([z.string(), z.number()]).transform(v => Number(v)).optional(),
+  margin_b: z.union([z.string(), z.number()]).transform(v => Number(v)).optional()
+});
+
+const validateReceipt = zValidator('json', receiptSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+});
+
 
 const receipt = new Hono();
 
@@ -20,9 +42,9 @@ receipt.get("/", async (c) => {
 });
 
 // 2. PUT: Update setting struk
-receipt.put("/", async (c) => {
+receipt.put("/", validateReceipt, async (c) => {
   try {
-    const body = await c.req.json();
+    const body = c.req.valid('json');
 
     // findOneAndUpdate dengan upsert: true agar otomatis terbuat jika belum ada
     const updatedConfig = await ReceiptSetting.findOneAndUpdate(

@@ -11,4 +11,7 @@ const CashDrawerSchema = new mongoose.Schema({
   notes: { type: String, default: null }
 }, { timestamps: true });
 
+// Indexes
+CashDrawerSchema.index({ user_id: 1, status: 1 });
+
 export const CashDrawer = mongoose.model("CashDrawer", CashDrawerSchema);

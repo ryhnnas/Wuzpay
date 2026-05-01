@@ -32,6 +32,11 @@ const DiscountSchema = new mongoose.Schema({
   category_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', default: null }
 }, { timestamps: true });
 
+// Indexes
+CustomerSchema.index({ name: 1 });
+CustomerSchema.index({ phone: 1 });
+DiscountSchema.index({ is_active: 1, start_date: 1, end_date: 1 });
+
 export const Customer = mongoose.model("Customer", CustomerSchema);
 export const Supplier = mongoose.model("Supplier", SupplierSchema);
 export const Discount = mongoose.model("Discount", DiscountSchema);

@@ -8,6 +8,8 @@ import mongoose from "npm:mongoose";
 import { z } from "npm:zod";
 import { zValidator } from "npm:@hono/zod-validator";
 import { auditLog } from "../lib/logger.ts";
+import { validateId, validatePagination, validateDateRange } from "../middleware/validator.ts";
+
 
 const transactions = new Hono();
 
@@ -37,15 +39,16 @@ const updateTransactionSchema = z.object({
 });
 
 // ==================== 1. GET ALL TRANSACTIONS ====================
-transactions.get("/", async (c) => {
+transactions.get("/", validateDateRange, validatePagination, async (c) => {
   try {
     const authHeader = c.req.header("Authorization") || null;
     const sessionId = c.req.header("X-Session-ID") || null;
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
 
-    const startDate = c.req.query('startDate');
-    const endDate = c.req.query('endDate');
+    const { startDate, endDate } = c.req.valid('query');
+    const { page, limit } = c.req.valid('query');
+    const skip = (page - 1) * limit;
 
     const filter: any = {};
     if (startDate && endDate) {
@@ -53,8 +56,23 @@ transactions.get("/", async (c) => {
       filter.createdAt = { $gte: start, $lte: end };
     }
 
-    const data = await Transaction.find(filter).sort({ createdAt: -1 });
-    return c.json(data);
+    const total = await Transaction.countDocuments(filter);
+    const data = await Transaction.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('-items.cost_at_sale')
+      .lean();
+
+    return c.json({
+      data,
+      meta: {
+        total,
+        current_page: page,
+        total_pages: Math.ceil(total / limit),
+        limit
+      }
+    });
   } catch (error) {
     return c.json({ error: "Gagal mengambil data transaksi" }, 500);
   }
@@ -176,10 +194,10 @@ transactions.post("/", zValidator('json', transactionSchema, (result, c) => {
 });
 
 // ==================== 3. UPDATE TRANSACTION ITEMS ====================
-transactions.put("/:id/items", zValidator('json', updateTransactionSchema, (result, c) => {
+transactions.put("/:id/items", validateId, zValidator('json', updateTransactionSchema, (result, c) => {
   if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
 }), async (c) => {
-  const id = c.req.param("id");
+  const { id } = c.req.valid('param');
   try {
     const body = await c.req.valid('json');
     const { items, total_amount, total_real_amount, profit } = body;
@@ -212,9 +230,10 @@ transactions.put("/:id/items", zValidator('json', updateTransactionSchema, (resu
 });
 
 // ==================== 4. GET BY ID ====================
-transactions.get("/:id", async (c) => {
+transactions.get("/:id", validateId, async (c) => {
   try {
-    const data = await Transaction.findById(c.req.param("id"));
+    const { id } = c.req.valid('param');
+    const data = await Transaction.findById(id);
     if (!data) return c.json({ error: "Transaksi tidak ditemukan" }, 404);
     return c.json(data);
   } catch (error) {

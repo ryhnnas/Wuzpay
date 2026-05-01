@@ -2,6 +2,44 @@ import { Hono } from "npm:hono";
 import { Ingredient } from "../models/Ingredient.ts";
 import { StockLog } from "../models/Product.ts";
 import mongoose from "npm:mongoose";
+import { z } from "npm:zod";
+import { zValidator } from "npm:@hono/zod-validator";
+import { validateId } from "../middleware/validator.ts";
+
+const ingredientSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  unit: z.string().optional(),
+  stock_quantity: z.union([z.string(), z.number()]).transform(v => Number(v)).optional(),
+  cost_per_unit: z.union([z.string(), z.number()]).transform(v => Number(v)).optional()
+});
+
+const validateIngredient = zValidator('json', ingredientSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+});
+
+const ocrBulkSchema = z.object({
+  items: z.array(z.object({
+    ingredient_id: z.string().optional(),
+    name: z.string().optional(),
+    unit: z.string().optional(),
+    amount: z.union([z.string(), z.number()]),
+    price: z.union([z.string(), z.number()]).optional(),
+    is_new: z.boolean().optional()
+  }))
+});
+
+const validateOcrBulk = zValidator('json', ocrBulkSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+});
+
+const addStockSchema = z.object({
+  amount: z.union([z.string(), z.number()]).transform(v => Number(v))
+});
+
+const validateAddStock = zValidator('json', addStockSchema, (result, c) => {
+  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+});
+
 
 const ingredient = new Hono();
 
@@ -16,9 +54,9 @@ ingredient.get("/", async (c) => {
 });
 
 // POST: Menambah bahan baku baru
-ingredient.post("/", async (c) => {
+ingredient.post("/", validateIngredient, async (c) => {
     try {
-        const body = await c.req.json();
+        const body = c.req.valid('json');
         // Cek duplikat nama (case-insensitive)
         const existing = await Ingredient.findOne({ name: { $regex: new RegExp(`^${body.name?.trim()}$`, 'i') } });
         if (existing) {
@@ -36,9 +74,9 @@ ingredient.post("/", async (c) => {
 });
 
 // POST: Menyimpan data hasil scan OCR sekaligus
-ingredient.post("/ocr-bulk", async (c) => {
+ingredient.post("/ocr-bulk", validateOcrBulk, async (c) => {
     try {
-        const { items } = await c.req.json();
+        const { items } = c.req.valid('json');
         let updatedCount = 0;
         let createdCount = 0;
 
@@ -126,11 +164,10 @@ ingredient.put("/:id", async (c) => {
 });
 
 // Rute untuk Update Stok Manual dari Tabel
-ingredient.post("/:id/add-stock", async (c) => {
-    const id = c.req.param("id");
+ingredient.post("/:id/add-stock", validateId, validateAddStock, async (c) => {
+    const { id } = c.req.valid('param');
     try {
-        const body = await c.req.json();
-        const amount = parseFloat(body.amount); // Jumlah yang ditambah/dikurang
+        const { amount } = c.req.valid('json');
 
         if (isNaN(amount)) return c.json({ error: "Jumlah tidak valid" }, 400);
 
@@ -163,8 +200,8 @@ ingredient.post("/:id/add-stock", async (c) => {
 });
 
 // DELETE: Menghapus bahan baku
-ingredient.delete("/:id", async (c) => {
-    const id = c.req.param("id");
+ingredient.delete("/:id", validateId, async (c) => {
+    const { id } = c.req.valid('param');
     try {
         const item = await Ingredient.findByIdAndDelete(id);
         if (!item) return c.json({ error: "Bahan baku tidak ditemukan" }, 404);

@@ -14,3 +14,5 @@ backend/ocr-service/ocr/
 __pycache__/
 *.py[cod]
 *.log
+backend/.env.staging
+backend/deno.lock

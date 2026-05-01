@@ -10,4 +10,7 @@ const PendingOrderSchema = new mongoose.Schema({
   total_amount: { type: Number, required: true }
 }, { timestamps: true });
 
+// Index for cleanup jobs
+PendingOrderSchema.index({ createdAt: 1 });
+
 export const PendingOrder = mongoose.model("PendingOrder", PendingOrderSchema);

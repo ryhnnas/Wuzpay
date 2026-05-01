@@ -1,4 +1,11 @@
 {
+  "tasks": {
+    "dev": "deno run -A --env-file=.env --unstable-detect-cjs --watch index.tsx",
+    "test": "deno test -A --no-check --unstable-detect-cjs test/",
+    "test:unit": "deno test -A --no-check --unstable-detect-cjs test/lib/ test/middleware/",
+    "test:models": "deno test -A --no-check --unstable-detect-cjs test/models/",
+    "test:routes": "deno test -A --no-check --unstable-detect-cjs test/routes/"
+  },
   "imports": {
     "npm:hono": "npm:hono@^4",
     "npm:hono/cors": "npm:hono@^4/cors",
@@ -6,7 +13,8 @@
     "npm:mongoose": "npm:mongoose@^8",
     "npm:bcryptjs": "npm:bcryptjs@^2.4.3",
     "npm:jsonwebtoken": "npm:jsonwebtoken@^9",
-    "npm:xlsx": "npm:xlsx@^0.18"
+    "npm:xlsx": "npm:xlsx@^0.18",
+    "npm:mongodb-memory-server": "npm:mongodb-memory-server@^10"
   },
   "nodeModulesDir": "auto",
   "compilerOptions": {

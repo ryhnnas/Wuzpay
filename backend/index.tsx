@@ -38,10 +38,7 @@ const BASE_PATH = "/api";
 app.use('*', logger());
 app.use('*', secureHeaders());
 app.use("/*", cors({
-  origin: [
-    "http://localhost:5173",
-    "https://wuzpay.vercel.app" // Sesuaikan dengan domain deployment barumu nanti
-  ],
+  origin: (origin) => origin || "*", // Mengizinkan semua origin secara dinamis
   allowHeaders: ["Content-Type", "Authorization", "X-Session-ID"],
   allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   exposeHeaders: ["X-Session-ID"],
@@ -61,7 +58,7 @@ app.use(`${BASE_PATH}/*`, rateLimiter({
 // Strict Rate Limiter khusus AI (Mahal, lindungi ketat)
 app.use(`${BASE_PATH}/ai/*`, rateLimiter({
   windowMs: 60 * 1000, // 1 Menit
-  limit: 500,            // Maks 5 eksekusi prompt AI 1 menit
+  limit: 20,            // Maks 5 eksekusi prompt AI 1 menit
   message: "Batas permintaan AI tercapai. Harap tunggu 1 menit untuk melanjutkan."
 }));
 
