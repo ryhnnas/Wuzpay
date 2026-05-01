@@ -112,6 +112,19 @@ ingredient.post("/ocr-bulk", async (c) => {
     }
 });
 
+// PUT: Memperbarui data bahan baku (Nama, Unit, Cost)
+ingredient.put("/:id", async (c) => {
+    const id = c.req.param("id");
+    try {
+        const body = await c.req.json();
+        const updated = await Ingredient.findByIdAndUpdate(id, body, { new: true });
+        if (!updated) return c.json({ error: "Bahan baku tidak ditemukan" }, 404);
+        return c.json({ message: "Bahan baku berhasil diperbarui", data: updated });
+    } catch (error) {
+        return c.json({ error: "Gagal memperbarui bahan baku" }, 500);
+    }
+});
+
 // Rute untuk Update Stok Manual dari Tabel
 ingredient.post("/:id/add-stock", async (c) => {
     const id = c.req.param("id");

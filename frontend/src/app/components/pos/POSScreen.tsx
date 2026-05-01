@@ -18,7 +18,7 @@ import { Label } from '@/app/components/ui/label';
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/app/components/ui/select';
-import { productsAPI, transactionsAPI, categoriesAPI, discountsAPI, pendingOrdersAPI } from '@/services/api';
+import { productsAPI, transactionsAPI, categoriesAPI, discountsAPI, pendingOrdersAPI, ingredientsAPI } from '@/services/api';
 import { toast } from 'sonner';
 // HAPUS SUPABASE CLIENT KARENA SUDAH PAKAI MONGO DB
 import { handleGlobalPrint } from '@/app/components/utils/printHandler';
@@ -43,6 +43,7 @@ export function POSScreen({
 }: any) {
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [ingredients, setIngredients] = useState<any[]>([]);
   const [discounts, setDiscounts] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -127,10 +128,11 @@ export function POSScreen({
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [productsData, categoriesData, discountsData] = await Promise.all([
+      const [productsData, categoriesData, discountsData, ingredientsData] = await Promise.all([
         productsAPI.getAll(),
         categoriesAPI.getAll(),
-        discountsAPI.getAll()
+        discountsAPI.getAll(),
+        ingredientsAPI.getAll()
       ]);
 
       const finalProducts = Array.isArray(productsData) ? productsData : (productsData.products || []);
@@ -139,11 +141,43 @@ export function POSScreen({
       setProducts(finalProducts);
       setCategories(Array.isArray(categoriesData) ? categoriesData : (categoriesData.categories || []));
       setDiscounts(finalDiscounts);
+      setIngredients(Array.isArray(ingredientsData) ? ingredientsData : []);
     } catch (error) { 
       toast.error("Gagal sinkronisasi data"); 
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const calculateAvailability = (product: any) => {
+    const recipe = product.recipe || [];
+    const directStock = Number(product.stock_quantity ?? product.stock ?? 0);
+
+    // Jika ada stok langsung, gunakan itu
+    if (directStock > 0) return { count: directStock, type: 'item' };
+
+    // Jika tidak ada stok langsung tapi ada resep, hitung porsi
+    if (recipe.length > 0) {
+      let minPortions = Infinity;
+      for (const r of recipe) {
+        const amountNeeded = Number(r.amount_needed) || 1;
+        const ing = r.ingredient_id?._id
+          ? r.ingredient_id
+          : ingredients.find((i: any) => (i._id || i.id) === r.ingredient_id);
+
+        if (!ing) { minPortions = 0; break; }
+        const stock = Number(ing.stock_quantity ?? ing.stock ?? 0);
+        const portions = Math.floor(stock / amountNeeded);
+        minPortions = Math.min(minPortions, portions);
+      }
+      return { 
+        count: minPortions === Infinity ? 0 : minPortions, 
+        type: 'porsi' 
+      };
+    }
+
+    // Fallback jika tidak ada dua-duanya
+    return { count: directStock, type: 'item' };
   };
 
   const handleSaveOrder = async () => {
@@ -524,12 +558,28 @@ const processPayment = async () => {
                       "font-black text-gray-700 uppercase",
                       viewMode === 'grid' ? "text-[10px] truncate" : "text-sm"
                     )}>{product.name}</h3>
+                    
                     <div className="flex flex-col">
                       {discInfo.hasDiscount && (
                         <span className="text-[9px] text-gray-400 line-through">{formatRupiah(discInfo.originalPrice)}</span>
                       )}
-                      <span className="text-orange-600 font-black text-sm">{formatRupiah(discInfo.price)}</span>
-                      <span className="text-[9px] text-gray-400 font-bold uppercase italic mt-1">Stok: {product.stock_quantity}</span>
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+                        <span className="text-orange-600 font-black text-sm">{formatRupiah(discInfo.price)}</span>
+                        {(() => {
+                          const { count, type } = calculateAvailability(product);
+                          return (
+                            <div className="flex flex-col items-end">
+                              <Badge variant={count === 0 ? "destructive" : "outline"} className={cn(
+                                "text-[8px] px-1.5 py-0 h-4 font-black border-none",
+                                count === 0 ? "bg-red-500 text-white" : count <= 5 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+                              )}>
+                                {count === 0 ? 'HABIS' : count}
+                              </Badge>
+                              <span className="text-[7px] font-bold text-gray-400 uppercase mt-0.5">{type}</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

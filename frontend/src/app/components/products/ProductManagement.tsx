@@ -42,7 +42,7 @@ export function ProductManagement() {
 
   const [formData, setFormData] = useState<any>({
     name: '', sku: '', description: '', category_id: '',
-    price: 0, image_url: '', recipe: []
+    price: 0, cost_price: 0, image_url: '', recipe: []
   });
 
   // --- LIFECYCLE ---
@@ -91,7 +91,7 @@ export function ProductManagement() {
   // --- ACTIONS: PRODUCT ---
   const handleAddProduct = () => {
     setEditingProduct(null);
-    setFormData({ name: '', sku: '', description: '', category_id: '', price: 0, image_url: '', recipe: [] });
+    setFormData({ name: '', sku: '', description: '', category_id: '', price: 0, cost_price: 0, image_url: '', recipe: [] });
     setShowProductDialog(true);
   };
 
@@ -107,6 +107,7 @@ export function ProductManagement() {
       description: product.description || '',
       sku: product.sku || '',
       price: product.price || 0,
+      cost_price: product.cost_price || 0,
       category_id: product.category_id?._id || product.category_id || '',
       image_url: product.image_url || '',
       recipe: normalizedRecipe,
@@ -336,20 +337,21 @@ export function ProductManagement() {
                   <TableCell className="text-center">
                     {(() => {
                       const recipe = product.recipe || [];
-                      if (recipe.length === 0) return <span className="text-[10px] text-gray-300 font-bold">—</span>;
-                      const hpp = recipe.reduce((sum: number, r: any) => {
+                      const hppFromRecipe = recipe.reduce((sum: number, r: any) => {
                         const ing = r.ingredient_id?._id ? r.ingredient_id : ingredients.find((i: any) => (i._id || i.id) === r.ingredient_id);
                         const costPerUnit = Number(ing?.cost_per_unit) || 0;
                         const amountNeeded = Number(r.amount_needed) || 0;
                         return sum + (costPerUnit * amountNeeded);
                       }, 0);
+                      
+                      const hpp = hppFromRecipe > 0 ? hppFromRecipe : (Number(product.cost_price) || 0);
                       const margin = product.price - hpp;
                       const marginPercent = product.price > 0 ? Math.round((margin / product.price) * 100) : 0;
                       return (
                         <div>
                           <div className="font-black text-xs text-gray-600 tracking-tighter">{formatRupiah(hpp)}</div>
                           <div className={`text-[9px] font-black ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                            Margin {marginPercent}%
+                            {hppFromRecipe > 0 ? 'Margin ' : 'Margin (M) '}{marginPercent}%
                           </div>
                         </div>
                       );
@@ -484,6 +486,18 @@ export function ProductManagement() {
                       value={formData.price}
                       onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
                       className="w-full h-14 min-h-[56px] rounded-2xl bg-orange-50/50 border-orange-100 pl-12 pr-6 text-orange-600 font-black focus:ring-2 focus:ring-orange-600 transition-all"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5 min-w-0">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-emerald-600 ml-4">HPP Manual (Hanya jika tanpa resep)</Label>
+                  <div className="relative w-full">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-emerald-300">Rp</span>
+                    <Input
+                      type="number"
+                      value={formData.cost_price}
+                      onChange={(e) => setFormData({ ...formData, cost_price: parseFloat(e.target.value) })}
+                      className="w-full h-14 min-h-[56px] rounded-2xl bg-emerald-50/50 border-emerald-100 pl-12 pr-6 text-emerald-600 font-black focus:ring-2 focus:ring-emerald-600 transition-all"
                     />
                   </div>
                 </div>

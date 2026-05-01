@@ -93,43 +93,28 @@ export function Dashboard() {
     }
   };
 
+  // Hitung ketersediaan bahan baku yang menipis
+  const lowStockIngredients = useMemo(() => {
+    return ingredients
+      .filter((ing: any) => (Number(ing.stock_quantity) || 0) <= 10)
+      .map((ing: any) => ({
+        name: ing.name,
+        stock: Number(ing.stock_quantity) || 0,
+        unit: ing.unit || 'unit'
+      }))
+      .sort((a, b) => a.stock - b.stock);
+  }, [ingredients]);
+
   const metrics = useMemo(() => {
     const totalRevenue = summaryData.totalRevenue;
     const totalProfit = summaryData.totalProfit;
     const totalCost = totalRevenue - totalProfit;
     const count = transactions.length;
     const avgPerStruk = count > 0 ? totalRevenue / count : 0;
+    const lowStockCount = lowStockIngredients.length;
 
-    return { totalRevenue, totalProfit, totalCost, count, avgPerStruk };
-  }, [summaryData, transactions.length]);
-
-  // Hitung ketersediaan porsi menu berdasarkan resep (bottleneck bahan baku)
-  const lowStockMenus = useMemo(() => {
-    return products
-      .map((product: any) => {
-        const recipe = product.recipe || [];
-        if (recipe.length === 0) return null;
-
-        let minPortions = Infinity;
-        for (const r of recipe) {
-          const amountNeeded = Number(r.amount_needed) || 1;
-          // ingredient_id bisa sudah populated (object) atau string
-          const ing = r.ingredient_id?._id
-            ? r.ingredient_id // sudah populated
-            : ingredients.find((i: any) => (i._id || i.id) === r.ingredient_id);
-
-          if (!ing) { minPortions = 0; break; }
-          const stock = Number(ing.stock_quantity) || 0;
-          const portions = Math.floor(stock / amountNeeded);
-          minPortions = Math.min(minPortions, portions);
-        }
-
-        if (minPortions === Infinity) minPortions = 0;
-        return { name: product.name, portions: minPortions };
-      })
-      .filter((item): item is { name: string; portions: number } => item !== null && item.portions <= 10)
-      .sort((a, b) => a.portions - b.portions);
-  }, [products, ingredients]);
+    return { totalRevenue, totalProfit, totalCost, count, avgPerStruk, lowStockCount };
+  }, [summaryData, transactions.length, lowStockIngredients]);
 
   const chartData = useMemo(() => {
     const isToday = dateRange === 'today' || (dateRange === 'custom' && startDate === endDate);
@@ -326,15 +311,15 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border border-purple-200/50 shadow-lg rounded-2xl bg-gradient-to-br from-purple-50/90 via-violet-50/80 to-violet-100/50 backdrop-blur-sm hover:shadow-xl hover:border-purple-300/70 transition-all duration-300 group">
+          <Card className="border border-red-200/50 shadow-lg rounded-2xl bg-gradient-to-br from-red-50/90 via-rose-50/80 to-rose-100/50 backdrop-blur-sm hover:shadow-xl hover:border-red-300/70 transition-all duration-300 group">
             <CardContent className="p-5 flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <p className="text-[9px] font-black uppercase tracking-widest text-orange-600">Avg / Struk</p>
-                <div className="p-2.5 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
-                  <Receipt className="size-3.5 text-purple-700" />
+                <p className="text-[9px] font-black uppercase tracking-widest text-red-600">Bahan Menipis</p>
+                <div className="p-2.5 bg-gradient-to-br from-red-100 to-red-200 rounded-xl group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
+                  <AlertTriangle className="size-3.5 text-red-700" />
                 </div>
               </div>
-              <p className="text-lg font-black tracking-tighter text-gray-800 leading-none">{formatRupiah(metrics.avgPerStruk)}</p>
+              <p className="text-lg font-black tracking-tighter text-gray-800 leading-none">{metrics.lowStockCount} <span className="text-xs font-bold text-gray-400 ml-1">item</span></p>
             </CardContent>
           </Card>
         </div>
@@ -369,27 +354,27 @@ export function Dashboard() {
           <Card className="lg:col-span-3 border border-red-200/50 shadow-lg rounded-2xl overflow-hidden bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
             <CardHeader className="bg-gradient-to-r from-red-50/80 to-red-50/80 border-b border-red-200/50 p-4">
               <CardTitle className="text-[10px] font-black uppercase flex items-center gap-2 tracking-widest text-red-700">
-                <AlertTriangle className="size-4" /> Stok Menipis
+                <AlertTriangle className="size-4" /> Bahan Baku Menipis
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 h-[320px] overflow-y-auto bg-gradient-to-b from-white/50 to-red-50/20">
-              {lowStockMenus.length > 0 ? lowStockMenus.map((menu, i) => (
+              {lowStockIngredients.length > 0 ? lowStockIngredients.map((ing, i) => (
                 <div key={i} className="px-4 py-3 flex items-center justify-between border-b border-gray-100/50 hover:bg-orange-50/40 transition-colors duration-200 group">
                   <div className="min-w-0">
-                    <p className="font-black text-[11px] uppercase text-gray-800 truncate">{menu.name}</p>
-                    <p className="text-[9px] text-gray-400 font-bold uppercase">Sisa porsi</p>
+                    <p className="font-black text-[11px] uppercase text-gray-800 truncate">{ing.name}</p>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase">Sisa Stok</p>
                   </div>
                   <Badge className={cn(
                     "font-black text-[10px] border-none px-2.5 py-1 rounded-lg shrink-0",
-                    menu.portions <= 3 ? "bg-red-100 text-red-700" : menu.portions <= 10 ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"
+                    ing.stock <= 3 ? "bg-red-100 text-red-700" : ing.stock <= 10 ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"
                   )}>
-                    {menu.portions} porsi
+                    {ing.stock} {ing.unit}
                   </Badge>
                 </div>
               )) : (
                 <div className="h-full flex flex-col items-center justify-center text-gray-400 p-6 text-center">
                   <Package className="size-8 mb-2 opacity-20" />
-                  <p className="text-[10px] font-bold uppercase">Semua Menu Tersedia</p>
+                  <p className="text-[10px] font-bold uppercase">Semua Bahan Tersedia</p>
                 </div>
               )}
             </CardContent>

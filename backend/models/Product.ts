@@ -24,6 +24,7 @@ const ProductSchema = new mongoose.Schema({
   description: String,
   sku: { type: String, unique: true, sparse: true },
   price: { type: Number, default: 0 },
+  cost_price: { type: Number, default: 0 }, // HPP manual jika tidak pakai resep
   // Relasi resep ke dalam produk
   recipe: [RecipeItemSchema],
 

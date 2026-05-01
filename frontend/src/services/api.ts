@@ -519,33 +519,36 @@ export const permissionsAPI = {
 // INGREDIENT
 export const ingredientsAPI = {
   getAll: async () => {
-    const res = await fetch(`${API_BASE_URL}/api/ingredients`);
-    if (!res.ok) throw new Error('Gagal fetch ingredients');
-    return (await res.json()).data;
+    const res: any = await apiRequest('/api/ingredients');
+    return res.data || [];
+  },
+  create: async (data: any) => {
+    return apiRequest('/api/ingredients', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   },
   addStock: async (id: string, amount: number) => {
-    const res = await fetch(`${API_BASE_URL}/api/ingredients/${id}/add-stock`, {
+    return apiRequest(`/api/ingredients/${id}/add-stock`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ amount })
     });
-    if (!res.ok) throw new Error('Gagal update stok ingredient');
-    return await res.json();
+  },
+  update: async (id: string, data: any) => {
+    return apiRequest(`/api/ingredients/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
   },
   saveOCR: async (items: any[]) => {
-    const res = await fetch(`${API_BASE_URL}/api/ingredients/ocr-bulk`, {
+    return apiRequest('/api/ingredients/ocr-bulk', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items })
     });
-    if (!res.ok) throw new Error('Gagal simpan hasil OCR');
-    return await res.json();
   },
   delete: async (id: string) => {
-    const res = await fetch(`${API_BASE_URL}/api/ingredients/${id}`, {
+    return apiRequest(`/api/ingredients/${id}`, {
       method: 'DELETE'
     });
-    if (!res.ok) throw new Error('Gagal menghapus bahan baku');
-    return await res.json();
   }
 };
