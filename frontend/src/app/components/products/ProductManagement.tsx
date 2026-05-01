@@ -21,6 +21,7 @@ import { ScrollArea } from '@/app/components/ui/scroll-area';
 import { productsAPI, categoriesAPI, ingredientsAPI } from '@/services/api';
 import { toast } from 'sonner';
 import { cn } from "@/app/components/ui/utils";
+import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 
 export function ProductManagement() {
   // --- STATES ---
@@ -54,7 +55,7 @@ export function ProductManagement() {
     setIsLoading(true);
     try {
       const [productsData, categoriesData, ingredientsData] = await Promise.all([
-        productsAPI.getAll(),
+        productsAPI.getAll({ includeRecipe: true }),
         categoriesAPI.getAll(),
         ingredientsAPI.getAll(), // Tarik data bahan baku dari database
       ]);
@@ -315,10 +316,9 @@ export function ProductManagement() {
                 <TableRow key={product._id || product.id} className="hover:bg-orange-50/20 transition-all border-b border-gray-50 group">
                   <TableCell className="py-6 pl-10">
                     <div className="size-16 rounded-2xl overflow-hidden shadow-sm ring-2 ring-white group-hover:scale-105 transition-transform duration-500">
-                      <img
-                        src={product.image_url || '/logo.jpeg'}
+                      <ImageWithFallback
+                        src={product.image_url || '/logo.png'}
                         className="size-full object-cover"
-                        onError={(e: any) => e.target.src = '/logo.jpeg'}
                       />
                     </div>
                   </TableCell>

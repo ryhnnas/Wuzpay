@@ -96,6 +96,76 @@ export const clearAuthSession = () => {
   localStorage.removeItem('user_data');
 };
 
+export class APIRequestError extends Error {
+  statusCode?: number;
+  code?: string;
+
+  constructor(message: string, statusCode?: number, code?: string) {
+    super(message);
+    this.name = 'APIRequestError';
+    this.statusCode = statusCode;
+    this.code = code;
+  }
+}
+
+export const isUnauthorizedError = (error: unknown): boolean => {
+  if (error instanceof APIRequestError) {
+    return error.statusCode === 401 || error.statusCode === 403;
+  }
+  return false;
+};
+
+export const isNetworkError = (error: unknown): boolean => {
+  if (error instanceof APIRequestError) {
+    return error.code === 'NETWORK_ERROR';
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('Failed to fetch') || message.includes('NetworkError');
+};
+
+const OFFLINE_CACHE_KEYS = {
+  products: 'products',
+  categories: 'categories',
+  discounts: 'discounts',
+  ingredients: 'ingredients',
+  pendingOrders: 'pending_orders',
+} as const;
+
+const saveOfflineCache = async (key: string, payload: unknown) => {
+  await db.offlineCache.put({ key, payload, updatedAt: Date.now() });
+};
+
+const readOfflineCache = async <T>(key: string): Promise<T | null> => {
+  const cached = await db.offlineCache.get(key);
+  return (cached?.payload as T) ?? null;
+};
+
+const getFromApiWithOfflineCache = async <T>(cacheKey: string, loader: () => Promise<T>): Promise<T> => {
+  try {
+    const freshData = await loader();
+    await saveOfflineCache(cacheKey, freshData);
+    return freshData;
+  } catch (error) {
+    if (!isNetworkError(error)) throw error;
+    const cachedData = await readOfflineCache<T>(cacheKey);
+    if (cachedData !== null) return cachedData;
+    throw new APIRequestError(
+      'Data belum pernah disinkronkan. Sambungkan internet untuk memuat pertama kali.',
+      undefined,
+      'NO_OFFLINE_CACHE'
+    );
+  }
+};
+
+const sendDebugLog = (payload: Record<string, unknown>) => {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  fetch('http://127.0.0.1:7803/ingest/bf88b2af-7fcc-4dce-92b2-66169c85c570', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b291df' },
+    body: JSON.stringify(payload),
+  }).catch(() => {});
+};
+
 // ==================== CORE REQUEST HANDLER ====================
 async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
@@ -122,20 +192,37 @@ async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T>
   const path = url.replace(/^\//, '');
   const finalUrl = url.startsWith('http') ? url : `${base}/${path}`;
 
-  const response = await fetch(finalUrl, { ...options, headers });
+  // #region agent log
+  sendDebugLog({sessionId:'b291df',runId:'baseline',hypothesisId:'H1_H3',location:'frontend/src/services/api.ts:125',message:'apiRequest start',data:{url:finalUrl,method:options.method || 'GET',hasAuthToken:Boolean(token),hasSessionId:Boolean(sessionId)},timestamp:Date.now()});
+  // #endregion
+  let response: Response;
+  try {
+    response = await fetch(finalUrl, { ...options, headers });
+  } catch (error) {
+    throw new APIRequestError('Koneksi internet terputus. Periksa jaringan lalu coba lagi.', undefined, 'NETWORK_ERROR');
+  }
+  // #region agent log
+  sendDebugLog({sessionId:'b291df',runId:'baseline',hypothesisId:'H4',location:'frontend/src/services/api.ts:128',message:'apiRequest response',data:{url:finalUrl,status:response.status,ok:response.ok},timestamp:Date.now()});
+  // #endregion
 
   if (!response.ok) {
     // Jika 401 (Unauthorized), user harus login ulang (Mongo Auth)
     if (response.status === 401 || response.status === 403) {
+      // #region agent log
+      sendDebugLog({sessionId:'b291df',runId:'baseline',hypothesisId:'H4',location:'frontend/src/services/api.ts:134',message:'apiRequest unauthorized redirect',data:{url:finalUrl,status:response.status,pathname:window.location.pathname},timestamp:Date.now()});
+      // #endregion
       clearAuthSession();
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
-      throw new Error("Sesi Berakhir");
+      throw new APIRequestError("Sesi Berakhir", response.status, 'UNAUTHORIZED');
     }
 
     const errorData = await response.json().catch(() => ({ error: 'Server Error' }));
-    throw new Error(errorData.error || errorData.message || `HTTP error! status: ${response.status}`);
+    throw new APIRequestError(
+      errorData.error || errorData.message || `HTTP error! status: ${response.status}`,
+      response.status
+    );
   }
   return response.json();
 }
@@ -207,16 +294,21 @@ export const authAPI = {
 
 // ==================== PRODUCTS API ====================
 export const productsAPI = {
-  getAll: async (): Promise<Product[]> => {
-    const response: any = await apiRequest(API_ENDPOINTS.products.getAll);
-    const rawProducts = Array.isArray(response) ? response : (response.products || response.data || []);
+  getAll: async (options?: { includeRecipe?: boolean }): Promise<Product[]> => {
+    return getFromApiWithOfflineCache<Product[]>(OFFLINE_CACHE_KEYS.products, async () => {
+      const endpoint = options?.includeRecipe
+        ? `${API_ENDPOINTS.products.getAll}?include_recipe=true`
+        : API_ENDPOINTS.products.getAll;
+      const response: any = await apiRequest(endpoint);
+      const rawProducts = Array.isArray(response) ? response : (response.products || response.data || []);
 
-    return rawProducts.map((p: any) => ({
-      ...p,
-      id: p._id,
-      stock: p.stock_quantity,
-      categoryName: p.category_id?.name || 'Umum'
-    }));
+      return rawProducts.map((p: any) => ({
+        ...p,
+        id: p._id,
+        stock: p.stock_quantity,
+        categoryName: p.category_id?.name || 'Umum'
+      }));
+    });
   },
 
   getById: async (id: string) => apiRequest<{ product: any }>(API_ENDPOINTS.products.getById(id)),
@@ -276,9 +368,11 @@ export const productsAPI = {
 // ==================== CATEGORIES API ====================
 export const categoriesAPI = {
   getAll: async (): Promise<Category[]> => {
-    const response: any = await apiRequest(API_ENDPOINTS.categories.getAll);
-    const raw = Array.isArray(response) ? response : (response.categories || response.data || []);
-    return raw.map((c: any) => ({ ...c, id: c._id }));
+    return getFromApiWithOfflineCache<Category[]>(OFFLINE_CACHE_KEYS.categories, async () => {
+      const response: any = await apiRequest(API_ENDPOINTS.categories.getAll);
+      const raw = Array.isArray(response) ? response : (response.categories || response.data || []);
+      return raw.map((c: any) => ({ ...c, id: c._id }));
+    });
   },
 
   create: async (category: any) => apiRequest(API_ENDPOINTS.categories.create, {
@@ -305,14 +399,42 @@ export const transactionsAPI = {
     const query = params.toString();
     if (query) url += `?${query}`;
 
+    const normalizeTx = (raw: any[]) => raw.map((t: any) => ({ ...t, id: t._id, total: t.total_amount }));
+
     const response: any = await apiRequest(url);
     const raw = Array.isArray(response) ? response : (response.transactions || response.data || []);
-    return raw.map((t: any) => ({ ...t, id: t._id, total: t.total_amount }));
+
+    // Fallback defensif: jika backend date-range mengembalikan kosong,
+    // ambil semua transaksi lalu filter di frontend agar transaksi terbaru tetap terlihat.
+    if (filters?.startDate && filters?.endDate && raw.length === 0) {
+      const fullResponse: any = await apiRequest(API_ENDPOINTS.transactions.getAll);
+      const fullRaw = Array.isArray(fullResponse) ? fullResponse : (fullResponse.transactions || fullResponse.data || []);
+
+      const parseBound = (value: any, isEnd: boolean) => {
+        if (value instanceof Date) return value;
+        const valueStr = String(value);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(valueStr)) {
+          return new Date(`${valueStr}T${isEnd ? '23:59:59.999' : '00:00:00.000'}+07:00`);
+        }
+        return new Date(valueStr);
+      };
+
+      const start = parseBound(filters.startDate, false).getTime();
+      const end = parseBound(filters.endDate, true).getTime();
+      const locallyFiltered = fullRaw.filter((t: any) => {
+        const createdAt = new Date(t.createdAt || t.created_at || 0).getTime();
+        return Number.isFinite(createdAt) && createdAt >= start && createdAt <= end;
+      });
+
+      return normalizeTx(locallyFiltered);
+    }
+
+    return normalizeTx(raw);
   },
 
   getById: async (id: string) => apiRequest<any>(API_ENDPOINTS.transactions.getById(id)),
 
-  create: async (tx: any) => {
+  create: async (tx: any, options?: { disableOfflineQueue?: boolean }) => {
     const formattedPayload = {
       ...tx,
       total_amount: tx.total_amount || tx.total,
@@ -339,6 +461,10 @@ export const transactionsAPI = {
       const isNetworkError = e.message === "NETWORK_OFFLINE" || String(e).includes("Failed to fetch") || String(e).includes("NetworkError");
       
       if (isNetworkError) {
+        if (options?.disableOfflineQueue) {
+          throw new APIRequestError('Koneksi internet terputus. Periksa jaringan lalu coba lagi.', undefined, 'NETWORK_ERROR');
+        }
+
         console.warn("⚠️ [Offline Mode] Menyimpan Transaksi ke Penyimpanan Lokal...");
         
         await db.pendingTransactions.add({
@@ -401,9 +527,11 @@ export const suppliersAPI = {
 
 export const discountsAPI = {
   getAll: async () => {
-    const res: any = await apiRequest(API_ENDPOINTS.entities.discounts.base);
-    const data = Array.isArray(res) ? res : (res.discounts || res.data || []);
-    return data.map((d: any) => ({ ...d, id: d._id }));
+    return getFromApiWithOfflineCache<Discount[]>(OFFLINE_CACHE_KEYS.discounts, async () => {
+      const res: any = await apiRequest(API_ENDPOINTS.entities.discounts.base);
+      const data = Array.isArray(res) ? res : (res.discounts || res.data || []);
+      return data.map((d: any) => ({ ...d, id: d._id }));
+    });
   },
   create: async (d: any) => apiRequest(API_ENDPOINTS.entities.discounts.base, { method: 'POST', body: JSON.stringify(d) }),
   update: async (id: string, d: any) => apiRequest(API_ENDPOINTS.entities.discounts.byId(id), { method: 'PUT', body: JSON.stringify(d) }),
@@ -454,9 +582,11 @@ export const cashDrawerAPI = {
 // ==================== PENDING ORDERS API ====================
 export const pendingOrdersAPI = {
   getAll: async () => {
-    const res: any = await apiRequest(API_ENDPOINTS.pendingOrders.base);
-    const data = Array.isArray(res) ? res : (res.pendingOrders || res.data || []);
-    return data.map((o: any) => ({ ...o, id: o._id }));
+    return getFromApiWithOfflineCache<any[]>(OFFLINE_CACHE_KEYS.pendingOrders, async () => {
+      const res: any = await apiRequest(API_ENDPOINTS.pendingOrders.base);
+      const data = Array.isArray(res) ? res : (res.pendingOrders || res.data || []);
+      return data.map((o: any) => ({ ...o, id: o._id }));
+    });
   },
   save: (data: any) => apiRequest(API_ENDPOINTS.pendingOrders.base, { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: any) => apiRequest(API_ENDPOINTS.pendingOrders.byId(id), { method: 'PUT', body: JSON.stringify(data) }),
@@ -608,8 +738,10 @@ export const permissionsAPI = {
 // INGREDIENT
 export const ingredientsAPI = {
   getAll: async () => {
-    const res: any = await apiRequest('/api/ingredients');
-    return res.data || [];
+    return getFromApiWithOfflineCache<any[]>(OFFLINE_CACHE_KEYS.ingredients, async () => {
+      const res: any = await apiRequest('/api/ingredients');
+      return res.data || [];
+    });
   },
   create: async (data: any) => {
     return apiRequest('/api/ingredients', {

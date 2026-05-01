@@ -7,11 +7,21 @@ export interface PendingTransaction {
   timestamp: number;
 }
 
+export interface OfflineCacheItem {
+  key: string;
+  payload: any;
+  updatedAt: number;
+}
+
 // Inisialisasi IndexedDB via Dexie
 const db = new Dexie('WuzPayDB') as Dexie & {
   pendingTransactions: EntityTable<
     PendingTransaction,
     'id' 
+  >;
+  offlineCache: EntityTable<
+    OfflineCacheItem,
+    'key'
   >;
 };
 
@@ -19,6 +29,11 @@ const db = new Dexie('WuzPayDB') as Dexie & {
 // ++id = auto-increment
 db.version(1).stores({
   pendingTransactions: '++id, timestamp',
+});
+
+db.version(2).stores({
+  pendingTransactions: '++id, timestamp',
+  offlineCache: 'key, updatedAt',
 });
 
 // Utility untuk mengecek apakah kita online atau offline

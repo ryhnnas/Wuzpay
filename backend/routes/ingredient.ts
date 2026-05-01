@@ -18,14 +18,32 @@ const validateIngredient = zValidator('json', ingredientSchema, (result, c) => {
 });
 
 const ocrBulkSchema = z.object({
-  items: z.array(z.object({
-    ingredient_id: z.string().optional(),
-    name: z.string().optional(),
-    unit: z.string().optional(),
-    amount: z.union([z.string(), z.number()]),
-    price: z.union([z.string(), z.number()]).optional(),
-    is_new: z.boolean().optional()
-  }))
+  items: z.array(
+    z.object({
+      ingredient_id: z.string().nullable().optional(),
+      name: z.string().optional(),
+      unit: z.string().optional(),
+      amount: z.union([z.string(), z.number()]),
+      price: z.union([z.string(), z.number()]).optional(),
+      is_new: z.boolean().optional()
+    }).superRefine((item, ctx) => {
+      if (!item.is_new && !item.ingredient_id) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["ingredient_id"],
+          message: "ingredient_id wajib diisi untuk item lama"
+        });
+      }
+
+      if (item.is_new && !item.name?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["name"],
+          message: "name wajib diisi untuk item baru"
+        });
+      }
+    })
+  )
 });
 
 const validateOcrBulk = zValidator('json', ocrBulkSchema, (result, c) => {

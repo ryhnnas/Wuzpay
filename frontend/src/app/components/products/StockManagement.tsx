@@ -10,6 +10,7 @@ import { Badge } from '@/app/components/ui/badge';
 import { productsAPI, categoriesAPI, ingredientsAPI } from '@/services/api'; // TAMBAHKAN ingredientsAPI
 import { cn } from '@/app/components/ui/utils';
 import { toast } from 'sonner';
+import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 
 export function StockManagement() {
   const [products, setProducts] = useState<any[]>([]);
@@ -29,7 +30,7 @@ export function StockManagement() {
     try {
       // Kita panggil data Produk, Kategori, dan Bahan Baku
       const [productsData, categoriesData, ingredientsData] = await Promise.all([
-        productsAPI.getAll(),
+        productsAPI.getAll({ includeRecipe: true }),
         categoriesAPI.getAll(),
         ingredientsAPI.getAll()
       ]);
@@ -66,7 +67,7 @@ export function StockManagement() {
       } else {
         // Fallback: cari manual di array ingredients
         const ingId = item.ingredient_id?._id || item.ingredient_id;
-        const found = ingredients.find(i => (i._id || i.id) === ingId);
+        const found = ingredients.find(i => String(i._id || i.id) === String(ingId));
         if (found) {
           ingName = found.name;
           ingStock = found.stock_quantity || 0;
@@ -163,10 +164,9 @@ export function StockManagement() {
                   {/* Foto Menu */}
                   <div className="w-1/3 shrink-0">
                     <div className="relative w-full aspect-[4/5] md:aspect-square overflow-hidden rounded-[20px] border border-gray-100 shadow-sm group-hover:border-orange-200 group-hover:shadow-md transition-all">
-                      <img
-                        src={product.image_url || '/logo.jpeg'}
+                      <ImageWithFallback
+                        src={product.image_url || '/logo.png'}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        onError={(e: any) => e.target.src = '/logo.jpeg'}
                       />
                       <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
                     </div>

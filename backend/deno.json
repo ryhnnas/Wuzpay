@@ -19,5 +19,6 @@
   "nodeModulesDir": "auto",
   "compilerOptions": {
     "lib": ["deno.window"]
-  }
+  },
+  "allowScripts": ["npm:mongodb-memory-server@10.4.3", "npm:protobufjs@6.11.5", "npm:sharp@0.32.6"]
 }

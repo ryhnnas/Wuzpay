@@ -28,7 +28,7 @@ const generateDateRange = (start: Date, end: Date): Date[] => {
 };
 
 // HELPER: Pilih elemen acak dari array
-const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
 // HELPER: Integer acak dalam [min, max]
 const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -83,7 +83,167 @@ seedRouter.get("/full-setup", async (c) => {
       },
     ]);
 
-    // ── 4. KATEGORI ─────────────────────────────────────────────────────────
+    // ── 4. PERMISSIONS, CUSTOMERS, SUPPLIERS, DISCOUNTS ─────────────────────
+    await mongoose.connection.db.collection("permissions").insertMany([
+      {
+        _id: new mongoose.Types.ObjectId(),
+        role_name: "owner",
+        allowed_menus: [
+          "dashboard",
+          "products",
+          "categories",
+          "transactions",
+          "analytics",
+          "ingredients",
+          "settings",
+          "users",
+          "permissions",
+          "seed",
+        ],
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        role_name: "kasir",
+        allowed_menus: [
+          "dashboard",
+          "products",
+          "categories",
+          "transactions",
+          "ingredients",
+        ],
+      },
+    ]);
+
+    const customerDefs = [
+      { name: "Pelanggan Umum", phone: "081200000001", email: "general@customer.local" },
+      { name: "Budi Santoso", phone: "081200000002", email: "budi@customer.local" },
+      { name: "Siti Rahayu", phone: "081200000003", email: "siti@customer.local" },
+      { name: "Ahmad Fauzi", phone: "081200000004", email: "ahmad@customer.local" },
+      { name: "Rina Kartika", phone: "081200000005", email: "rina@customer.local" },
+      { name: "Dian Permana", phone: "081200000006", email: "dian@customer.local" },
+      { name: "Yusuf Hakim", phone: "081200000007", email: "yusuf@customer.local" },
+      { name: "Dewi Lestari", phone: "081200000008", email: "dewi@customer.local" },
+      { name: "Rizky Pratama", phone: "081200000009", email: "rizky@customer.local" },
+      { name: "Mega Wulandari", phone: "081200000010", email: "mega@customer.local" },
+      { name: "Hendra Wijaya", phone: "081200000011", email: "hendra@customer.local" },
+      { name: "Ayu Safitri", phone: "081200000012", email: "ayu@customer.local" },
+      { name: "Fajar Nugroho", phone: "081200000013", email: "fajar@customer.local" },
+      { name: "Lila Maulida", phone: "081200000014", email: "lila@customer.local" },
+      { name: "Tono Susanto", phone: "081200000015", email: "tono@customer.local" },
+      { name: "Firda Amalia", phone: "081200000016", email: "firda@customer.local" },
+      { name: "Eko Prasetyo", phone: "081200000017", email: "eko@customer.local" },
+      { name: "Rini Agustina", phone: "081200000018", email: "rini@customer.local" },
+      { name: "Andre Saputra", phone: "081200000019", email: "andre@customer.local" },
+      { name: "Nisa Khadijah", phone: "081200000020", email: "nisa@customer.local" },
+      { name: "Wahyu Hidayat", phone: "081200000021", email: "wahyu@customer.local" },
+      { name: "Sarah Fitria", phone: "081200000022", email: "sarah@customer.local" },
+      { name: "Dimas Kurniawan", phone: "081200000023", email: "dimas@customer.local" },
+      { name: "Putri Handayani", phone: "081200000024", email: "putri@customer.local" },
+      { name: "Aldo Firmansyah", phone: "081200000025", email: "aldo@customer.local" },
+      { name: "Citra Dewi", phone: "081200000026", email: "citra@customer.local" },
+      { name: "Bagas Purnomo", phone: "081200000027", email: "bagas@customer.local" },
+      { name: "Nadya Rahma", phone: "081200000028", email: "nadya@customer.local" },
+      { name: "Galih Setiawan", phone: "081200000029", email: "galih@customer.local" },
+      { name: "Eva Anggraeni", phone: "081200000030", email: "eva@customer.local" },
+    ];
+    const insertedCustomers = await mongoose.connection.db.collection("customers").insertMany(
+      customerDefs.map((customer, idx) => ({
+        _id: new mongoose.Types.ObjectId(),
+        entity_id: entityId,
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        loyalty_tier: idx % 10 === 0 ? "gold" : idx % 5 === 0 ? "silver" : "regular",
+      }))
+    );
+    const customerDocs = Object.values(insertedCustomers.insertedIds).map((_id, idx) => ({
+      _id,
+      ...customerDefs[idx],
+    }));
+
+    await mongoose.connection.db.collection("suppliers").insertMany([
+      {
+        _id: new mongoose.Types.ObjectId(),
+        entity_id: entityId,
+        name: "Bandung Fresh Dairy",
+        contact_name: "Pak Rudi",
+        phone: "082100000001",
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        entity_id: entityId,
+        name: "Nusantara Beans Roastery",
+        contact_name: "Bu Sinta",
+        phone: "082100000002",
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        entity_id: entityId,
+        name: "Sumber Pangan Mandiri",
+        contact_name: "Pak Adi",
+        phone: "082100000003",
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        entity_id: entityId,
+        name: "Pastry Supply Co",
+        contact_name: "Bu Lala",
+        phone: "082100000004",
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        entity_id: entityId,
+        name: "Protein & Meat Hub",
+        contact_name: "Pak Doni",
+        phone: "082100000005",
+      },
+    ]);
+
+    const discountDocs = [
+      {
+        _id: new mongoose.Types.ObjectId(),
+        entity_id: entityId,
+        code: "HEMAT5",
+        name: "Hemat 5%",
+        type: "percentage",
+        value: 5,
+        min_purchase: 25000,
+        is_active: true,
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        entity_id: entityId,
+        code: "WEEKEND10",
+        name: "Weekend 10%",
+        type: "percentage",
+        value: 10,
+        min_purchase: 40000,
+        is_active: true,
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        entity_id: entityId,
+        code: "LOYAL15",
+        name: "Member 15%",
+        type: "percentage",
+        value: 15,
+        min_purchase: 60000,
+        is_active: true,
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        entity_id: entityId,
+        code: "POTONG10K",
+        name: "Potongan 10 Ribu",
+        type: "fixed",
+        value: 10000,
+        min_purchase: 80000,
+        is_active: true,
+      },
+    ];
+    await mongoose.connection.db.collection("discounts").insertMany(discountDocs);
+
+    // ── 5. KATEGORI ─────────────────────────────────────────────────────────
     const categoryDefs = [
       { name: "Coffee Based",     code: "COF" },
       { name: "Non-Coffee",       code: "NCF" },
@@ -106,7 +266,7 @@ seedRouter.get("/full-setup", async (c) => {
       }))
     );
 
-    // ── 5. BAHAN BAKU (INGREDIENTS) ─────────────────────────────────────────
+    // ── 6. BAHAN BAKU (INGREDIENTS) ─────────────────────────────────────────
     const ingredientDefs = [
       // Kopi & Susu
       { name: "Espresso Shot",      unit: "shot",   qty: 500,  cost: 3000  },
@@ -162,8 +322,8 @@ seedRouter.get("/full-setup", async (c) => {
       ingMap[ing.name] = ing;
     }
 
-    // ── 6. PRODUK (50 produk, 10 per kategori) ──────────────────────────────
-    // Setiap produk punya: price, cost_price (fallback), recipe, dan image_url Unsplash
+    // ── 7. PRODUK (50 produk, 10 per kategori) ──────────────────────────────
+    // Setiap produk wajib punya recipe valid dan cost_price dihitung dari recipe.
     const productBase = [
       // --- Coffee Based (cat 0) ---
       {
@@ -625,28 +785,42 @@ seedRouter.get("/full-setup", async (c) => {
         const _id = new mongoose.Types.ObjectId();
         const cat = categories[p.cat];
 
-        // Bangun array recipe dari definisi di atas
-        const recipe = p.recipe
-          .filter((r) => ingMap[r.ing]) // Hanya sertakan jika ingredient ada
-          .map((r) => ({
-            ingredient_id:  ingMap[r.ing]._id,
-            amount_needed:  r.amt,
-          }));
+        if (!Array.isArray(p.recipe) || p.recipe.length === 0) {
+          throw new Error(`Recipe wajib ada untuk produk "${p.n}"`);
+        }
 
-        // Hitung cost_price dari resep (fallback jika recipe kosong)
+        const missingIngredients = p.recipe
+          .filter((r) => !ingMap[r.ing])
+          .map((r) => r.ing);
+        if (missingIngredients.length > 0) {
+          throw new Error(
+            `Ingredient recipe tidak ditemukan untuk produk "${p.n}": ${missingIngredients.join(", ")}`
+          );
+        }
+
+        // Bangun array recipe dari definisi di atas (strict: ingredient harus ada semua)
+        const recipe = p.recipe.map((r) => ({
+          ingredient_id:  ingMap[r.ing]._id,
+          amount_needed:  r.amt,
+        }));
+
+        // Hitung cost_price dari resep (strict: tanpa fallback)
         const calculatedCost = recipe.reduce((sum, r) => {
           const ing = Object.values(ingMap).find(
             (i) => i._id.toString() === r.ingredient_id.toString()
           );
           return sum + (ing ? ing.cost_per_unit * r.amount_needed : 0);
         }, 0);
+        if (calculatedCost <= 0) {
+          throw new Error(`Cost dari recipe tidak valid untuk produk "${p.n}"`);
+        }
 
         return mongoose.connection.db.collection("products").insertOne({
           _id,
           name:           p.n,
           sku:            `WUZ-${cat.code}-${String(index + 1).padStart(3, "0")}`,
           price:          p.p,
-          cost_price:     calculatedCost > 0 ? calculatedCost : p.c,
+          cost_price:     calculatedCost,
           recipe,
           category_id:    cat.id,
           entity_id:      entityId,
@@ -657,40 +831,47 @@ seedRouter.get("/full-setup", async (c) => {
           ...p,
           _id,
           catName:   cat.name,
-          cost_real: calculatedCost > 0 ? calculatedCost : p.c,
+          cost_real: calculatedCost,
           recipe,
         }));
       })
     );
 
-    // ── 7. GENERATE ~1500 TRANSAKSI (1 Mar – 8 Mei 2026) ────────────────────
+    // ── 8. GENERATE ~1500 TRANSAKSI (awal periode -> hari ini) ──────────────
     const paymentMethods = ["cash", "qris", "gopay", "transfer"] as const;
 
-    const customerNames = [
-      "Pelanggan Umum", "Budi Santoso", "Siti Rahayu", "Ahmad Fauzi",
-      "Rina Kartika", "Dian Permana", "Yusuf Hakim", "Dewi Lestari",
-      "Rizky Pratama", "Mega Wulandari", "Hendra Wijaya", "Ayu Safitri",
-      "Fajar Nugroho", "Lila Maulida", "Tono Susanto", "Firda Amalia",
-      "Eko Prasetyo", "Rini Agustina", "Andre Saputra", "Nisa Khadijah",
-      "Wahyu Hidayat", "Sarah Fitria", "Dimas Kurniawan", "Putri Handayani",
-      "Aldo Firmansyah", "Citra Dewi", "Bagas Purnomo", "Nadya Rahma",
-      "Galih Setiawan", "Eva Anggraeni",
-    ];
+    // Rentang tanggal: dari 1 Maret 2026 sampai hari ini (tidak boleh lebih dari hari ini)
+    const seedStartDate = new Date(2026, 3, 1); // 1 April 2026 (hati2: bulan ke-3 = April)
+    const seedEndDate = new Date();
+    seedEndDate.setDate(seedEndDate.getDate() - 1);         // mundur 1 hari ke kemarin
+    seedEndDate.setHours(23, 59, 59, 999);                  // akhir hari kemarin
 
-    // Rentang tanggal: 1 Maret 2026 – 8 Mei 2026
+    // Guardrail: kalau environment date mundur sebelum start seed, jangan bikin range invalid.
+    if (seedEndDate < seedStartDate) {
+      seedEndDate.setTime(seedStartDate.getTime());
+    }
+
     const allDays = generateDateRange(
-      new Date(2026, 2, 1),  // 1 Maret
-      new Date(2026, 4, 8),  // 8 Mei
+      seedStartDate,
+      seedEndDate,
     );
 
-    // Distribusikan ~1500 transaksi secara acak per hari (15–30 per hari)
+    // Distribusikan total transaksi secara proporsional dan presisi
     const TOTAL_TARGET = 1500;
-    // Buat bobot acak per hari, lalu normalize agar total = TOTAL_TARGET
     const rawWeights = allDays.map(() => Math.random() * 15 + 15); // 15-30 base
     const weightSum = rawWeights.reduce((a, b) => a + b, 0);
-    const txPerDay = rawWeights.map((w) => Math.max(5, Math.round((w / weightSum) * TOTAL_TARGET)));
+    const exactCounts = rawWeights.map((w) => (w / weightSum) * TOTAL_TARGET);
+    const txPerDay = exactCounts.map((v) => Math.floor(v));
+    const remainderOrder = exactCounts
+      .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+      .sort((a, b) => b.frac - a.frac);
+    let remainder = TOTAL_TARGET - txPerDay.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < remainder; i++) {
+      txPerDay[remainderOrder[i % remainderOrder.length].i] += 1;
+    }
 
     const transactions: any[] = [];
+    const ingredientUsage: Record<string, number> = {};
     let globalIdx = 0;
 
     for (let d = 0; d < allDays.length; d++) {
@@ -736,13 +917,21 @@ seedRouter.get("/full-setup", async (c) => {
           });
         }
 
-        // Diskon acak (10% peluang kena diskon 5–20%)
+        // Gunakan diskon dari master discounts agar data transaksi konsisten.
         let discountAmount = 0;
-        if (Math.random() < 0.10) {
-          const discPct = pick([5, 10, 15, 20]);
-          discountAmount = Math.round((totalRealAmount * discPct) / 100);
+        const eligibleDiscounts = discountDocs.filter(
+          (d) => d.is_active && totalRealAmount >= d.min_purchase
+        );
+        const shouldUseDiscount = eligibleDiscounts.length > 0 && Math.random() < 0.15;
+        const discountUsed = shouldUseDiscount ? pick(eligibleDiscounts) : null;
+        if (discountUsed) {
+          discountAmount = discountUsed.type === "percentage"
+            ? Math.round((totalRealAmount * discountUsed.value) / 100)
+            : Math.min(discountUsed.value, totalRealAmount);
         }
-        const totalAmount = totalRealAmount - discountAmount;
+        const totalAmount = Math.max(0, totalRealAmount - discountAmount);
+
+        const customer = pick(customerDocs);
 
         const method = pick(paymentMethods);
         const yy = String(date.getFullYear());
@@ -750,21 +939,34 @@ seedRouter.get("/full-setup", async (c) => {
         const dd = String(date.getDate()).padStart(2, "0");
 
         globalIdx++;
+        const cashPadding = method === "cash" ? pick([0, 1000, 2000, 5000, 10000]) : 0;
+        const amountPaid = totalAmount + cashPadding;
+        const changeAmount = method === "cash" ? amountPaid - totalAmount : 0;
+
+        // Catat pemakaian bahan untuk update stok + stocklog setelah transaksi selesai dibentuk.
+        for (const item of items) {
+          const prod = finalProducts.find((p) => p._id.toString() === item.product_id.toString());
+          if (!prod) continue;
+          for (const r of prod.recipe) {
+            const ingredientId = r.ingredient_id.toString();
+            ingredientUsage[ingredientId] = (ingredientUsage[ingredientId] || 0) + (r.amount_needed * item.quantity);
+          }
+        }
+
         transactions.push({
           receipt_number: `WP-${yy}${mm}${dd}-${String(globalIdx).padStart(4, "0")}`,
           userId:          ownerId.toString(),
-          customer_name:   pick(customerNames),
+          customer_id:     customer._id,
+          customer_name:   customer.name,
           total_amount:    totalAmount,
           total_real_amount: totalRealAmount,
           discount_amount: discountAmount,
           profit:          totalProfit - discountAmount,
+          discount_id:     discountUsed?._id ?? null,
+          discount_code:   discountUsed?.code ?? null,
           payment_method:  method,
-          amount_paid:     method === "cash"
-                             ? totalAmount + pick([0, 5000, 10000, 20000, 50000])
-                             : totalAmount,
-          change_amount:   method === "cash"
-                             ? pick([0, 5000, 10000, 20000, 50000])
-                             : 0,
+          amount_paid:     amountPaid,
+          change_amount:   changeAmount,
           items,
           status:    "completed",
           createdAt: date,
@@ -781,28 +983,195 @@ seedRouter.get("/full-setup", async (c) => {
       );
     }
 
-    // ── 8. RINGKASAN ────────────────────────────────────────────────────────
+    // ── 9. KURANGI STOK BERDASARKAN TRANSAKSI + LOG MUTASI ─────────────────
+    const ingredientById: Record<string, typeof insertedIngredients[0]> = {};
+    for (const ing of insertedIngredients) {
+      ingredientById[ing._id.toString()] = ing;
+    }
+    const stockLogs: any[] = [];
+    const ingredientOps: any[] = [];
+    let totalIngredientUsage = 0;
+
+    for (const [ingredientId, usedQtyRaw] of Object.entries(ingredientUsage)) {
+      const ing = ingredientById[ingredientId];
+      if (!ing) continue;
+
+      const usedQty = Math.max(0, Math.round(usedQtyRaw));
+      const before = ing.stock_quantity;
+      // Stok bahan baku setelah seed wajib > 10.
+      const after = Math.max(11, before - usedQty);
+      const actualUsage = before - after;
+      totalIngredientUsage += actualUsage;
+
+      ingredientOps.push({
+        updateOne: {
+          filter: { _id: ing._id },
+          update: { $set: { stock_quantity: after } },
+        },
+      });
+
+      stockLogs.push({
+        _id: new mongoose.Types.ObjectId(),
+        ingredient_id: ing._id,
+        ingredient_name: ing.name,
+        movement_type: "out",
+        quantity: actualUsage,
+        previous_stock: before,
+        current_stock: after,
+        note: "Auto generated by /seed/full-setup from transaction recipe usage",
+        reference: "seed-transactions",
+        entity_id: entityId,
+        userId: ownerId.toString(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+
+    if (ingredientOps.length > 0) {
+      await mongoose.connection.db.collection("ingredients").bulkWrite(ingredientOps);
+    }
+    if (stockLogs.length > 0) {
+      await mongoose.connection.db.collection("stocklogs").insertMany(stockLogs);
+    }
+
+    const minIngredientStockDoc = await mongoose.connection.db
+      .collection("ingredients")
+      .findOne({}, { sort: { stock_quantity: 1 }, projection: { stock_quantity: 1 } });
+    const minIngredientStockAfterSeed = minIngredientStockDoc?.stock_quantity ?? 0;
+    if (minIngredientStockAfterSeed <= 10) {
+      throw new Error("Guardrail gagal: masih ada stock ingredient <= 10 setelah seeding");
+    }
+
+    // ── 10. RINGKASAN ───────────────────────────────────────────────────────
     const totalRevenue = transactions.reduce((s, t) => s + t.total_amount, 0);
     const totalProfitAll = transactions.reduce((s, t) => s + t.profit, 0);
+    const formatIdDate = (date: Date) =>
+      new Intl.DateTimeFormat("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(date);
+    const periodLabel = `${formatIdDate(seedStartDate)} – ${formatIdDate(seedEndDate)}`;
 
     return c.json({
       success: true,
-      message: `🔥 MEGA SEED V6 BERHASIL! ${transactions.length} transaksi (1 Mar – 8 Mei 2026) siap pakai.`,
+      message: `🔥 MEGA SEED V6 BERHASIL! ${transactions.length} transaksi (${periodLabel}) siap pakai.`,
       summary: {
         entity:       "WuzPay Coffee & Eatery",
         users:        2,
         categories:   categories.length,
         ingredients:  insertedIngredients.length,
         products:     finalProducts.length,
+        customers:    customerDocs.length,
+        suppliers:    5,
+        discounts:    discountDocs.length,
+        stocklogs:    stockLogs.length,
+        totalIngredientUsage,
+        recipeValidation: "strict",
+        stockFloorRule: ">10",
+        minIngredientStockAfterSeed,
         transactions: transactions.length,
         totalRevenue: `Rp ${totalRevenue.toLocaleString("id-ID")}`,
         totalProfit:  `Rp ${totalProfitAll.toLocaleString("id-ID")}`,
-        period:       "1 Maret – 8 Mei 2026",
+        period:       periodLabel,
       },
     });
 
   } catch (error: any) {
     console.error("SEED ERROR:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// ─────────────────────────────────────────────
+// ROUTE: GET /seed/smoke-check
+// ─────────────────────────────────────────────
+seedRouter.get("/smoke-check", async (c) => {
+  try {
+    const db = mongoose.connection.db;
+    const [
+      users,
+      categories,
+      ingredients,
+      products,
+      transactions,
+      permissions,
+      entities,
+      customers,
+      suppliers,
+      discounts,
+      stocklogs,
+      negativeChangeCount,
+      nonCashWithChangeCount,
+      cashUnderpaidCount,
+      outLogAnomalyCount,
+    ] = await Promise.all([
+      db.collection("users").countDocuments({}),
+      db.collection("categories").countDocuments({}),
+      db.collection("ingredients").countDocuments({}),
+      db.collection("products").countDocuments({}),
+      db.collection("transactions").countDocuments({}),
+      db.collection("permissions").countDocuments({}),
+      db.collection("entities").countDocuments({}),
+      db.collection("customers").countDocuments({}),
+      db.collection("suppliers").countDocuments({}),
+      db.collection("discounts").countDocuments({}),
+      db.collection("stocklogs").countDocuments({}),
+      db.collection("transactions").countDocuments({ change_amount: { $lt: 0 } }),
+      db.collection("transactions").countDocuments({
+        payment_method: { $ne: "cash" },
+        change_amount: { $ne: 0 },
+      }),
+      db.collection("transactions").countDocuments({
+        payment_method: "cash",
+        $expr: { $lt: ["$amount_paid", "$total_amount"] },
+      }),
+      db.collection("stocklogs").countDocuments({
+        movement_type: "out",
+        $expr: { $gt: ["$current_stock", "$previous_stock"] },
+      }),
+    ]);
+
+    const checks = {
+      hasMinimumData:
+        entities >= 1 &&
+        users >= 2 &&
+        categories >= 5 &&
+        ingredients >= 20 &&
+        products >= 20 &&
+        transactions >= 100,
+      financialSanity:
+        negativeChangeCount === 0 &&
+        nonCashWithChangeCount === 0 &&
+        cashUnderpaidCount === 0,
+      stockSanity: outLogAnomalyCount === 0,
+    };
+
+    return c.json({
+      success: checks.hasMinimumData && checks.financialSanity && checks.stockSanity,
+      checks,
+      counts: {
+        entities,
+        users,
+        permissions,
+        categories,
+        ingredients,
+        products,
+        customers,
+        suppliers,
+        discounts,
+        stocklogs,
+        transactions,
+      },
+      anomalies: {
+        negativeChangeCount,
+        nonCashWithChangeCount,
+        cashUnderpaidCount,
+        outLogAnomalyCount,
+      },
+    });
+  } catch (error: any) {
+    console.error("SMOKE CHECK ERROR:", error);
     return c.json({ success: false, error: error.message }, 500);
   }
 });
