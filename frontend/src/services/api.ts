@@ -296,11 +296,12 @@ export const categoriesAPI = {
 
 // ==================== TRANSACTIONS API ====================
 export const transactionsAPI = {
-  getAll: async (filters?: { startDate?: any; endDate?: any }) => {
+  getAll: async (filters?: { startDate?: any; endDate?: any; limit?: number }) => {
     let url = API_ENDPOINTS.transactions.getAll;
     const params = new URLSearchParams();
     if (filters?.startDate) params.append('startDate', typeof filters.startDate === 'string' ? filters.startDate : filters.startDate.toISOString());
     if (filters?.endDate) params.append('endDate', typeof filters.endDate === 'string' ? filters.endDate : filters.endDate.toISOString());
+    params.append('limit', (filters?.limit || 500).toString());
 
     const query = params.toString();
     if (query) url += `?${query}`;

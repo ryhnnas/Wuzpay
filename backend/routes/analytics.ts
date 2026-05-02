@@ -206,8 +206,9 @@ analytics.get("/reports/category-sales", validateDateRange, async (c) => {
 // ==================== REPORTS: QRIS TRANSACTIONS (ANTI 404) ====================
 analytics.get("/reports/qris", validateDateRange, validatePagination, async (c) => {
   try {
-    const { startDate, endDate } = c.req.valid('query');
     const { limit } = c.req.valid('query');
+    const startDate = c.req.query('startDate');
+    const endDate = c.req.query('endDate');
 
     const filter: any = { payment_method: 'qris' }; // Kunci utama: Cuma QRIS mang!
     

@@ -46,8 +46,9 @@ transactions.get("/", validateDateRange, validatePagination, async (c) => {
     const { error: authError } = await verifyAuth(authHeader, sessionId);
     if (authError) return c.json({ error: authError }, 401);
 
-    const { startDate, endDate } = c.req.valid('query');
     const { page, limit } = c.req.valid('query');
+    const startDate = c.req.query('startDate');
+    const endDate = c.req.query('endDate');
     const skip = (page - 1) * limit;
 
     const filter: any = {};
