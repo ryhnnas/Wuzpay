@@ -18,11 +18,12 @@ import { Label } from '@/app/components/ui/label';
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/app/components/ui/select';
-import { productsAPI, transactionsAPI, categoriesAPI, discountsAPI, pendingOrdersAPI, ingredientsAPI } from '@/services/api';
+import { APIRequestError, productsAPI, transactionsAPI, categoriesAPI, discountsAPI, pendingOrdersAPI, ingredientsAPI } from '@/services/api';
 import { toast } from 'sonner';
 // HAPUS SUPABASE CLIENT KARENA SUDAH PAKAI MONGO DB
 import { handleGlobalPrint } from '@/app/components/utils/printHandler';
 import { SuccessTransactionPage } from './SuccessTransactionPage';
+import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 
 // HELPER GLOBAL AGAR BISA DIAKSES SEMUA KOMPONEN DI FILE INI
 const formatRupiah = (amount: number) => {
@@ -59,6 +60,7 @@ export function POSScreen({
   
   // STATE LOADING BARU
   const [isLoading, setIsLoading] = useState(true);
+  const [offlineEmptyStateMessage, setOfflineEmptyStateMessage] = useState<string | null>(null);
 
   // STATE INTERNAL UNTUK MODAL SIMPAN
   const [showSaveOrderDialog, setShowSaveOrderDialog] = useState(false);
@@ -142,8 +144,18 @@ export function POSScreen({
       setCategories(Array.isArray(categoriesData) ? categoriesData : (categoriesData.categories || []));
       setDiscounts(finalDiscounts);
       setIngredients(Array.isArray(ingredientsData) ? ingredientsData : []);
+      setOfflineEmptyStateMessage(null);
     } catch (error) { 
-      toast.error("Gagal sinkronisasi data"); 
+      if (error instanceof APIRequestError && error.code === 'NO_OFFLINE_CACHE') {
+        setProducts([]);
+        setCategories([]);
+        setDiscounts([]);
+        setIngredients([]);
+        setOfflineEmptyStateMessage('Data belum pernah disinkronkan. Sambungkan internet untuk memuat data awal.');
+        toast.warning('Belum ada cache offline. Sambungkan internet untuk sinkron awal.');
+      } else {
+        toast.error("Gagal sinkronisasi data");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -411,7 +423,11 @@ const processPayment = async () => {
       localStorage.removeItem('nex_pos_backup_cart');
       localStorage.removeItem('nex_pos_backup_discount');
       setCart([]);
-      toast.success('TRANSAKSI BERHASIL!');
+      if (response?.offline) {
+        toast.warning('Transaksi disimpan offline. Akan masuk laporan setelah sinkron saat online.');
+      } else {
+        toast.success('TRANSAKSI BERHASIL!');
+      }
 
     } catch (error: any) { 
       console.error("❌ ERROR TRANSAKSI:", error);
@@ -525,7 +541,14 @@ const processPayment = async () => {
               ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
               : "grid-cols-1"
           )}>
-            {filteredProducts.map(product => {
+            {offlineEmptyStateMessage ? (
+              <div className="col-span-full rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+                <AlertTriangle className="mx-auto mb-3 size-6 text-amber-600" />
+                <p className="text-xs font-black uppercase tracking-wider text-amber-800">
+                  {offlineEmptyStateMessage}
+                </p>
+              </div>
+            ) : filteredProducts.map(product => {
               const discInfo = getEffectivePrice(product);
               const productId = product._id || product.id;
               return (
@@ -548,7 +571,7 @@ const processPayment = async () => {
                     "relative overflow-hidden bg-gray-50",
                     viewMode === 'grid' ? "aspect-square" : "h-full aspect-square w-24"
                   )}>
-                    <img src={product.image_url || 'https://placehold.co/150'} className="size-full object-cover group-hover:scale-105 transition-transform" />
+                    <ImageWithFallback src={product.image_url || 'https://placehold.co/150'} className="size-full object-cover group-hover:scale-105 transition-transform" />
                   </div>
                   <CardContent className={cn(
                     "p-2 flex-1 flex flex-col justify-center",
@@ -618,7 +641,7 @@ const processPayment = async () => {
                 const itemId = item._id || item.id;
                 return (
                   <div key={itemId} className="py-4 flex items-center gap-3 animate-in slide-in-from-right-2 duration-300">
-                    <img src={item.image_url} className="size-12 rounded-xl object-cover shadow-sm" />
+                    <ImageWithFallback src={item.image_url} className="size-12 rounded-xl object-cover shadow-sm" />
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-black text-gray-800 truncate uppercase tracking-tighter">{item.name}</p>
                       <div className="flex items-center gap-2 mt-2">

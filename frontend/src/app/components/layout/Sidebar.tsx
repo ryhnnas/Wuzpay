@@ -8,6 +8,7 @@ import { Button } from '@/app/components/ui/button';
 import { ScrollArea } from '@/app/components/ui/scroll-area';
 import { cn } from '@/app/components/ui/utils';
 import { authAPI } from '@/services/api';
+import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 
 interface SidebarProps {
   activeMenu: string;
@@ -107,7 +108,7 @@ export function Sidebar({ activeMenu, onMenuChange, userRole, allowedMenus = [] 
         isCollapsed ? "justify-center px-0" : "px-4"
       )}>
 
-        <img className='mx-auto' src="/logo.png" alt="Logo" width={100} />
+        <ImageWithFallback className='mx-auto' src="/logo.png" alt="Logo" width={100} />
 
       </div>
 

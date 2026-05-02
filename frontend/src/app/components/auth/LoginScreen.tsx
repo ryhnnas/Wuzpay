@@ -3,10 +3,11 @@ import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Card } from '@/app/components/ui/card';
 import { toast } from 'sonner';
-import { authAPI } from '@/services/api';
+import { authAPI, isNetworkError } from '@/services/api';
 import { User } from '@/types';
 import { Loader2, Lock, Mail, Eye, EyeOff, Check } from 'lucide-react';
 import { cn } from '@/app/components/ui/utils';
+import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 
 interface LoginScreenProps {
   onLoginSuccess: (user: User) => void;
@@ -73,8 +74,12 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       }, 300);
 
     } catch (error: any) {
-      // Error sekarang diambil dari response JSON backend (errorData.error)
-      toast.error(error.message || "Akses ditolak. Cek email/password.");
+      if (isNetworkError(error)) {
+        toast.error("Tidak bisa login saat offline. Sambungkan internet lalu coba lagi.");
+      } else {
+        // Error sekarang diambil dari response JSON backend (errorData.error)
+        toast.error(error.message || "Akses ditolak. Cek email/password.");
+      }
     } finally {
       setLoading(false);
     }
@@ -91,7 +96,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           <div className="mx-auto mb-6 relative w-30">
             <div className="absolute inset-0 scale-110" />
             <div className="relative flex  items-center justify-center overflow-hidden">
-              <img 
+              <ImageWithFallback
                 src="/logo.png"
                 alt="WuzPay Logo" 
               />

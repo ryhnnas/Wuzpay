@@ -26,10 +26,19 @@ import SettingsPage from './components/setting/SettingPage';
 import SettingStruk from './components/setting/SettingStruk';
 import SettingPrint from './components/setting/SettingPrint';
 import SettingAkses from './components/setting/SettingAkses';
-import { authAPI, pendingOrdersAPI, permissionsAPI, transactionsAPI } from '@/services/api';
+import { APIRequestError, authAPI, isNetworkError, isUnauthorizedError, pendingOrdersAPI, permissionsAPI, transactionsAPI } from '@/services/api';
 import { IngredientManagement } from './components/products/IngredientManagement';
 import { OfflineBanner } from './components/ui/OfflineBanner';
 import db from '@/services/db';
+
+const sendDebugLog = (payload: Record<string, unknown>) => {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  fetch('http://127.0.0.1:7803/ingest/bf88b2af-7fcc-4dce-92b2-66169c85c570', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b291df' },
+    body: JSON.stringify(payload),
+  }).catch(() => {});
+};
 
 function App() {
   const navigate = useNavigate();
@@ -49,7 +58,11 @@ function App() {
       const orders = await pendingOrdersAPI.getAll();
       setPendingOrders(orders);
     } catch (err) {
-      console.error("Gagal load antrean");
+      if (err instanceof APIRequestError && err.code === 'NO_OFFLINE_CACHE') {
+        toast.info('Antrean offline belum tersedia. Buka halaman ini sekali saat online untuk sinkron awal.');
+        return;
+      }
+      console.error("Gagal load antrean", err);
     }
   }, []);
 
@@ -74,7 +87,11 @@ function App() {
         }
       }
     } catch (error) {
-      console.error("Gagal load permissions:", error);
+      if (isNetworkError(error)) {
+        console.warn("Permissions fallback default karena offline.");
+      } else {
+        console.error("Gagal load permissions:", error);
+      }
       setUserPermissions(['dashboard', 'pos']);
     } finally {
       setTimeout(() => setIsPermsLoading(false), 300);
@@ -85,6 +102,9 @@ function App() {
   useEffect(() => {
     const initApp = async () => {
       const token = localStorage.getItem('auth_token');
+      // #region agent log
+      sendDebugLog({sessionId:'b291df',runId:'baseline',hypothesisId:'H2',location:'frontend/src/app/App.tsx:90',message:'initApp invoked',data:{pathname:location.pathname,hasToken:Boolean(token)},timestamp:Date.now()});
+      // #endregion
       if (!token) {
         setIsCheckingAuth(false);
         setIsPermsLoading(false);
@@ -104,6 +124,33 @@ function App() {
         loadPendingOrdersFromDB();
 
       } catch (error) {
+        if (isUnauthorizedError(error)) {
+          handleLogout();
+          return;
+        }
+
+        if (isNetworkError(error)) {
+          const cachedUser = authAPI.getCachedUser();
+          if (cachedUser) {
+            setCurrentUser(cachedUser);
+            if (cachedUser.role) {
+              await loadUserPermissions(cachedUser.role);
+            }
+            if (location.pathname === '/login') {
+              navigate(cachedUser.role === 'kasir' ? '/pos' : '/dashboard', { replace: true });
+            }
+            loadPendingOrdersFromDB();
+            toast.warning('Mode offline aktif. Menggunakan sesi tersimpan.');
+            return;
+          }
+
+          setCurrentUser(null);
+          setUserPermissions([]);
+          setIsPermsLoading(false);
+          toast.error('Tidak ada sesi tersimpan. Silakan sambungkan internet untuk login.');
+          return;
+        }
+
         handleLogout();
       } finally {
         setIsCheckingAuth(false);
@@ -113,13 +160,25 @@ function App() {
     initApp();
 
     const interval = setInterval(() => {
-      if (localStorage.getItem('auth_token')) {
+      const isPosPage = location.pathname.startsWith('/pos');
+      const isVisible = document.visibilityState === 'visible';
+      // #region agent log
+      sendDebugLog({sessionId:'b291df',runId:'post-fix',hypothesisId:'H1',location:'frontend/src/app/App.tsx:122',message:'pending orders interval tick',data:{hasToken:Boolean(localStorage.getItem('auth_token')),isPosPage,isVisible,pathname:location.pathname},timestamp:Date.now()});
+      // #endregion
+      if (localStorage.getItem('auth_token') && isPosPage && isVisible) {
+        // #region agent log
+        sendDebugLog({sessionId:'b291df',runId:'post-fix',hypothesisId:'H1',location:'frontend/src/app/App.tsx:125',message:'pending orders polling executed',data:{pathname:location.pathname},timestamp:Date.now()});
+        // #endregion
         loadPendingOrdersFromDB();
+      } else {
+        // #region agent log
+        sendDebugLog({sessionId:'b291df',runId:'post-fix',hypothesisId:'H1',location:'frontend/src/app/App.tsx:130',message:'pending orders polling skipped',data:{pathname:location.pathname,isPosPage,isVisible},timestamp:Date.now()});
+        // #endregion
       }
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [loadPendingOrdersFromDB, loadUserPermissions]);
+  }, [loadPendingOrdersFromDB, loadUserPermissions, location.pathname]);
 
   // --- HANDLERS ---
   const handleLoginSuccess = async (user: User) => {
@@ -156,6 +215,9 @@ function App() {
   // --- OFFLINE SYNC BACKGROUND WORKER ---
   useEffect(() => {
     const syncOfflineData = async () => {
+      // #region agent log
+      sendDebugLog({sessionId:'b291df',runId:'baseline',hypothesisId:'H5',location:'frontend/src/app/App.tsx:163',message:'syncOfflineData called',data:{online:navigator.onLine},timestamp:Date.now()});
+      // #endregion
       if (!navigator.onLine) return;
 
       const pendingTxs = await db.pendingTransactions.toArray();
@@ -164,17 +226,18 @@ function App() {
       console.log(`🔄 Mengirim ${pendingTxs.length} transaksi offline ke awan...`);
       for (const tx of pendingTxs) {
         try {
-           // Mengamankan potensi duplikat, Hapus dulu dari antrean lokal.
-           // Jika panggilan API berikut patah jaringan lagi, dia akan dikembalikan lagi ke antrean lokal 
-           // di dalam fungsi api.ts secara otomatis.
-           await db.pendingTransactions.delete(tx.id!);
-           
-           await transactionsAPI.create(tx.payload);
+           const response: any = await transactionsAPI.create(tx.payload, { disableOfflineQueue: true });
+
+           // Hanya hapus jika transaksi benar-benar berhasil terkirim ke server.
+           if (!response?.offline) {
+             await db.pendingTransactions.delete(tx.id!);
+           }
            
            // Jeda pernafasan 300ms antar resit agar backend Deno Rate Limiter tidak tersentak
            await new Promise(r => setTimeout(r, 300)); 
         } catch(e: any) {
-           console.error("Gagal sync transaksi offline:", e);
+           // Jangan hapus antrean saat gagal sinkron agar tidak kehilangan transaksi.
+           console.warn("Gagal sync transaksi offline, antrean dipertahankan:", e?.message || e);
         }
       }
     };

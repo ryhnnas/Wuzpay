@@ -51,15 +51,22 @@ products.get("/", validatePagination, async (c) => {
   try {
     const { page, limit } = c.req.valid('query');
     const skip = (page - 1) * limit;
+    const includeRecipe = c.req.query("include_recipe") === "true";
 
     const total = await Product.countDocuments();
-    const productsData = await Product.find()
+    const query = Product.find()
       .populate('category_id', 'name')
-      .select('-recipe')
       .sort({ name: 1 })
       .skip(skip)
-      .limit(limit)
-      .lean();
+      .limit(limit);
+
+    if (!includeRecipe) {
+      query.select("-recipe");
+    } else {
+      query.populate("recipe.ingredient_id", "name stock_quantity unit");
+    }
+
+    const productsData = await query.lean();
 
     return c.json({ 
       products: productsData || [],

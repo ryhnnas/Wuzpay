@@ -8,7 +8,7 @@
     "build": "vite build",
     "dev": "vite",
     "electron-dev": "electron .",
-    "electron-build": "npm run build && electron-builder"
+    "electron-build": "vite build --base=./ && electron-builder"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -78,7 +78,8 @@
     "electron": "^41.0.4",
     "electron-builder": "^26.8.1",
     "tailwindcss": "4.1.12",
-    "vite": "6.3.5"
+    "vite": "6.3.5",
+    "vite-plugin-pwa": "^1.2.0"
   },
   "build": {
     "appId": "com.wuzpay.pos",
@@ -92,7 +93,7 @@
     ],
     "win": {
       "target": "portable",
-      "icon": "public/logo.jpeg"
+      "icon": "public/logo.png"
     }
   }
 }

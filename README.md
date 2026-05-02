@@ -12,7 +12,7 @@
 **WuzPay** adalah sistem Point of Sale (POS) modern yang dirancang khusus untuk mengelola operasional outlet makanan dan retail. Berkat pengembangan mutakhir, aplikasi ini tidak hanya berfungsi sebagai pencatatan kasir, tetapi juga dilengkapi integrasi kecerdasan buatan, proteksi data tinggi, dan arsitektur anti-pemadaman internet.
 
 ### ✨ Fitur Unggulan 
-- **⚡ Offline-First PWA**: Kasir tetap bisa beroperasi memproses transaksi dengan kecepatan tinggi meski WiFi terputus. Data disimpan aman di IndexedDB (*Dexie.js*) dan melakukan *background auto-sync* otomatis ketika koneksi pulih.
+- **⚡ Offline-First PWA**: Kasir yang sudah login tetap bisa beroperasi memproses transaksi dengan kecepatan tinggi meski WiFi terputus, termasuk setelah refresh aplikasi. Data disimpan aman di IndexedDB (*Dexie.js*) dan melakukan *background auto-sync* otomatis ketika koneksi pulih. Login baru tetap membutuhkan koneksi internet.
 - **📄 AI Receipt Scanner (Microservice)**: Dilengkapi dengan model pintar **PaddleOCR** via *FastAPI Python* untuk merekap struk bahan baku belanjaan secara otomatis hanya dari unggahan foto (langsung dikalkulasikan ke HPP menu).
 - **🛡️ Bulletproof Security (Zod & Middleware)**: Menolak mentah-mentah injeksi payload jahat melalui validasi lapis baja menggunakan tipe data Zod dan *Global Rate Limiter*.
 - **🕵️ Audit Logging Engine**: Seluruh pergerakan aktivitas sensitif kasir (Pembuatan Transaksi, Pembatalan) tercatat rapi secara persisten ke dalam `wuzpay-audit.log`.

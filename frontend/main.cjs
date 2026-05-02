@@ -7,7 +7,7 @@ function createWindow() {
     width: 1280,
     height: 800,
     title: "WUZPAY",
-    icon: path.join(__dirname, 'public/logo.jpeg'), // Opsional kalau ada icon
+    icon: path.join(__dirname, 'public/logo.png'), // Opsional kalau ada icon
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,

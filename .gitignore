@@ -4,7 +4,15 @@ backend/data/
 .env
 .DS_Store
 dist/
+frontend/dev-dist/
 coverage/
+frontend/.vite/
+frontend/dist/
+frontend/dist_electron/
+backend/.deno/
+backend/.cache/
+backend/dist/
+backend/coverage/
 
 # Python Virtual Environments
 venv/
