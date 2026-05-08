@@ -694,6 +694,9 @@ export const aiAPI = {
     formData.append('file', file);
     return apiRequest<any>(API_ENDPOINTS.ai.scanReceiptOCR, { method: 'POST', body: formData });
   },
+  getOcrStatus: async (taskId: string) => {
+    return apiRequest<any>(`/api/ai/ocr-status/${taskId}`);
+  },
   scanReceiptVision: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);

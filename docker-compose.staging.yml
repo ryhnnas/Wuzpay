@@ -1,6 +1,18 @@
 version: '3.8'
 
 services:
+  ocr:
+    build:
+      context: ./backend/ocr-service
+      dockerfile: Dockerfile.staging
+    container_name: wuzpay_ocr_staging
+    ports:
+      - "8001:8001"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_URL=${OPENAI_API_URL}
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -10,6 +22,9 @@ services:
       - "1111:5000"
     environment:
       - NODE_ENV=staging
+      - OCR_SERVICE_URL=http://ocr:8001
+    depends_on:
+      - ocr
     restart: unless-stopped
     volumes:
       - ./backend/wuzpay-audit.log:/app/wuzpay-audit.log
@@ -21,7 +36,7 @@ services:
       args:
         # Since this is staging, we map the API URL to the staging server's address
         # Replace localhost with your staging domain/IP if needed
-        VITE_API_URL: http://156.67.220.207:1111
+        VITE_API_URL: https://wuzpay.ngetech.studio
     container_name: wuzpay_frontend_staging
     ports:
       - "1112:80"

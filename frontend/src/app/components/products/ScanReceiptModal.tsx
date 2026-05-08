@@ -114,7 +114,22 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
     try {
       let result: any;
       if (method === 'ocr') {
-        result = await aiAPI.scanReceiptOCR(selectedFile);
+        let scanRes = await aiAPI.scanReceiptOCR(selectedFile);
+        if (scanRes?.task_id) {
+          let status = 'pending';
+          while (status === 'pending' || status === 'processing') {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const statusRes = await aiAPI.getOcrStatus(scanRes.task_id);
+            status = statusRes.status;
+            if (status === 'completed') {
+              result = statusRes.result;
+            } else if (status === 'failed') {
+              throw new Error(statusRes.error_message || 'Gagal memproses OCR di worker');
+            }
+          }
+        } else {
+          result = scanRes;
+        }
       } else {
         result = await aiAPI.scanReceiptVision(selectedFile);
       }

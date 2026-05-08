@@ -31,10 +31,10 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 function renderInlineMarkdown(text: string) {
-  const pieces = text.split(/(\*\*[^*]+\*\*)/g);
+  const pieces = text.split(/(\*\*.*?\*\*)/g);
   return pieces.map((piece, idx) => {
-    if (piece.startsWith('**') && piece.endsWith('**') && piece.length > 4) {
-      return <strong key={idx}>{piece.slice(2, -2)}</strong>;
+    if (piece.startsWith('**') && piece.endsWith('**') && piece.length >= 4) {
+      return <strong key={idx} className="font-bold text-gray-900">{piece.slice(2, -2)}</strong>;
     }
     return <React.Fragment key={idx}>{piece}</React.Fragment>;
   });
@@ -196,7 +196,23 @@ export function AIAssistant() {
         setIsLoading(true);
         const toastId = toast.loading('WuzPay AI sedang membaca nota...');
         try {
-          const result = await aiAPI.scanReceiptOCR(file);
+          let result = await aiAPI.scanReceiptOCR(file);
+          
+          if (result?.task_id) {
+            // Polling untuk OCR Worker
+            let status = 'pending';
+            while (status === 'pending' || status === 'processing') {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              const statusRes = await aiAPI.getOcrStatus(result.task_id);
+              status = statusRes.status;
+              if (status === 'completed') {
+                result = statusRes.result; // hasil dari ocr-service
+              } else if (status === 'failed') {
+                throw new Error(statusRes.error_message || 'Gagal memproses OCR di worker');
+              }
+            }
+          }
+
           toast.success('Nota berhasil diproses!', { id: toastId });
           
           let aiResponseText = `Berhasil membaca nota!\n\n`;
@@ -215,7 +231,7 @@ export function AIAssistant() {
                aiResponseText += `Belum ada item yang terbaca dari nota.`;
              }
           }
-          if (result.message) {
+          if (result?.message) {
             aiResponseText += `\n*${result.message}*`;
           }
 

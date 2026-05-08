@@ -113,11 +113,18 @@ ATURAN WAJIB:
 7. Untuk pertanyaan tanggal spesifik (misal "kemarin", "bulan lalu"), gunakan period="custom" atau tool perbandingan agar range akurat.
 8. Jika data hasil tool menunjukkan 0 transaksi, jangan langsung asumsi toko tutup; sarankan validasi periode/filter.
 9. Berikan jawaban tegas dan actionable, hindari paragraf panjang.
+10. SELALU gunakan format **tebal** untuk poin-poin penting seperti:
+    - Angka penjualan: **Rp 1.500.000**
+    - Jumlah transaksi: **250 transaksi**
+    - Persentase perubahan: **naik 15%**
+    - Status kritis: **⚠️ Stok kritis**
+    - Rekomendasi utama: **1) Restock item A**
 
-CONTOH GAYA JAWABAN:
-- "Omzet minggu ini Rp X, naik Y% dibanding minggu lalu."
-- "Fokus aksi: 1) Restock item A, 2) Dorong promo jam sepi 14:00-16:00."
-- "Data belum cukup untuk simpulan final, coba perluas periode 30 hari."`;
+CONTOH GAYA JAWABAN DENGAN HIGHLIGHT:
+- "Omzet minggu ini **Rp 5.200.000**, **naik 12%** dibanding minggu lalu."
+- "Fokus aksi: **1) Restock item A**, **2) Dorong promo jam sepi 14:00-16:00**."
+- "⚠️ **Anomali terdeteksi**: Penjualan menu B **turun 30%**, cek stok dan kualitas."
+- "Bulan ini terdapat **1.000 pelanggan** baru dengan rata-rata transaksi **Rp 45.000**."`;
 }
 
 function convertProps(props: any): any {
@@ -275,6 +282,55 @@ function generateSuggestedQuestions(prompt: string, usedTools: string[]) {
   ];
 }
 
+function addHighlights(text: string): string {
+  // Highlight angka penting (uang, persentase, jumlah)
+  let highlighted = text.replace(
+    /(Rp\s*[\d.,]+)/g,
+    '**$1**'
+  );
+  
+  // Highlight persentase
+  highlighted = highlighted.replace(
+    /(\d+(?:,\d+)?%)/g,
+    '**$1**'
+  );
+  
+  // Highlight jumlah dengan konteks (pelanggan, transaksi, produk, dll)
+  highlighted = highlighted.replace(
+    /(\d+(?:\.\d+)?)\s*(pelanggan|transaksi|produk|item|bahan|pesanan|pengunjung|unit)/gi,
+    '**$1 $2**'
+  );
+  
+  // Highlight status penting
+  highlighted = highlighted.replace(
+    /(kritis|urgent|bahaya|warning|perhatian|anomali|penurunan tajam|stok habis)/gi,
+    '⚠️ **$1**'
+  );
+  
+  // Highlight rekomendasi aksi (kalimat yang dimulai dengan angka dan kurung)
+  highlighted = highlighted.replace(
+    /(\d+\))\s*([^.\n]+)/g,
+    '📌 **$1 $2**'
+  );
+  
+  // Highlight kata kunci bisnis
+  const keywords = [
+    'omzet', 'profit', 'margin', 'revenue', 'pendapatan', 
+    'laba', 'rugi', 'naik', 'turun', 'meningkat', 'menurun',
+    'rekomendasi', 'prioritas', 'fokus', 'aksi'
+  ];
+  
+  keywords.forEach(keyword => {
+    const regex = new RegExp(`\\b(${keyword})\\b`, 'gi');
+    highlighted = highlighted.replace(regex, '**$1**');
+  });
+  
+  // Membersihkan duplikasi bintang akibat teks yang sudah di-bold oleh LLM
+  highlighted = highlighted.replace(/\*{3,}/g, '**');
+  
+  return highlighted;
+}
+
 async function runSimulationMode(prompt: string) {
   const lowerPrompt = prompt.toLowerCase();
   let responseText = "";
@@ -393,8 +449,9 @@ async function executeAgentFlow(params: {
 
     const finalText = message?.content || "";
     if (finalText.trim()) {
+      const highlightedText = addHighlights(finalText);
       return {
-        response: finalText,
+        response: highlightedText,
         suggestedQuestions: generateSuggestedQuestions(prompt, usedTools),
         usedTools,
       };
@@ -404,8 +461,9 @@ async function executeAgentFlow(params: {
   params.onStage?.("composing_answer", "Finalisasi jawaban");
   const finalAttempt = await callGroq(messages, false);
   const finalText = finalAttempt.choices?.[0]?.message?.content || "";
+  const highlightedText = addHighlights(finalText);
   return {
-    response: finalText || "Maaf, saya belum bisa menyusun jawaban final saat ini. Coba ulangi dengan pertanyaan lebih spesifik.",
+    response: highlightedText || "Maaf, saya belum bisa menyusun jawaban final saat ini. Coba ulangi dengan pertanyaan lebih spesifik.",
     suggestedQuestions: generateSuggestedQuestions(prompt, usedTools),
     usedTools,
   };

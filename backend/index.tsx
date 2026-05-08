@@ -58,7 +58,7 @@ app.use(`${BASE_PATH}/*`, rateLimiter({
 // Strict Rate Limiter khusus AI (Mahal, lindungi ketat)
 app.use(`${BASE_PATH}/ai/*`, rateLimiter({
   windowMs: 60 * 1000, // 1 Menit
-  limit: 20,            // Maks 5 eksekusi prompt AI 1 menit
+  limit: 120,            // Ditingkatkan menjadi 120 untuk mengakomodasi polling status OCR
   message: "Batas permintaan AI tercapai. Harap tunggu 1 menit untuk melanjutkan."
 }));
 
