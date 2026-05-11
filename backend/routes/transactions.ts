@@ -132,9 +132,14 @@ transactions.post("/", zValidator('json', transactionSchema, (result, c) => {
           calculatedCost += ((ingredient.cost_per_unit || 0) * recipeItem.amount_needed);
 
           const previousStock = ingredient.stock_quantity || 0;
+          const newStock = previousStock - amountToDeduct;
+
+          if (newStock < 0) {
+            throw new Error(`Stok fisik bahan baku "${ingredient.name}" tidak mencukupi. Sisa stok: ${previousStock}, Kebutuhan: ${amountToDeduct}.`);
+          }
 
           // Kurangi stok bahan baku utama
-          ingredient.stock_quantity = previousStock - amountToDeduct;
+          ingredient.stock_quantity = newStock;
           await ingredient.save({ session });
 
           // Catat riwayat log dengan sumber "sales_deduction"
