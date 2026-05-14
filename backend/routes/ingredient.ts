@@ -7,55 +7,55 @@ import { zValidator } from "npm:@hono/zod-validator";
 import { validateId } from "../middleware/validator.ts";
 
 const ingredientSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  unit: z.string().optional(),
-  stock_quantity: z.union([z.string(), z.number()]).transform(v => Number(v)).optional(),
-  cost_per_unit: z.union([z.string(), z.number()]).transform(v => Number(v)).optional()
+    name: z.string().min(1, "Name is required"),
+    unit: z.string().optional(),
+    stock_quantity: z.union([z.string(), z.number()]).transform(v => Number(v)).refine(val => val >= 0, "Stok fisik tidak boleh kurang dari 0").optional(),
+    cost_per_unit: z.union([z.string(), z.number()]).transform(v => Number(v)).optional()
 });
 
 const validateIngredient = zValidator('json', ingredientSchema, (result, c) => {
-  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+    if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
 });
 
 const ocrBulkSchema = z.object({
-  items: z.array(
-    z.object({
-      ingredient_id: z.string().nullable().optional(),
-      name: z.string().optional(),
-      unit: z.string().optional(),
-      amount: z.union([z.string(), z.number()]),
-      price: z.union([z.string(), z.number()]).optional(),
-      is_new: z.boolean().optional()
-    }).superRefine((item, ctx) => {
-      if (!item.is_new && !item.ingredient_id) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["ingredient_id"],
-          message: "ingredient_id wajib diisi untuk item lama"
-        });
-      }
+    items: z.array(
+        z.object({
+            ingredient_id: z.string().nullable().optional(),
+            name: z.string().optional(),
+            unit: z.string().optional(),
+            amount: z.union([z.string(), z.number()]),
+            price: z.union([z.string(), z.number()]).optional(),
+            is_new: z.boolean().optional()
+        }).superRefine((item, ctx) => {
+            if (!item.is_new && !item.ingredient_id) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ["ingredient_id"],
+                    message: "ingredient_id wajib diisi untuk item lama"
+                });
+            }
 
-      if (item.is_new && !item.name?.trim()) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["name"],
-          message: "name wajib diisi untuk item baru"
-        });
-      }
-    })
-  )
+            if (item.is_new && !item.name?.trim()) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ["name"],
+                    message: "name wajib diisi untuk item baru"
+                });
+            }
+        })
+    )
 });
 
 const validateOcrBulk = zValidator('json', ocrBulkSchema, (result, c) => {
-  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+    if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
 });
 
 const addStockSchema = z.object({
-  amount: z.union([z.string(), z.number()]).transform(v => Number(v))
+    amount: z.union([z.string(), z.number()]).transform(v => Number(v))
 });
 
 const validateAddStock = zValidator('json', addStockSchema, (result, c) => {
-  if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
+    if (!result.success) return c.json({ error: result.error.issues[0].message }, 400);
 });
 
 
@@ -105,7 +105,11 @@ ingredient.post("/ocr-bulk", validateOcrBulk, async (c) => {
                 if (existing) {
                     // Nama sudah ada → tambahkan stok ke yang sudah ada
                     const oldStock = Number(existing.stock_quantity) || 0;
-                    existing.stock_quantity = oldStock + Number(item.amount);
+                    const newStock = oldStock + Number(item.amount);
+                    if (newStock < 0) {
+                        return c.json({ error: `Stok fisik bahan baku "${existing.name}" tidak boleh menjadi minus.` }, 400);
+                    }
+                    existing.stock_quantity = newStock;
                     existing.cost_per_unit = item.price;
                     await existing.save();
 
@@ -121,10 +125,15 @@ ingredient.post("/ocr-bulk", validateOcrBulk, async (c) => {
                     updatedCount++;
                 } else {
                     // Benar-benar baru
+                    const newAmount = Number(item.amount);
+                    if (newAmount < 0) {
+                        return c.json({ error: `Stok fisik bahan baku baru "${item.name}" tidak boleh menjadi minus.` }, 400);
+                    }
+
                     const newIng = await Ingredient.create({
                         name: item.name,
                         unit: item.unit || 'pcs',
-                        stock_quantity: Number(item.amount),
+                        stock_quantity: newAmount,
                         cost_per_unit: item.price
                     });
 
@@ -144,7 +153,11 @@ ingredient.post("/ocr-bulk", validateOcrBulk, async (c) => {
                 const ing = await Ingredient.findById(item.ingredient_id);
                 if (ing) {
                     const oldStock = Number(ing.stock_quantity) || 0;
-                    ing.stock_quantity = oldStock + Number(item.amount);
+                    const newStock = oldStock + Number(item.amount);
+                    if (newStock < 0) {
+                        return c.json({ error: `Stok fisik bahan baku "${ing.name}" tidak boleh menjadi minus.` }, 400);
+                    }
+                    ing.stock_quantity = newStock;
                     ing.cost_per_unit = item.price;
                     await ing.save();
 
@@ -193,9 +206,14 @@ ingredient.post("/:id/add-stock", validateId, validateAddStock, async (c) => {
         if (!item) return c.json({ error: "Bahan baku tidak ditemukan" }, 404);
 
         const previousStock = Number(item.stock_quantity) || 0;
+        const newStock = previousStock + Number(amount);
+
+        if (newStock < 0) {
+            return c.json({ error: "Jumlah tersedia tidak boleh menjadi minus (kurang dari 0)." }, 400);
+        }
 
         // 1. Update stok di koleksi Ingredient
-        item.stock_quantity = previousStock + Number(amount);
+        item.stock_quantity = newStock;
         await item.save();
 
         // 2. Catat ke StockLog (Penting untuk history!)
