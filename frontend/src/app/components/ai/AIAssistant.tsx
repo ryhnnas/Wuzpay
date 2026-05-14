@@ -7,12 +7,14 @@ import { Avatar, AvatarFallback } from '@/app/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { aiAPI } from '@/services/api';
 import { toast } from 'sonner';
+import { AIChart, ChartConfig } from './AIChart';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  charts?: ChartConfig[];
 }
 
 const CHAT_STORAGE_KEY = 'wuzpay_ai_chat_history_v1';
@@ -151,11 +153,11 @@ export function AIAssistant() {
               : msg
           )));
         },
-        onDone: ({ response, suggested_questions }) => {
+        onDone: ({ response, suggested_questions, charts }) => {
           if (response) {
             setMessages(prev => prev.map(msg => (
               msg.id === assistantMessageId
-                ? { ...msg, content: response }
+                ? { ...msg, content: response, charts }
                 : msg
             )));
           }
@@ -306,15 +308,20 @@ export function AIAssistant() {
                         </Avatar>
                       )}
                       <div
-                        className={`max-w-[85%] md:max-w-[70%] rounded-[24px] p-4 shadow-sm ${
+                        className={`max-w-[85%] md:max-w-[70%] ${message.charts && message.charts.length > 0 ? 'w-full' : ''} rounded-[24px] p-4 shadow-sm ${
                           message.role === 'user'
                             ? 'bg-orange-600 text-white rounded-tr-none'
                             : 'bg-orange-50/50 text-gray-800 rounded-tl-none border border-orange-100/50'
                         }`}
                       >
                         {message.role === 'assistant' ? (
-                          <div className="whitespace-pre-wrap text-sm leading-relaxed font-medium">
-                            {renderAssistantContent(message.content)}
+                          <div>
+                            <div className="whitespace-pre-wrap text-sm leading-relaxed font-medium">
+                              {renderAssistantContent(message.content)}
+                            </div>
+                            {message.charts && message.charts.map(chart => (
+                              <AIChart key={chart.id} config={chart} />
+                            ))}
                           </div>
                         ) : (
                           <p className="whitespace-pre-wrap text-sm leading-relaxed font-medium">{message.content}</p>

@@ -9,11 +9,12 @@ import { validateId, validatePagination } from "../middleware/validator.ts";
 
 const productSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  sku: z.string().optional(),
+  description: z.string().optional().nullable(),
+  sku: z.string().optional().nullable(),
   price: z.union([z.string(), z.number()]).transform(v => Number(v)),
-  cost: z.union([z.string(), z.number()]).transform(v => Number(v)),
-  stock_quantity: z.union([z.string(), z.number()]).transform(v => Number(v)),
+  cost_price: z.union([z.string(), z.number()]).transform(v => Number(v)).optional(),
   category_id: z.string().regex(/^[0-9a-fA-F]{24}$/).optional().nullable(),
+  image_url: z.string().optional().nullable(),
   recipe: z.array(z.any()).optional()
 });
 
