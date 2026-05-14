@@ -608,7 +608,7 @@ export const aiAPI = {
     handlers: {
       onStage?: (stage: string, message?: string) => void;
       onChunk: (chunk: string) => void;
-      onDone?: (payload: { response: string; suggested_questions?: string[] }) => void;
+      onDone?: (payload: { response: string; suggested_questions?: string[]; charts?: any[] }) => void;
       onError?: (message: string) => void;
     }
   ) => {

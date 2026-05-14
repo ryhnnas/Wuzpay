@@ -1,5 +1,6 @@
 import { Hono } from "npm:hono";
 import { TOOL_DECLARATIONS, executeTool, getRelevantTools, getRelevantToolsEmbedding } from "../lib/ai_tools.ts";
+import { generateCharts } from "../lib/ai/chartMapper.ts";
 import { Ingredient } from "../models/Ingredient.ts";
 import { OcrTask } from "../models/OcrTask.ts";
 import { verifyAuth } from "../middleware/auth.ts";
@@ -335,27 +336,34 @@ async function runSimulationMode(prompt: string) {
   const lowerPrompt = prompt.toLowerCase();
   let responseText = "";
   const usedTools: string[] = [];
+  const collectedToolData: { toolName: string, result: any }[] = [];
 
   if (lowerPrompt.match(/laris|terjual|top|best|produk.*paling/)) {
     usedTools.push("get_top_products");
     const r = await executeTool("get_top_products", { period: "month", limit: 5 });
+    collectedToolData.push({ toolName: "get_top_products", result: r });
     responseText = formatFallbackResponse("get_top_products", r);
   } else if (lowerPrompt.match(/stok|habis|kritis|sisa|restock|bahan/)) {
     usedTools.push("get_low_stock_ingredients");
     const r = await executeTool("get_low_stock_ingredients", { threshold: 10 });
+    collectedToolData.push({ toolName: "get_low_stock_ingredients", result: r });
     responseText = formatFallbackResponse("get_low_stock_ingredients", r);
   } else if (lowerPrompt.match(/omzet|penjualan|revenue|pendapatan|hari ini/)) {
     usedTools.push("get_sales_summary");
     const r = await executeTool("get_sales_summary", { period: "today" });
+    collectedToolData.push({ toolName: "get_sales_summary", result: r });
     responseText = formatFallbackResponse("get_sales_summary", r);
   } else if (lowerPrompt.match(/profit|laba|untung|margin/)) {
     usedTools.push("get_profit_report");
     const r = await executeTool("get_profit_report", { period: "month" });
+    collectedToolData.push({ toolName: "get_profit_report", result: r });
     responseText = formatFallbackResponse("get_profit_report", r);
   } else {
     usedTools.push("get_sales_summary", "get_low_stock_ingredients");
     const sales = await executeTool("get_sales_summary", { period: "today" });
     const lowStock = await executeTool("get_low_stock_ingredients", { threshold: 10 });
+    collectedToolData.push({ toolName: "get_sales_summary", result: sales });
+    collectedToolData.push({ toolName: "get_low_stock_ingredients", result: lowStock });
     responseText = `📊 Ringkasan Hari Ini (Mode Tanpa API Key)\n\n`;
     responseText += `💰 Penjualan: ${sales.total_revenue_formatted} dari ${sales.transaction_count} transaksi\n`;
     responseText += `📈 Profit: ${sales.total_profit_formatted}\n`;
@@ -368,7 +376,7 @@ async function runSimulationMode(prompt: string) {
     responseText += `\n💡 Atur GROQ_API_KEY di backend/.env untuk AI yang lebih cerdas.`;
   }
 
-  return { response: responseText, usedTools };
+  return { response: responseText, usedTools, charts: generateCharts(collectedToolData) };
 }
 
 async function executeAgentFlow(params: {
@@ -385,6 +393,7 @@ async function executeAgentFlow(params: {
       response: "Silakan masukkan pertanyaan analisis yang ingin kamu lihat.",
       suggestedQuestions: generateSuggestedQuestions("", []),
       usedTools: [] as string[],
+      charts: []
     };
   }
 
@@ -395,6 +404,7 @@ async function executeAgentFlow(params: {
       response: simulation.response,
       suggestedQuestions: generateSuggestedQuestions(prompt, simulation.usedTools),
       usedTools: simulation.usedTools,
+      charts: simulation.charts
     };
   }
 
@@ -409,6 +419,7 @@ async function executeAgentFlow(params: {
 
   const relevantTools = await getRelevantToolsEmbedding(prompt);
   const usedTools: string[] = [];
+  const collectedToolData: { toolName: string, result: any }[] = [];
 
   for (let step = 0; step < MAX_AGENT_STEPS; step++) {
     params.onStage?.("analyzing", `Menganalisis konteks (langkah ${step + 1})`);
@@ -435,6 +446,7 @@ async function executeAgentFlow(params: {
         const fnName = toolCall.function?.name || "unknown_tool";
         usedTools.push(fnName);
         const toolResult = await executeTool(fnName, fnArgs);
+        collectedToolData.push({ toolName: fnName, result: toolResult });
         return {
           role: "tool",
           tool_call_id: toolCall.id,
@@ -454,6 +466,7 @@ async function executeAgentFlow(params: {
         response: highlightedText,
         suggestedQuestions: generateSuggestedQuestions(prompt, usedTools),
         usedTools,
+        charts: generateCharts(collectedToolData),
       };
     }
   }
@@ -466,6 +479,7 @@ async function executeAgentFlow(params: {
     response: highlightedText || "Maaf, saya belum bisa menyusun jawaban final saat ini. Coba ulangi dengan pertanyaan lebih spesifik.",
     suggestedQuestions: generateSuggestedQuestions(prompt, usedTools),
     usedTools,
+    charts: generateCharts(collectedToolData),
   };
 }
 
@@ -532,12 +546,14 @@ ai.post("/chat", async (c) => {
         send("done", {
           response: "Silakan masukkan pertanyaan analisis yang ingin kamu lihat.",
           suggested_questions: generateSuggestedQuestions("", []),
+          charts: [],
         });
       });
     }
     return c.json({
       response: "Silakan masukkan pertanyaan analisis yang ingin kamu lihat.",
       suggested_questions: generateSuggestedQuestions("", []),
+      charts: [],
     });
   }
 
@@ -567,6 +583,7 @@ ai.post("/chat", async (c) => {
       send("done", {
         response: flow.response,
         suggested_questions: flow.suggestedQuestions,
+        charts: flow.charts,
       });
     });
   }
@@ -576,6 +593,7 @@ ai.post("/chat", async (c) => {
     return c.json({
       response: flow.response,
       suggested_questions: flow.suggestedQuestions,
+      charts: flow.charts,
     });
   } catch (err: any) {
     console.error("[AI Chat] Error:", err);
