@@ -1,6 +1,8 @@
 import { Hono } from "npm:hono";
 import { Ingredient } from "../models/Ingredient.ts";
 import { StockLog } from "../models/Product.ts";
+import { matchIngredientsByEmbedding } from "../lib/ai/ingredientMatcher.ts";
+import { verifyAuth } from "../middleware/auth.ts";
 import mongoose from "npm:mongoose";
 import { z } from "npm:zod";
 import { zValidator } from "npm:@hono/zod-validator";
@@ -246,6 +248,53 @@ ingredient.delete("/:id", validateId, async (c) => {
         console.error("Error hapus bahan baku:", err);
         return c.json({ error: err.message }, 500);
     }
+});
+
+// ==================== SEMANTIC EMBEDDING MATCH (OCR) ====================
+ingredient.post("/match-ocr-embedding", async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization') || null;
+    const sessionId = c.req.header('X-Session-ID') || null;
+    const { error: authError } = await verifyAuth(authHeader, sessionId);
+    if (authError) return c.json({ error: authError }, 401);
+
+    const body = await c.req.json().catch(() => null);
+    if (!body || !Array.isArray(body.items) || body.items.length === 0) {
+      return c.json({ error: "items harus berupa array dan tidak boleh kosong" }, 400);
+    }
+
+    // Threshold dari request body (default 0.75, clamp antara 0.40–0.95)
+    const rawThreshold = typeof body.threshold === "number" ? body.threshold : 0.75;
+    const threshold = Math.min(0.95, Math.max(0.40, rawThreshold));
+
+    // Ambil nama barang dari items
+    const ocrNames: string[] = body.items
+      .map((i: any) => (typeof i === "string" ? i : i.nama_barang || ""))
+      .filter(Boolean);
+
+    if (ocrNames.length === 0) {
+      return c.json({ error: "Tidak ada nama barang yang valid" }, 400);
+    }
+
+    // Ambil semua ingredient dari DB
+    const dbIngredients = await Ingredient.find({}).lean();
+    const ingredientRecords = dbIngredients.map((i: any) => ({
+      _id: String(i._id),
+      name: i.name,
+    }));
+
+    // Jalankan matcher (embedding + string fallback otomatis)
+    const matches = await matchIngredientsByEmbedding(ocrNames, ingredientRecords, threshold);
+
+    return c.json({
+      success: true,
+      threshold_used: threshold,
+      matches,
+    });
+  } catch (err: any) {
+    console.error("[match-ocr-embedding] Error:", err);
+    return c.json({ error: "Gagal menjalankan embedding matcher: " + err.message }, 500);
+  }
 });
 
 export default ingredient;

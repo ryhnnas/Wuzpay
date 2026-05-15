@@ -710,8 +710,8 @@ export const settingsAPI = {
       const res: any = await apiRequest(API_ENDPOINTS.receipt_settings.base);
       const data = Array.isArray(res) ? res[0] : res;
       return {
-        store_name: data?.store_name || 'WUZPAY SINDANGSARI',
-        address: data?.address || 'Jl. Sindangsari No. 01',
+        store_name: data?.store_name || 'WUZPAY',
+        address: data?.address || 'Bandung, Indonesia',
         footer_text: data?.footer_text || 'Terima Kasih!',
         logo_url: data?.logo_url || null,
         show_logo: data?.show_logo ?? false,
@@ -724,7 +724,7 @@ export const settingsAPI = {
         margin_b: data?.margin_b || 20
       };
     } catch (e) {
-      return { store_name: 'WUZPAY SINDANGSARI', paper_size: '58mm' };
+      return { store_name: 'WUZPAY', paper_size: '58mm' };
     }
   },
   updateReceiptSettings: async (config: any) => apiRequest(API_ENDPOINTS.receipt_settings.base, {
@@ -775,5 +775,22 @@ export const ingredientsAPI = {
     return apiRequest(`/api/ingredients/${id}`, {
       method: 'DELETE'
     });
-  }
+  },
+  matchOcrEmbedding: async (items: { nama_barang: string }[], threshold: number = 0.75) => {
+    return apiRequest<{
+      success: boolean;
+      threshold_used: number;
+      matches: Array<{
+        ocr_name: string;
+        matched_id: string | null;
+        matched_name: string | null;
+        confidence: number;
+        confidence_label: 'TINGGI' | 'SEDANG' | 'RENDAH' | 'TIDAK_COCOK';
+        method: 'embedding' | 'string_fallback';
+      }>;
+    }>('/api/ingredients/match-ocr-embedding', {
+      method: 'POST',
+      body: JSON.stringify({ items, threshold }),
+    });
+  },
 };

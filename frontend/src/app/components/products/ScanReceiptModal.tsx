@@ -11,6 +11,9 @@ import { cn } from '@/app/components/ui/utils';
 import { aiAPI, productsAPI, ingredientsAPI } from '@/services/api';
 import { toast } from 'sonner';
 
+type ConfidenceLabel = 'TINGGI' | 'SEDANG' | 'RENDAH' | 'TIDAK_COCOK';
+type MatchMethod = 'embedding' | 'string_fallback';
+
 interface ScannedItem {
   id: string;
   nama_barang: string;
@@ -20,6 +23,9 @@ interface ScannedItem {
   matched_product_name: string | null;
   is_new: boolean;
   confirmed_new: boolean;
+  confidence: number | null;
+  confidence_label: ConfidenceLabel | null;
+  match_method: MatchMethod | null;
 }
 
 interface ScanReceiptModalProps {
@@ -43,6 +49,8 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
   const [isSaving, setIsSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<any>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [embeddingThreshold, setEmbeddingThreshold] = useState(0.75);
+  const [processingStage, setProcessingStage] = useState<string>('Memproses struk...');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Reset saat modal dibuka/ditutup
@@ -62,29 +70,21 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
     }
   }, [open]);
 
-  // Fuzzy match product name
-  const matchProduct = useCallback((name: string) => {
+  // String fallback match (digunakan jika embedding tidak dipanggil / untuk re-match manual)
+  const matchProductFallback = useCallback((name: string) => {
     if (!name || !ingredients.length) return null;
     const lower = name.toLowerCase().trim();
-
-    // Exact match
     const exact = ingredients.find(p => p.name?.toLowerCase() === lower);
     if (exact) return exact;
-
-    // Partial match (contains)
     const partial = ingredients.find(p =>
       p.name?.toLowerCase().includes(lower) || lower.includes(p.name?.toLowerCase())
     );
     if (partial) return partial;
-
-    // Word-based match
     const words = lower.split(/\s+/);
-    const wordMatch = ingredients.find(p => {
+    return ingredients.find(p => {
       const pWords = p.name?.toLowerCase().split(/\s+/) || [];
       return words.some((w: string) => w.length > 2 && pWords.some((pw: string) => pw.includes(w) || w.includes(pw)));
-    });
-
-    return wordMatch || null;
+    }) || null;
   }, [ingredients]);
 
   // Handle file selection
@@ -112,6 +112,8 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
     setIsProcessing(true);
 
     try {
+      // === LANGKAH 1: OCR / Vision ===
+      setProcessingStage(method === 'ocr' ? 'PaddleOCR sedang membaca struk...' : 'LLM Vision memproses gambar...');
       let result: any;
       if (method === 'ocr') {
         let scanRes = await aiAPI.scanReceiptOCR(selectedFile);
@@ -135,19 +137,74 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
       }
 
       setRawData(result);
-
       const data = result.data || result;
-      const items: ScannedItem[] = (data.items || []).map((item: any, index: number) => {
-        const matched = matchProduct(item.nama_barang);
+      const rawItems: any[] = data.items || [];
+
+      // === LANGKAH 2: Semantic Embedding Matching ===
+      setProcessingStage('Mencocokkan produk dengan AI Embedding...');
+      let matchMap: Record<string, { id: string | null; name: string | null; confidence: number; label: ConfidenceLabel; method: MatchMethod }> = {};
+
+      try {
+        const ocrItemsForMatch = rawItems.map((i: any) => ({ nama_barang: i.nama_barang || '' }));
+        const matchResult = await ingredientsAPI.matchOcrEmbedding(ocrItemsForMatch, embeddingThreshold);
+        if (matchResult?.matches) {
+          matchResult.matches.forEach((m: any) => {
+            matchMap[m.ocr_name] = {
+              id: m.matched_id,
+              name: m.matched_name,
+              confidence: m.confidence,
+              label: m.confidence_label,
+              method: m.method,
+            };
+          });
+        }
+      } catch (embErr) {
+        // Embedding gagal → fallback ke string matching, tidak error fatal
+        console.warn('[OCR] Embedding matching gagal, pakai string matching:', embErr);
+      }
+
+      // === LANGKAH 3: Susun ScannedItem ===
+      const items: ScannedItem[] = rawItems.map((item: any, index: number) => {
+        const ocrName = item.nama_barang || '';
+        const embMatch = matchMap[ocrName];
+
+        // Gunakan hasil embedding jika ada, kalau tidak fallback string match
+        let matchedId: string | null = null;
+        let matchedName: string | null = null;
+        let confidence: number | null = null;
+        let confidenceLabel: ConfidenceLabel | null = null;
+        let matchMethod: MatchMethod | null = null;
+
+        if (embMatch) {
+          matchedId = embMatch.id;
+          matchedName = embMatch.name;
+          confidence = embMatch.confidence;
+          confidenceLabel = embMatch.label;
+          matchMethod = embMatch.method;
+        } else {
+          // String fallback lokal
+          const fallback = matchProductFallback(ocrName);
+          matchedId = fallback?._id || fallback?.id || null;
+          matchedName = fallback?.name || null;
+          confidence = matchedId ? 0.6 : 0;
+          confidenceLabel = matchedId ? 'RENDAH' : 'TIDAK_COCOK';
+          matchMethod = 'string_fallback';
+        }
+
+        const isNew = !matchedId || confidenceLabel === 'TIDAK_COCOK';
+
         return {
           id: `scan-${index}-${Date.now()}`,
-          nama_barang: item.nama_barang || '',
+          nama_barang: ocrName,
           kuantitas: item.kuantitas || 1,
           harga_per_barang: item.harga_per_barang || 0,
-          matched_product_id: matched?._id || matched?.id || null,
-          matched_product_name: matched?.name || null,
-          is_new: !matched,
+          matched_product_id: isNew ? null : matchedId,
+          matched_product_name: isNew ? null : matchedName,
+          is_new: isNew,
           confirmed_new: false,
+          confidence,
+          confidence_label: confidenceLabel,
+          match_method: matchMethod,
         };
       });
 
@@ -168,17 +225,28 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
 
       const updated = { ...item, [field]: value };
 
-      // Re-match product when name changes
+      // Re-match product when name changes (pakai string fallback lokal)
       if (field === 'nama_barang') {
-        const matched = matchProduct(value);
+        const matched = matchProductFallback(value);
         updated.matched_product_id = matched?._id || matched?.id || null;
         updated.matched_product_name = matched?.name || null;
         updated.is_new = !matched;
         updated.confirmed_new = false;
+        updated.confidence = matched ? 0.6 : 0;
+        updated.confidence_label = matched ? 'RENDAH' : 'TIDAK_COCOK';
+        updated.match_method = 'string_fallback';
       }
 
       return updated;
     }));
+  };
+
+  // Helper: warna badge berdasarkan confidence label
+  const confidenceBadgeStyle: Record<ConfidenceLabel, { bg: string; text: string; label: string }> = {
+    TINGGI:      { bg: 'bg-emerald-100', text: 'text-emerald-700', label: '✓ Tinggi' },
+    SEDANG:      { bg: 'bg-amber-100',   text: 'text-amber-700',   label: '~ Sedang' },
+    RENDAH:      { bg: 'bg-orange-100',  text: 'text-orange-700',  label: '? Rendah' },
+    TIDAK_COCOK: { bg: 'bg-gray-100',    text: 'text-gray-500',    label: '✕ Tidak Cocok' },
   };
 
   // Manual product match
@@ -212,6 +280,9 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
       matched_product_name: null,
       is_new: true,
       confirmed_new: false,
+      confidence: null,
+      confidence_label: null,
+      match_method: null,
     }]);
   };
 
@@ -445,7 +516,7 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
       <div className="text-center">
         <h3 className="font-black text-lg uppercase tracking-tight animate-pulse">Memproses Struk...</h3>
         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em] mt-2">
-          {method === 'ocr' ? 'PaddleOCR → AI Parser' : 'LLM Vision Processing'}
+          {processingStage}
         </p>
       </div>
     </div>
@@ -477,6 +548,31 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
         </Button>
       </div>
 
+      {/* Threshold Slider */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-100">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-violet-700">🎯 Threshold Embedding Matching</p>
+            <p className="text-[9px] text-violet-400 font-bold mt-0.5">Naikkan = lebih ketat, turunkan = lebih longgar</p>
+          </div>
+          <span className="text-lg font-black text-violet-700 tabular-nums">{embeddingThreshold.toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          min={0.40}
+          max={0.95}
+          step={0.01}
+          value={embeddingThreshold}
+          onChange={(e) => setEmbeddingThreshold(parseFloat(e.target.value))}
+          className="w-full accent-violet-600 cursor-pointer"
+        />
+        <div className="flex justify-between text-[8px] text-violet-300 font-black uppercase tracking-wide mt-1">
+          <span>0.40 (Longgar)</span>
+          <span>0.75 (Default)</span>
+          <span>0.95 (Ketat)</span>
+        </div>
+      </div>
+
       {rawData?.data?.tanggal && (
         <div className="p-3 rounded-2xl bg-gray-50 flex items-center gap-3">
           <Badge variant="outline" className="text-[9px] font-black uppercase border-gray-200 text-gray-400">Tanggal</Badge>
@@ -497,7 +593,7 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
               <th className="px-4 py-3">Nama Barang</th>
               <th className="px-3 py-3 text-center w-20">Qty</th>
               <th className="px-3 py-3 w-32">Harga</th>
-              <th className="px-3 py-3 text-center w-28">Status</th>
+              <th className="px-3 py-3 text-center w-32">Confidence</th>
               <th className="px-3 py-3 w-10"></th>
             </tr>
           </thead>
@@ -513,7 +609,8 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
                   />
                   {item.matched_product_name && (
                     <p className="text-[8px] font-black text-emerald-600 mt-0.5 px-2 uppercase tracking-wide">
-                      ✓ Match: {item.matched_product_name}
+                      ✓ {item.matched_product_name}
+                      {item.match_method === 'embedding' && <span className="text-violet-400 ml-1">[AI]</span>}
                     </p>
                   )}
                   {item.is_new && item.nama_barang && (
@@ -554,13 +651,24 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
                   />
                 </td>
                 <td className="px-3 py-3 text-center">
-                  {item.is_new ? (
-                    <Badge className="bg-amber-100 text-amber-700 border-none font-black text-[8px] uppercase px-2 py-0.5 rounded-md">
-                      <AlertTriangle className="size-2.5 mr-1" /> Baru
-                    </Badge>
+                  {item.confidence_label ? (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <Badge className={cn(
+                        'border-none font-black text-[8px] uppercase px-2 py-0.5 rounded-md',
+                        confidenceBadgeStyle[item.confidence_label].bg,
+                        confidenceBadgeStyle[item.confidence_label].text
+                      )}>
+                        {confidenceBadgeStyle[item.confidence_label].label}
+                      </Badge>
+                      {item.confidence !== null && (
+                        <span className="text-[8px] text-gray-300 font-bold tabular-nums">
+                          {(item.confidence * 100).toFixed(0)}%
+                        </span>
+                      )}
+                    </div>
                   ) : (
-                    <Badge className="bg-emerald-100 text-emerald-700 border-none font-black text-[8px] uppercase px-2 py-0.5 rounded-md">
-                      <CheckCircle2 className="size-2.5 mr-1" /> Match
+                    <Badge className="bg-gray-100 text-gray-400 border-none font-black text-[8px] uppercase px-2 py-0.5 rounded-md">
+                      <AlertTriangle className="size-2.5 mr-1" /> Baru
                     </Badge>
                   )}
                 </td>

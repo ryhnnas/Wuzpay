@@ -232,7 +232,7 @@ export function DiscountsManagement() {
             <DialogTitle className="uppercase font-black tracking-tighter text-center text-3xl italic">
               {editingDiscount ? 'Update' : 'Konfigurasi'} <span className="text-orange-600">Promo</span>
             </DialogTitle>
-            <p className="text-center text-[10px] font-black uppercase tracking-widest text-gray-300 mt-2">Strategi Diskon WuzPay Sindangsari</p>
+            <p className="text-center text-[10px] font-black uppercase tracking-widest text-gray-300 mt-2">Strategi Diskon WuzPay POS</p>
           </DialogHeader>
 
           <div className="space-y-6">

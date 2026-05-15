@@ -203,7 +203,7 @@ const KategoriManagement = () => {
               <Input 
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
-                placeholder="MISAL: SEBLAK KUAH, DRINK..." 
+                placeholder="MISAL: MAKANAN, MINUMAN..." 
                 className="h-16 bg-gray-50/50 border-gray-100 rounded-[24px] font-black text-lg focus-visible:ring-2 focus-visible:ring-orange-600 uppercase transition-all px-6"
               />
             </div>

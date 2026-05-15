@@ -28,7 +28,7 @@ export const ReceiptTemplate = ({ transaction, settings }: { transaction: any, s
           />
         )}
         <div style={{ fontWeight: 'bold', textTransform: 'uppercase', fontSize: '110%', letterSpacing: '1px' }}>
-          {settings?.storeName || settings?.store_name || 'WUZPAY SINDANGSARI'}
+          {settings?.storeName || settings?.store_name || 'WUZPAY'}
         </div>
         <div style={{ opacity: 0.8, fontSize: '85%', lineHeight: '1.2', marginTop: '2px' }}>
           {settings?.address || '-'}
@@ -110,7 +110,7 @@ export const ReceiptTemplate = ({ transaction, settings }: { transaction: any, s
           {settings?.footer || settings?.footer_text || 'Terima kasih atas kunjungannya!'}
         </div>
         <div style={{ marginTop: '10px', fontSize: '7px', opacity: 0.4, letterSpacing: '2px', fontWeight: 'bold' }}>
-          WUZPAY POS • SINDANGSARI
+          WUZPAY POS • DIGITAL RECEIPT
         </div>
       </div>
     </div>

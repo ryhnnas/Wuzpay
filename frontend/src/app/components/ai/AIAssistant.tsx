@@ -266,7 +266,7 @@ export function AIAssistant() {
     'Bagaimana performa penjualan hari ini?',
     'Sebutkan produk paling laris bulan ini',
     'Produk apa yang stoknya hampir habis?',
-    'Berikan saran strategi promo seblak',
+    'Berikan saran strategi promo menu baru',
   ];
 
   return (

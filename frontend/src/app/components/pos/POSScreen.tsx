@@ -405,7 +405,7 @@ const processPayment = async () => {
         change_amount: transactionPayload.change_amount,
         discount_name: currentDiscountName,    
         discount_amount: currentDiscountAmount,
-        store_name: "SEBLAK MLEDAK"
+        store_name: "WUZPAY"
       });
 
       setShowPaymentDialog(false);
@@ -440,7 +440,7 @@ const processPayment = async () => {
       <div className="h-[calc(100vh-4rem)] w-full flex flex-col items-center justify-center gap-4 bg-white">
         <Loader2 className="size-10 text-orange-600 animate-spin" />
         <p className="font-bold text-gray-400 uppercase text-xs tracking-widest animate-pulse">
-          Sinkronisasi Menu Seblak...
+          Sinkronisasi Menu...
         </p>
       </div>
     );

@@ -19,9 +19,9 @@ export default function SettingStruk() {
   
   // STATE KONFIGURASI WUZPAY
   const [config, setConfig] = useState({
-    storeName: 'WUZPAY SINDANGSARI',
-    address: 'Jl. Sindangsari No. 01, Bandung',
-    footer: 'Makan Seblak Sampai Mledakkk!',
+    storeName: 'WUZPAY',
+    address: 'Jl. Utama No. 01, Bandung',
+    footer: 'Terima Kasih Atas Kunjungannya!',
     showLogo: true,
     logo: null as string | null,
     
@@ -43,7 +43,7 @@ export default function SettingStruk() {
         const data = await settingsAPI.getReceiptSettings();
         if (data) {
           setConfig({
-            storeName: data.store_name || 'WUZPAY SINDANGSARI',
+            storeName: data.store_name || 'WUZPAY',
             address: data.address || '',
             footer: data.footer_text || '',
             showLogo: data.show_logo ?? true,
@@ -308,7 +308,7 @@ export default function SettingStruk() {
                     transaction={{
                       receipt_number: 'WUZ-PREVIEW-26',
                       items: [
-                        { product_name: 'SEBLAK KOMPLIT CIKRUK', quantity: 2, price_at_sale: 18000 },
+                        { product_name: 'PAKET KOMPLIT SPESIAL', quantity: 2, price_at_sale: 18000 },
                         { product_name: 'TEH MANIS DINGIN', quantity: 1, price_at_sale: 5000 }
                       ],
                       total_amount: 41000,

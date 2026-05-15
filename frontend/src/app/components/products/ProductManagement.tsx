@@ -445,7 +445,7 @@ export function ProductManagement() {
             <DialogTitle className="uppercase font-black tracking-tighter text-3xl italic underline decoration-orange-500 decoration-4">
               {editingProduct ? 'Update' : 'Registrasi'} <span className="text-orange-600">Menu</span>
             </DialogTitle>
-            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">Integrasi Database WuzPay Sindangsari</p>
+            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">Integrasi Database WuzPay Cloud</p>
           </DialogHeader>
 
           <ScrollArea className="max-h-[65vh] w-full overflow-x-hidden">
