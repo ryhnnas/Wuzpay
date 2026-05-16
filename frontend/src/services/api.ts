@@ -77,6 +77,7 @@ const API_ENDPOINTS = {
   ai: {
     chat: '/api/ai/chat',
     insights: '/api/ai/insights',
+    businessInsights: '/api/ai/business-insights',
     processReceipt: '/api/ai/process-receipt',
     scanReceiptOCR: '/api/ai/scan-receipt-ocr',
     scanReceiptVision: '/api/ai/scan-receipt-vision',
@@ -684,6 +685,7 @@ export const aiAPI = {
     }
   },
   getInsights: async () => apiRequest(API_ENDPOINTS.ai.insights),
+  getBusinessInsights: async () => apiRequest<any>(API_ENDPOINTS.ai.businessInsights),
   processReceipt: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);

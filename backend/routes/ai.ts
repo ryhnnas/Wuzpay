@@ -1,10 +1,13 @@
 import { Hono } from "npm:hono";
 import { TOOL_DECLARATIONS, executeTool, getRelevantTools, getRelevantToolsEmbedding } from "../lib/ai_tools.ts";
 import { generateCharts } from "../lib/ai/chartMapper.ts";
+import { Product } from "../models/Product.ts";
+import { Transaction } from "../models/Transaction.ts";
 import { Ingredient } from "../models/Ingredient.ts";
 import { OcrTask } from "../models/OcrTask.ts";
 import { verifyAuth } from "../middleware/auth.ts";
 import { validateId } from "../middleware/validator.ts";
+import { toWIBDateString } from "../lib/date.ts";
 
 
 const ai = new Hono();
@@ -611,6 +614,150 @@ ai.get("/insights", async (c) => {
     { id: "1", type: "trend", title: "Insight Bisnis", description: "Gunakan fitur chat AI untuk menganalisa penjualanmu.", action: "Chat Sekarang" },
     { id: "2", type: "warning", title: "Bahan Baku Kritis", description: `Ada ${lowStock} bahan baku yang stoknya rendah.`, action: "Cek Stok" },
   ]);
+});
+
+// ==================== GET /business-insights ====================
+ai.get("/business-insights", async (c) => {
+  const auth = await requireAuth(c);
+  if (!auth.ok) return auth.response;
+
+  try {
+    const now = new Date();
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+    const [transactions, products] = await Promise.all([
+      Transaction.find({ createdAt: { $gte: sixtyDaysAgo }, status: 'completed' }).lean(),
+      Product.find({}).lean(),
+    ]);
+
+    const formatCurrency = (value: number) => `Rp ${Math.round(value).toLocaleString('id-ID')}`;
+    const formatPercentChange = (current: number, previous: number) => {
+      if (previous <= 0) return current > 0 ? '+100%' : '0%';
+      const delta = ((current - previous) / previous) * 100;
+      const sign = delta >= 0 ? '+' : '';
+      return `${sign}${Math.round(delta)}%`;
+    };
+
+    const todayStr = toWIBDateString(now);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sixtyDaysAgoPeriod = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+    const txWithDate = transactions.map((tx: any) => ({
+      ...tx,
+      createdDate: new Date(tx.createdAt),
+      dateKey: toWIBDateString(new Date(tx.createdAt)),
+      amount: Number(tx.total_amount || 0),
+    }));
+
+    const todayTx = txWithDate.filter((tx: any) => tx.dateKey === todayStr);
+    const weekTx = txWithDate.filter((tx: any) => tx.createdDate >= sevenDaysAgo);
+    const prevWeekTx = txWithDate.filter((tx: any) => tx.createdDate >= fourteenDaysAgo && tx.createdDate < sevenDaysAgo);
+    const monthTx = txWithDate.filter((tx: any) => tx.createdDate >= thirtyDaysAgo);
+    const prevMonthTx = txWithDate.filter((tx: any) => tx.createdDate >= sixtyDaysAgoPeriod && tx.createdDate < thirtyDaysAgo);
+
+    const sumRevenue = (arr: any[]) => arr.reduce((sum, tx) => sum + tx.amount, 0);
+
+    const todayRevenue = sumRevenue(todayTx);
+    const weekRevenue = sumRevenue(weekTx);
+    const prevWeekRevenue = sumRevenue(prevWeekTx);
+    const monthRevenue = sumRevenue(monthTx);
+    const prevMonthRevenue = sumRevenue(prevMonthTx);
+    const avgTransaction = monthTx.length > 0 ? monthRevenue / monthTx.length : 0;
+
+    const productStats = new Map<string, { qty: number; revenue: number; name: string }>();
+    monthTx.forEach((tx: any) => {
+      tx.items.forEach((item: any) => {
+        const key = item.product_id?.toString() || 'unknown';
+        const existing = productStats.get(key) || { qty: 0, revenue: 0, name: item.name || 'Produk Tidak Dikenal' };
+        existing.qty += item.quantity || 0;
+        existing.revenue += (item.quantity || 0) * (item.price_at_sale || 0);
+        productStats.set(key, existing);
+      });
+    });
+
+    const sortedProducts = Array.from(productStats.values()).sort((a, b) => b.revenue - a.revenue);
+    const topProduct = sortedProducts[0];
+
+    const lowStockIngredients = await Ingredient.find({ stock_quantity: { $lt: 10 } }).sort({ stock_quantity: 1 }).lean();
+
+    const hourCount = new Map<number, number>();
+    txWithDate.forEach((tx: any) => {
+      const hour = tx.createdDate.getHours();
+      hourCount.set(hour, (hourCount.get(hour) || 0) + 1);
+    });
+    const topHours = Array.from(hourCount.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([hour]) => `${hour.toString().padStart(2, '0')}:00`);
+
+    const metrics = [
+      { title: 'Omzet (30 Hari)', value: formatCurrency(monthRevenue), trend: formatPercentChange(monthRevenue, prevMonthRevenue), description: 'Dibandingkan 30 hari sebelumnya' },
+      { title: 'Volume Transaksi', value: `${monthTx.length}`, trend: formatPercentChange(monthTx.length, prevMonthTx.length), description: 'Total transaksi berhasil' },
+      { title: 'Rata-rata Keranjang', value: formatCurrency(avgTransaction), trend: weekTx.length ? formatPercentChange(weekRevenue / weekTx.length, prevWeekTx.length ? prevWeekRevenue / prevWeekTx.length : 0) : '0%', description: 'Nilai belanja per transaksi' },
+      { title: 'Bahan Baku Kritis', value: `${lowStockIngredients.length}`, trend: lowStockIngredients.length > 0 ? 'Urgent' : 'Aman', description: 'Bahan stok di bawah 10 unit' },
+    ];
+
+    const insights = [
+      { id: 'weekly-trend', type: weekRevenue >= prevWeekRevenue ? 'trend' : 'warning', title: 'Tren Penjualan Mingguan', description: `${formatCurrency(weekRevenue)} dari ${weekTx.length} transaksi (${formatPercentChange(weekRevenue, prevWeekRevenue)} vs pekan lalu)` },
+      { id: 'today-sales', type: 'success', title: 'Status Hari Ini', description: `${todayTx.length} transaksi WuzPay berhasil diproses dengan total ${formatCurrency(todayRevenue)}` },
+    ];
+
+    if (lowStockIngredients.length > 0) {
+      insights.push({ id: 'low-stock', type: 'warning', title: 'Perhatian Stok!', description: `${lowStockIngredients.length} bahan baku di bawah stok aman. Segera restock secepatnya.` });
+    }
+
+    const recommendations = [];
+    if (lowStockIngredients.length > 0) {
+      recommendations.push({ title: 'Restock Bahan Prioritas', description: `Stok ${lowStockIngredients.slice(0, 2).map((i: any) => i.name).join(' & ')} sudah kritis. Segera hubungi supplier.`, impact: 'High' });
+    }
+    if (topProduct) {
+      recommendations.push({ title: 'Eksploitasi Produk Terlaris', description: `${topProduct.name} adalah sumber cuan utama. Pertimbangkan paket bundling dengan minuman.`, impact: 'High' });
+    }
+
+    const aiPrompt = `Buatkan evaluasi performa bisnis singkat (1-2 kalimat per poin) berdasarkan data 30 hari toko berikut. Kembalikan HANYA format JSON valid tanpa penjelasan tambahan.
+Data: Omzet ${formatCurrency(monthRevenue)} (bulan lalu ${formatCurrency(prevMonthRevenue)}), Produk Terlaris: ${topProduct?.name || 'belum ada'} (${topProduct?.qty || 0} porsi), Bahan Baku Kritis: ${lowStockIngredients.length || 0} macam, Jam Sibuk: ${topHours.join(', ') || 'belum ada'}.
+Format:
+{
+  "summary": "[Evaluasi omzet]",
+  "topProduct": "[Strategi promosi produk terlaris]",
+  "peakHours": "[Saran manajemen antrean/stok di jam sibuk]",
+  "strategy": "[Kesimpulan strategi utama bulan ini]"
+}`;
+
+    let narrative = {
+      summary: `Performa WuzPay dalam 30 hari terakhir menghasilkan ${formatCurrency(monthRevenue)} (${formatPercentChange(monthRevenue, prevMonthRevenue)}).`,
+      topProduct: topProduct ? `${topProduct.name} mendominasi pasar dengan kontribusi ${formatCurrency(topProduct.revenue)}.` : 'Data produk belum cukup dominan untuk dianalisis.',
+      peakHours: topHours.length > 0 ? `Waktu tersibuk tokomu adalah pukul ${topHours.join(' & ')}. Pastikan stok siap sebelum jam ini.` : 'Pola jam ramai belum terbentuk secara konsisten.',
+      strategy: 'Optimalkan ketersediaan bahan baku pada jam sibuk dan lakukan upsell pada produk terlaris.',
+    };
+
+    try {
+      const aiResponse = await callGroq([{ role: "user", content: aiPrompt }], false);
+      const content = aiResponse.choices?.[0]?.message?.content || "";
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const aiData = JSON.parse(jsonMatch[0]);
+        if (aiData.summary && aiData.strategy) {
+          narrative = aiData;
+        }
+      }
+    } catch (err) {
+      console.error("AI Insights generation failed:", err);
+    }
+
+    return c.json({
+      metrics,
+      insights,
+      recommendations,
+      narrative
+    });
+
+  } catch (error: any) {
+    console.error("Error generating business insights:", error);
+    return c.json({ error: "Gagal menghasilkan insight bisnis" }, 500);
+  }
 });
 
 // ==================== SCAN RECEIPT ====================

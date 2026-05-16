@@ -13,7 +13,6 @@ import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { productsAPI, transactionsAPI, aiAPI } from '@/services/api';
 import { toast } from 'sonner';
-import { format, subDays } from 'date-fns';
 
 type InsightType = 'warning' | 'trend' | 'success' | 'info';
 
@@ -73,203 +72,19 @@ export function AIInsights() {
   const loadInsights = async () => {
     setIsLoading(true);
     try {
-      const [transactions, products] = await Promise.all([
-        transactionsAPI.getAll(),
-        productsAPI.getAll(),
-      ]);
-
-      const now = new Date();
-      const todayStr = format(now, 'yyyy-MM-dd');
-      const sevenDaysAgoStr = format(subDays(now, 7), 'yyyy-MM-dd');
-      const fourteenDaysAgoStr = format(subDays(now, 14), 'yyyy-MM-dd');
-      const thirtyDaysAgoStr = format(subDays(now, 30), 'yyyy-MM-dd');
-      const sixtyDaysAgoStr = format(subDays(now, 60), 'yyyy-MM-dd');
-
-      const txWithDate = transactions
-        .map((tx: any) => {
-          const dateVal = tx.createdAt || tx.created_at;
-          return {
-            ...tx,
-            createdDate: dateVal ? new Date(dateVal) : new Date(),
-            dateKey: dateVal ? format(new Date(dateVal), 'yyyy-MM-dd') : null,
-            amount: Number(tx.total_amount ?? tx.total ?? 0),
-            items: Array.isArray(tx.items) ? tx.items : [],
-          };
-        })
-        .filter((tx: any) => tx.dateKey);
-
-      const todayTx = txWithDate.filter((tx: any) => tx.dateKey === todayStr);
-      const weekTx = txWithDate.filter((tx: any) => tx.dateKey >= sevenDaysAgoStr && tx.dateKey <= todayStr);
-      const prevWeekTx = txWithDate.filter((tx: any) => tx.dateKey >= fourteenDaysAgoStr && tx.dateKey < sevenDaysAgoStr);
-      const monthTx = txWithDate.filter((tx: any) => tx.dateKey >= thirtyDaysAgoStr && tx.dateKey <= todayStr);
-      const prevMonthTx = txWithDate.filter((tx: any) => tx.dateKey >= sixtyDaysAgoStr && tx.dateKey < thirtyDaysAgoStr);
-
-      const sumRevenue = (arr: any[]) => arr.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
-
-      const todayRevenue = sumRevenue(todayTx);
-      const weekRevenue = sumRevenue(weekTx);
-      const prevWeekRevenue = sumRevenue(prevWeekTx);
-      const monthRevenue = sumRevenue(monthTx);
-      const prevMonthRevenue = sumRevenue(prevMonthTx);
-      const avgTransaction = monthTx.length > 0 ? monthRevenue / monthTx.length : 0;
-
-      // Mapping produk menggunakan _id (MongoDB)
-      const productLookup = new Map(products.map((p: any) => [p._id || p.id, p.name]));
-      const productStats = new Map<string, { qty: number; revenue: number; name: string }>();
-
-      monthTx.forEach((tx: any) => {
-        tx.items.forEach((item: any) => {
-          const productId = item.product_id?._id || item.product_id; // Support populated object atau string ID
-          const qty = Number(item.quantity || 0);
-          const price = Number(item.price_at_sale || 0);
-          const key = productId || 'unknown';
-          
-          const existing = productStats.get(key) || {
-            qty: 0,
-            revenue: 0,
-            name: productLookup.get(key) || item.name || 'Produk Tidak Dikenal',
-          };
-          existing.qty += qty;
-          existing.revenue += qty * price;
-          productStats.set(key, existing);
-        });
-      });
-
-      const sortedProducts = Array.from(productStats.values()).sort((a, b) => b.revenue - a.revenue);
-      const topProduct = sortedProducts[0];
-
-      // Filter stok kritis berdasarkan stock_quantity (Nama kolom di backend baru)
-      const lowStockProducts = products
-        .filter((p: any) => Number(p.stock_quantity || 0) < 5)
-        .sort((a: any, b: any) => Number(a.stock_quantity) - Number(b.stock_quantity));
-
-      const hourCount = new Map<number, number>();
-      txWithDate.forEach((tx: any) => {
-        const hour = tx.createdDate.getHours();
-        hourCount.set(hour, (hourCount.get(hour) || 0) + 1);
-      });
+      const data = await aiAPI.getBusinessInsights();
       
-      const topHours = Array.from(hourCount.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 2)
-        .map(([hour]) => `${hour.toString().padStart(2, '0')}:00`);
-
-      const generatedInsights: InsightItem[] = [];
-      generatedInsights.push({
-        id: 'weekly-trend',
-        type: weekRevenue >= prevWeekRevenue ? 'trend' : 'warning',
-        title: 'Tren Penjualan Mingguan',
-        description: `${formatCurrency(weekRevenue)} dari ${weekTx.length} transaksi (${formatPercentChange(weekRevenue, prevWeekRevenue)} vs pekan lalu)`,
-      });
-
-      generatedInsights.push({
-        id: 'today-sales',
-        type: 'success',
-        title: 'Status Hari Ini',
-        description: `${todayTx.length} transaksi WuzPay berhasil diproses dengan total ${formatCurrency(todayRevenue)}`,
-      });
-
-      if (lowStockProducts.length > 0) {
-        generatedInsights.push({
-          id: 'low-stock',
-          type: 'warning',
-          title: 'Perhatian Stok!',
-          description: `${lowStockProducts.length} produk di bawah stok aman. Segera restock secepatnya.`,
-          action: 'Lihat Daftar Stok',
+      if (data) {
+        setInsights(data.insights || []);
+        setBusinessMetrics(data.metrics || []);
+        setRecommendations(data.recommendations || []);
+        setNarrativeReport(data.narrative || {
+          summary: 'Gagal memuat ringkasan.',
+          topProduct: '-',
+          peakHours: '-',
+          strategy: '-'
         });
       }
-
-      setInsights(generatedInsights);
-
-      setBusinessMetrics([
-        {
-          title: 'Omzet (30 Hari)',
-          value: formatCurrency(monthRevenue),
-          trend: formatPercentChange(monthRevenue, prevMonthRevenue),
-          description: 'Dibandingkan 30 hari sebelumnya',
-        },
-        {
-          title: 'Volume Transaksi',
-          value: `${monthTx.length}`,
-          trend: formatPercentChange(monthTx.length, prevMonthTx.length),
-          description: 'Total transaksi berhasil',
-        },
-        {
-          title: 'Rata-rata Keranjang',
-          value: formatCurrency(avgTransaction),
-          trend: weekTx.length ? formatPercentChange(weekRevenue / weekTx.length, prevWeekTx.length ? prevWeekRevenue / prevWeekTx.length : 0) : '0%',
-          description: 'Nilai belanja per transaksi',
-        },
-        {
-          title: 'Item Kritis',
-          value: `${lowStockProducts.length}`,
-          trend: lowStockProducts.length > 0 ? 'Urgent' : 'Aman',
-          description: 'Produk stok di bawah 5 unit',
-        },
-      ]);
-
-      const generatedRecommendations: RecommendationItem[] = [];
-      if (lowStockProducts.length > 0) {
-        generatedRecommendations.push({
-          title: 'Restock Produk Prioritas',
-          description: `Stok ${lowStockProducts.slice(0, 2).map((p: any) => p.name).join(' & ')} sudah kritis. Segera hubungi supplier.`,
-          impact: 'High',
-        });
-      }
-
-      if (topProduct) {
-        generatedRecommendations.push({
-          title: 'Eksploitasi Produk Terlaris',
-          description: `${topProduct.name} adalah sumber cuan utama. Pertimbangkan paket bundling dengan minuman.`,
-          impact: 'High',
-        });
-      }
-
-      setRecommendations(generatedRecommendations.slice(0, 4));
-
-      let finalNarrative = {
-        summary: `Performa WuzPay dalam 30 hari terakhir menghasilkan ${formatCurrency(monthRevenue)} (${formatPercentChange(monthRevenue, prevMonthRevenue)}).`,
-        topProduct: topProduct
-          ? `${topProduct.name} mendominasi pasar dengan kontribusi ${formatCurrency(topProduct.revenue)}.`
-          : 'Data produk belum cukup dominan untuk dianalisis.',
-        peakHours: topHours.length > 0
-          ? `Waktu tersibuk tokomu adalah pukul ${topHours.join(' & ')}. Pastikan stok siap sebelum jam ini.`
-          : 'Pola jam ramai belum terbentuk secara konsisten.',
-        strategy: 'Optimalkan ketersediaan bahan baku pada jam sibuk dan lakukan upsell pada produk terlaris.',
-      };
-
-      try {
-        const aiPrompt = `Buatkan evaluasi performa bisnis singkat (1-2 kalimat per poin) berdasarkan data 30 hari toko berikut. Kembalikan HANYA format JSON valid tanpa penjelasan tambahan.
-Data: Omzet ${formatCurrency(monthRevenue)} (bulan lalu ${formatCurrency(prevMonthRevenue)}), Produk Terlaris: ${topProduct?.name || 'belum ada'} (${topProduct?.qty || 0} porsi), Stok Kritis: ${lowStockProducts.length || 0} macam, Jam Sibuk: ${topHours.join(', ') || 'belum ada'}.
-Format:
-{
-  "summary": "[Evaluasi omzet]",
-  "topProduct": "[Strategi promosi produk terlaris]",
-  "peakHours": "[Saran manajemen antrean/stok di jam sibuk]",
-  "strategy": "[Kesimpulan strategi utama bulan ini]"
-}`;
-        // Ambil dari backend (via aiAPI) 
-        console.log("WuzPay AI is generating insights with prompt:", aiPrompt);
-        const aiRaw = await aiAPI.chat(aiPrompt, []);
-        console.log("Raw WuzPay AI output:", aiRaw);
-
-        const jsonMatch = aiRaw.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const aiData = JSON.parse(jsonMatch[0]);
-          if (aiData.summary && aiData.strategy) {
-            finalNarrative = aiData;
-          } else {
-             console.log("Missing keys in AI JSON", aiData);
-          }
-        } else {
-          console.warn("No JSON match found in WuzPay AI output.");
-        }
-      } catch (error) {
-        console.error('AI Narrative Generation failed, fallback to static:', error);
-      }
-
-      setNarrativeReport(finalNarrative);
-
     } catch (error) {
       console.error("Critical error in loadInsights:", error);
       toast.error('Gagal memproses data WuzPay AI. Pastikan Backend berjalan.');
