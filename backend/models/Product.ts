@@ -31,6 +31,7 @@ const ProductSchema = new mongoose.Schema({
   category_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', default: null },
   image_url: String,
   userId: String,
+  stock_quantity: { type: Number, default: 0 },
 }, { timestamps: true });
 
 // Indexes

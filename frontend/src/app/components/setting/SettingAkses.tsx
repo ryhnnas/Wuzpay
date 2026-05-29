@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DeleteConfirmationDialog } from '@/app/components/ui/DeleteConfirmationDialog';
 import { ShieldCheck, Save, Loader2, Info, UserPlus, Trash2, Clock, Check } from 'lucide-react';
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
@@ -38,6 +39,7 @@ const SettingAkses = () => {
   const [saving, setSaving] = useState(false);
   const [creatingUser, setCreatingUser] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [deleteUserTarget, setDeleteUserTarget] = useState<any>(null);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -132,18 +134,23 @@ const SettingAkses = () => {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userRole: string, userName: string) => {
+  const handleDeleteUser = (userId: string, userRole: string, userName: string) => {
     if (userRole.toLowerCase() === 'owner') return toast.error('Owner dilarang hapus diri sendiri');
-    if (!window.confirm(`Hapus permanen akses ${userName}?`)) return;
+    setDeleteUserTarget({ id: userId, role: userRole, name: userName });
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteUserTarget) return;
     try {
-      setDeletingUserId(userId);
-      await authAPI.deleteUser(userId);
+      setDeletingUserId(deleteUserTarget.id);
+      await authAPI.deleteUser(deleteUserTarget.id);
       toast.success('User berhasil dihapus dari sistem');
       await fetchPermissions();
     } catch (error: any) {
       toast.error('Gagal hapus user');
     } finally {
       setDeletingUserId(null);
+      setDeleteUserTarget(null);
     }
   };
 
@@ -299,6 +306,16 @@ const SettingAkses = () => {
           </table>
         </div>
       </div>
+
+      {/* DIALOG KONFIRMASI HAPUS USER */}
+      <DeleteConfirmationDialog
+        open={!!deleteUserTarget}
+        onOpenChange={(open) => !open && setDeleteUserTarget(null)}
+        title="Hapus Akses User"
+        description={`User "${deleteUserTarget?.name}" akan dihapus permanen dari sistem keamanan WuzPay. Akses login akan dicabut sepenuhnya.`}
+        onConfirm={confirmDeleteUser}
+        isLoading={deletingUserId === deleteUserTarget?.id}
+      />
     </div>
   );
 };

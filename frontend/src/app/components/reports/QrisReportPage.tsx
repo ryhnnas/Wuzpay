@@ -66,19 +66,39 @@ export function QrisReportPage() {
           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2 italic">Monitoring Pembayaran Digital WuzPay</p>
         </div>
 
-        <div className="flex items-center gap-4 bg-white p-2 rounded-[22px] shadow-sm border border-gray-100">
-          {['today', 'week', 'custom'].map((f) => (
-            <button
-              key={f}
-              onClick={() => handleFilter(f)}
-              className={cn(
-                "px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all",
-                activeFilter === f ? "bg-orange-600 text-white shadow-lg" : "text-gray-400 hover:bg-gray-50"
-              )}
-            >
-              {f === 'today' ? 'Hari Ini' : f === 'week' ? '7 Hari' : 'Kustom'}
-            </button>
-          ))}
+        <div className="flex flex-col items-start gap-3 w-full lg:w-auto">
+          <div className="flex items-center gap-1 bg-white p-2 rounded-[22px] shadow-sm border border-gray-100">
+            {['today', 'week', 'custom'].map((f) => (
+              <button
+                key={f}
+                onClick={() => handleFilter(f)}
+                className={cn(
+                  "px-4 sm:px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap",
+                  activeFilter === f ? "bg-orange-600 text-white shadow-lg" : "text-gray-400 hover:bg-gray-50"
+                )}
+              >
+                {f === 'today' ? 'Hari Ini' : f === 'week' ? '7 Hari' : 'Kustom'}
+              </button>
+            ))}
+          </div>
+
+          {activeFilter === 'custom' && (
+            <div className="flex items-center justify-between sm:justify-start gap-3 bg-white p-2 px-6 rounded-[22px] shadow-sm border border-gray-100 animate-in slide-in-from-top-2 duration-300">
+              <input 
+                type="date" 
+                className="text-[11px] font-black bg-transparent border-none p-0 focus:ring-0 w-[115px] uppercase text-gray-700 focus:outline-none" 
+                value={startDate} 
+                onChange={(e) => setStartDate(e.target.value)} 
+              />
+              <span className="text-[10px] font-black text-gray-300 shrink-0">TO</span>
+              <input 
+                type="date" 
+                className="text-[11px] font-black bg-transparent border-none p-0 focus:ring-0 w-[115px] uppercase text-gray-700 focus:outline-none" 
+                value={endDate} 
+                onChange={(e) => setEndDate(e.target.value)} 
+              />
+            </div>
+          )}
         </div>
       </div>
 

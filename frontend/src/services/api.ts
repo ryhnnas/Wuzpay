@@ -359,9 +359,20 @@ export const productsAPI = {
     });
   },
 
-  export: () => {
+  export: (filters?: { category_id?: string; search?: string }) => {
     const base = API_BASE_URL.replace(/\/$/, '');
-    window.open(`${base}${API_ENDPOINTS.products.exportExcel}`, '_blank');
+    const params = new URLSearchParams();
+    if (filters?.category_id && filters.category_id !== 'all') {
+      params.append('category_id', filters.category_id);
+    }
+    if (filters?.search) {
+      params.append('search', filters.search);
+    }
+    const query = params.toString();
+    const finalEndpoint = query 
+      ? `${API_ENDPOINTS.products.exportExcel}?${query}`
+      : API_ENDPOINTS.products.exportExcel;
+    window.open(`${base}${finalEndpoint}`, '_blank');
   },
 };
 
