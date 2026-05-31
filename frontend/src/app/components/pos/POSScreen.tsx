@@ -25,6 +25,8 @@ import { handleGlobalPrint } from '@/app/components/utils/printHandler';
 import { SuccessTransactionPage } from './SuccessTransactionPage';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 
+import { useGlobalStore } from '@/store/useGlobalStore';
+
 // HELPER GLOBAL AGAR BISA DIAKSES SEMUA KOMPONEN DI FILE INI
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat('id-ID', { 
@@ -36,12 +38,10 @@ const formatRupiah = (amount: number) => {
 
 // MENERIMA PROPS DARI APP.TSX
 export function POSScreen({ 
-  pendingOrders = [], 
-  setPendingOrders, 
   showPendingListDialog, 
   setShowPendingListDialog,
-  refreshPendingOrders 
 }: any) {
+  const { pendingOrders, setPendingOrders, loadPendingOrders: refreshPendingOrders } = useGlobalStore();
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [ingredients, setIngredients] = useState<any[]>([]);

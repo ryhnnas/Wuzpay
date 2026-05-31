@@ -34,11 +34,22 @@ app.get("/", (c) => c.text("WuzPay POS Backend is Ready!"));
 
 const BASE_PATH = "/api";
 
+const ALLOWED_ORIGINS = [
+  "https://wuzpay.ngetech.studio",
+  "http://localhost:5173",
+  "http://localhost:4173",
+];
+
 // 2. Global Middlewares
 app.use('*', logger());
 app.use('*', secureHeaders());
 app.use("/*", cors({
-  origin: (origin) => origin || "*", // Mengizinkan semua origin secara dinamis
+  origin: (origin) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      return origin;
+    }
+    return ALLOWED_ORIGINS[0]; // fallback ke production domain
+  },
   allowHeaders: ["Content-Type", "Authorization", "X-Session-ID"],
   allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   exposeHeaders: ["X-Session-ID"],

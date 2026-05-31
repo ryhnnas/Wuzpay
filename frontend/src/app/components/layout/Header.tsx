@@ -6,12 +6,12 @@ import { Badge } from '@/app/components/ui/badge';
 import { User as UserType, Product } from '@/types';
 import { ingredientsAPI } from '@/services/api';
 import { cn } from '@/app/components/ui/utils';
+import { useGlobalStore } from '@/store/useGlobalStore';
 
 interface HeaderProps {
   user: UserType;
   currentPage: string;
   onOpenPendingOrders?: () => void;
-  pendingCount?: number;
 }
 
 interface AppNotification {
@@ -35,7 +35,9 @@ const pageTitle: Record<string, string> = {
   settings: 'Konfigurasi Sistem',
 };
 
-export function Header({ user, currentPage, onOpenPendingOrders, pendingCount = 0 }: HeaderProps) {
+export function Header({ user, currentPage, onOpenPendingOrders }: HeaderProps) {
+  const pendingOrders = useGlobalStore((state) => state.pendingOrders);
+  const pendingCount = pendingOrders.length;
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   // Logika Cek Stok Bahan Baku Real-time (Polling 60 detik)

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import Fuse from 'fuse.js';
 import {
   ScanLine, Upload, Sparkles, Eye, ArrowRight, ArrowLeft, Trash2, Plus, Save,
   Loader2, CheckCircle2, AlertTriangle, X, ImageIcon, FileText, Package
@@ -76,6 +77,17 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
     const lower = name.toLowerCase().trim();
     const exact = ingredients.find(p => p.name?.toLowerCase() === lower);
     if (exact) return exact;
+
+    // Fuzzy matching menggunakan Fuse.js
+    const fuse = new Fuse(ingredients, {
+      keys: ['name'],
+      threshold: 0.4
+    });
+    const fuzzyResults = fuse.search(name);
+    if (fuzzyResults.length > 0) {
+      return fuzzyResults[0].item;
+    }
+
     const partial = ingredients.find(p =>
       p.name?.toLowerCase().includes(lower) || lower.includes(p.name?.toLowerCase())
     );

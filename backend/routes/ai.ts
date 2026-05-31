@@ -17,65 +17,31 @@ const MAX_AGENT_STEPS = 4;
 
 type StageHandler = (stage: "analyzing" | "fetching_data" | "composing_answer", message?: string) => void;
 
-// ==================== OCR MONGODB WORKER ====================
-let isWorkerRunning = false;
-
-async function startOcrWorker() {
-  if (isWorkerRunning) return;
-  isWorkerRunning = true;
-  
+// ==================== OCR BACKGROUND PROCESSOR ====================
+async function processOcrInBackground(taskId: string, fileBuffer: ArrayBuffer, mimeType: string) {
   const OCR_SERVICE_URL = Deno.env.get("OCR_SERVICE_URL") || "http://localhost:8001";
-  
-  while (true) {
-    try {
-      const task = await OcrTask.findOneAndUpdate(
-        { status: 'pending' },
-        { status: 'processing' },
-        { sort: { createdAt: 1 }, new: true }
-      );
+  try {
+    const formData = new FormData();
+    const file = new File([new Uint8Array(fileBuffer)], "receipt.jpg", { type: mimeType });
+    formData.append("file", file);
 
-      if (!task) {
-        await sleep(2000);
-        continue;
-      }
-
-      try {
-        const formData = new FormData();
-        const binaryString = atob(task.file_b64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        const file = new File([bytes], "receipt.jpg", { type: task.mime_type });
-        formData.append("file", file);
-
-        const ocrResponse = await fetch(`${OCR_SERVICE_URL}/upload-resit/`, { method: "POST", body: formData });
-        
-        if (!ocrResponse.ok) {
-          throw new Error("Gagal memproses gambar di OCR service");
-        }
-        
-        const result = await ocrResponse.json();
-        task.status = 'completed';
-        task.result = result;
-        await task.save();
-      } catch (err: any) {
-        task.status = 'failed';
-        task.error_message = err.message || "Unknown OCR error";
-        await task.save();
-      }
-    } catch (dbErr) {
-      console.error("OCR Worker DB Error:", dbErr);
-      await sleep(5000);
+    const ocrResponse = await fetch(`${OCR_SERVICE_URL}/upload-resit/`, { method: "POST", body: formData });
+    
+    if (!ocrResponse.ok) {
+      throw new Error("Gagal memproses gambar di OCR service");
     }
+    
+    const result = await ocrResponse.json();
+    await OcrTask.findByIdAndUpdate(taskId, {
+      status: 'completed',
+      result: result
+    });
+  } catch (err: any) {
+    await OcrTask.findByIdAndUpdate(taskId, {
+      status: 'failed',
+      error_message: err.message || "Unknown OCR error"
+    });
   }
-}
-
-// Start worker slightly after boot
-setTimeout(startOcrWorker, 1000);
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function requireAuth(c: any): Promise<{ ok: true; user: any } | { ok: false; response: Response }> {
@@ -389,7 +355,8 @@ async function executeAgentFlow(params: {
 }) {
   const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
   const prompt = sanitizePrompt(params.prompt);
-  const history = Array.isArray(params.history) ? params.history : [];
+  const rawHistory = Array.isArray(params.history) ? params.history : [];
+  const history = rawHistory.slice(-10); // Batasi maksimal 10 riwayat pesan untuk performa & token window
 
   if (!prompt) {
     return {
@@ -790,7 +757,12 @@ ai.post("/scan-receipt-ocr", async (c) => {
     const task = await OcrTask.create({
       file_b64: b64,
       mime_type: mimeType,
-      status: 'pending'
+      status: 'processing' // Langsung set processing
+    });
+
+    // Panggil background thread tanpa memblokir HTTP response
+    processOcrInBackground(task._id.toString(), fileBuffer, mimeType).catch((err) => {
+      console.error("[OCR BG Error]", err);
     });
 
     return c.json({ success: true, task_id: task._id });
