@@ -54,12 +54,43 @@ cd Wuzpay
 ```
 
 ### 3. Konfigurasi Environment (`.env`)
-Buat file env di dalam direktori `backend/`:
+
+Untuk memudahkan konfigurasi, kami telah menyediakan template `.env.example` di setiap direktori penting. Silakan salin file `.env.example` tersebut menjadi `.env` dan sesuaikan nilainya:
+
+#### A. Konfigurasi Backend (`backend/`)
+Salin file `backend/.env.example` menjadi `backend/.env` dan isi variabel berikut:
 ```bash
-MONGODB_URI=your_mongodb_connection_string
-PORT=8000
-JWT_SECRET=wuzpay_super_secret_key_2026
+# Di dalam folder backend/
+cp .env.example .env
 ```
+Isi konfigurasi pada `backend/.env`:
+* `MONGO_URI`: String koneksi database MongoDB Atlas atau MongoDB lokal Anda.
+* `PORT`: Port server backend Deno (default: `5000`).
+* `GROQ_API_KEY`: API Key layanan Groq untuk fitur AI Chatbot & Agent.
+* `GROQ_API_URL`: URL Endpoint Groq (default: `https://api.groq.com/openai/v1`).
+* `GROQ_MODEL`: Model LLM yang digunakan (contoh: `llama-3.3-70b-versatile`).
+* `OPENAI_API_KEY` & `OPENAI_API_URL`: Digunakan untuk model LLM Vision (Groq) saat memindai struk belanja secara otomatis.
+* `JWT_SECRET`: Kunci rahasia untuk enkripsi token otentikasi kasir.
+
+#### B. Konfigurasi Frontend (`frontend/`)
+Salin file `frontend/.env.example` menjadi `frontend/.env`:
+```bash
+# Di dalam folder frontend/
+cp .env.example .env
+```
+Isi konfigurasi pada `frontend/.env`:
+* `VITE_API_URL`: Alamat URL dari API Backend WuzPay (default untuk lokal: `http://localhost:5000`).
+
+#### C. Konfigurasi Deployment Staging/Docker (`/` - Folder Root)
+Jika Anda men-deploy sistem menggunakan Docker Compose di server produksi/staging, salin file `.env.example` di folder root menjadi `.env`:
+```bash
+# Di folder root proyek
+cp .env.example .env
+```
+Isi konfigurasi pada `.env` root:
+* `OPENAI_API_KEY`: API Key Groq untuk container OCR Service agar dapat mengekstrak struk belanja secara otomatis.
+* `OPENAI_API_URL`: Endpoint Groq (default: `https://api.groq.com/openai/v1`).
+
 
 ### 4. Menjalankan Aplikasi Utama (Satu Klik!)
 Sistem sudah dirangkai menggunakan modul `concurrently` di folder *root*. Anda tidak perlu membuka banyak terminal.
