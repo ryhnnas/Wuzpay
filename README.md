@@ -55,15 +55,18 @@ cd Wuzpay
 
 ### 3. Konfigurasi Environment (`.env`)
 
-Untuk memudahkan konfigurasi, kami telah menyediakan template `.env.example` di setiap direktori penting. Silakan salin file `.env.example` tersebut menjadi `.env` dan sesuaikan nilainya:
+Untuk memudahkan konfigurasi, kami telah menyediakan template `.env.example` di setiap direktori penting. Silakan salin file `.env.example` tersebut menjadi `.env` menggunakan terminal dengan mengikuti instruksi langkah demi langkah (berurutan) di bawah ini:
 
-#### A. Konfigurasi Backend (`backend/`)
-Salin file `backend/.env.example` menjadi `backend/.env` dan isi variabel berikut:
+#### Langkah A: Konfigurasi Backend (`backend/`)
+Buka terminal baru, pastikan Anda berada di folder utama proyek `Wuzpay/`, lalu masuk ke folder `backend` untuk menyalin file konfigurasi:
 ```bash
-# Di dalam folder backend/
+# 1. Pindah ke direktori backend
+cd backend
+
+# 2. Salin template .env
 cp .env.example .env
 ```
-Isi konfigurasi pada `backend/.env`:
+Setelah disalin, buka file `backend/.env` menggunakan editor teks (seperti VS Code atau Notepad) dan isi variabel berikut:
 * `MONGO_URI`: String koneksi database MongoDB Atlas atau MongoDB lokal Anda.
 * `PORT`: Port server backend Deno (default: `5000`).
 * `GROQ_API_KEY`: API Key layanan Groq untuk fitur AI Chatbot & Agent.
@@ -72,24 +75,34 @@ Isi konfigurasi pada `backend/.env`:
 * `OPENAI_API_KEY` & `OPENAI_API_URL`: Digunakan untuk model LLM Vision (Groq) saat memindai struk belanja secara otomatis.
 * `JWT_SECRET`: Kunci rahasia untuk enkripsi token otentikasi kasir.
 
-#### B. Konfigurasi Frontend (`frontend/`)
-Salin file `frontend/.env.example` menjadi `frontend/.env`:
+#### Langkah B: Konfigurasi Frontend (`frontend/`)
+Kembali ke folder utama (`Wuzpay/`), kemudian masuk ke folder `frontend` untuk menyalin konfigurasinya:
 ```bash
-# Di dalam folder frontend/
+# 1. Kembali ke folder utama
+cd ..
+
+# 2. Pindah ke direktori frontend
+cd frontend
+
+# 3. Salin template .env
 cp .env.example .env
 ```
-Isi konfigurasi pada `frontend/.env`:
+Setelah disalin, buka file `frontend/.env` dan isi variabel berikut:
 * `VITE_API_URL`: Alamat URL dari API Backend WuzPay (default untuk lokal: `http://localhost:5000`).
 
-#### C. Konfigurasi Deployment Staging/Docker (`/` - Folder Root)
-Jika Anda men-deploy sistem menggunakan Docker Compose di server produksi/staging, salin file `.env.example` di folder root menjadi `.env`:
+#### Langkah C: Konfigurasi Deployment Staging/Docker (`/` - Folder Root - Opsional)
+Kembali ke folder utama proyek (`Wuzpay/`) jika Anda ingin men-deploy sistem menggunakan Docker Compose di server produksi/staging:
 ```bash
-# Di folder root proyek
+# 1. Kembali ke folder utama proyek Wuzpay/
+cd ..
+
+# 2. Salin template .env di root
 cp .env.example .env
 ```
-Isi konfigurasi pada `.env` root:
+Isi konfigurasi pada file `.env` di folder root:
 * `OPENAI_API_KEY`: API Key Groq untuk container OCR Service agar dapat mengekstrak struk belanja secara otomatis.
 * `OPENAI_API_URL`: Endpoint Groq (default: `https://api.groq.com/openai/v1`).
+
 
 
 ### 4. Menjalankan Aplikasi Utama (Satu Klik!)
