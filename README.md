@@ -104,5 +104,32 @@ npm run dev
 
 > **Catatan Server Python:** Perintah `npm run dev` otomatis akan mencoba menyematkan library AI jika mesin belum memilikinya lewat fitur *virtual environment*.
 
-### 5. Tim Pengembang
+### 5. Inisialisasi & Auto-Seeding Database
+
+WuzPay menggunakan **MongoDB (NoSQL)** sebagai media penyimpanan data. Untuk memudahkan pengisian data awal pengujian (seperti produk, bahan baku resep, pelanggan, diskon, dan 300+ data transaksi historis untuk analitik dashboard), kami menyediakan endpoint migrasi otomatis:
+
+1. Pastikan server API backend sudah menyala (`npm run dev`).
+2. Jalankan seeding database dengan mengakses endpoint berikut di browser atau via `curl`:
+   ```bash
+   curl http://localhost:5000/api/seed/full-setup
+   ```
+3. Jika Anda men-deploy menggunakan Docker Compose, jalankan seeding melalui URL port staging:
+   ```bash
+   curl http://localhost:1111/api/seed/full-setup
+   ```
+
+Setelah proses seeding selesai, database akan terisi dengan data transaksi historis lengkap untuk mensimulasikan operasional kasir secara nyata.
+
+### 6. Akun Login Default Kasir & Owner (Kredensial Uji Coba)
+
+Setelah melakukan seeding database, Anda dapat login menggunakan kredensial default berikut untuk masing-masing role:
+
+| Role | Username / Email | Password | Hak Akses Utama |
+| :--- | :--- | :--- | :--- |
+| **Owner** | `owner@wuzpay.com` | `owner123` | Akses penuh: Dashboard Keuangan, Analitik Penjualan, Manajemen Produk/Bahan Baku, Pengaturan Akses & Kasir, AI Assistant. |
+| **Kasir** | `kasir@wuzpay.com` | `kasir123` | Akses operasional kasir: Layar POS Utama, Tambah Pesanan/Antrean, Transaksi Kasir, Simulasi Pembayaran QRIS/Tunai, Manajemen Bahan Baku Produk. |
+
+### 7. Tim Pengembang
+
 Ali, Dani, Farhan, Raja, Reyhan, Zacky.
+
