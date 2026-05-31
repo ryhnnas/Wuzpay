@@ -73,28 +73,40 @@ export function CategorySalesReport() {
           </p>
         </div>
 
-        <div className="flex flex-col md:flex-row items-center gap-4 w-full lg:w-auto">
-          <div className="flex items-center gap-2 bg-white p-2 rounded-[22px] shadow-sm border border-gray-100 w-full md:w-auto overflow-x-auto no-scrollbar">
-            {['today', 'week', 'month', 'custom'].map((f) => (
-              <button
-                key={f}
-                onClick={() => handleFilterClick(f)}
-                className={cn(
-                  "px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300",
-                  activeFilter === f 
-                    ? "bg-orange-600 text-white shadow-lg shadow-orange-100" 
-                    : "text-gray-400 hover:text-orange-600"
-                )}
-              >
-                {f === 'today' ? 'Hari Ini' : f === 'week' ? '7 Hari' : f === 'month' ? '30 Hari' : 'Kustom'}
-              </button>
-            ))}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 w-full lg:w-auto">
+          <div className="flex flex-col items-start gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-1 bg-white p-2 rounded-[22px] shadow-sm border border-gray-100">
+              {['today', 'week', 'month', 'custom'].map((f) => (
+                <button
+                  key={f}
+                  onClick={() => handleFilterClick(f)}
+                  className={cn(
+                    "px-4 sm:px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 whitespace-nowrap",
+                    activeFilter === f 
+                      ? "bg-orange-600 text-white shadow-lg shadow-orange-100" 
+                      : "text-gray-400 hover:text-orange-600"
+                  )}
+                >
+                  {f === 'today' ? 'Hari Ini' : f === 'week' ? '7 Hari' : f === 'month' ? '30 Hari' : 'Kustom'}
+                </button>
+              ))}
+            </div>
 
             {activeFilter === 'custom' && (
-              <div className="flex items-center gap-3 px-4 border-l border-gray-100 ml-2 animate-in slide-in-from-left-2">
-                <input type="date" className="text-[11px] font-black bg-transparent border-none p-0 focus:ring-0 w-[110px] uppercase text-gray-700" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                <span className="text-[10px] font-black text-gray-300">TO</span>
-                <input type="date" className="text-[11px] font-black bg-transparent border-none p-0 focus:ring-0 w-[110px] uppercase text-gray-700" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <div className="flex items-center justify-between sm:justify-start gap-3 bg-white p-2 px-6 rounded-[22px] shadow-sm border border-gray-100 animate-in slide-in-from-top-2 duration-300">
+                <input 
+                  type="date" 
+                  className="text-[11px] font-black bg-transparent border-none p-0 focus:ring-0 w-[115px] uppercase text-gray-700 focus:outline-none" 
+                  value={startDate} 
+                  onChange={(e) => setStartDate(e.target.value)} 
+                />
+                <span className="text-[10px] font-black text-gray-300 shrink-0">TO</span>
+                <input 
+                  type="date" 
+                  className="text-[11px] font-black bg-transparent border-none p-0 focus:ring-0 w-[115px] uppercase text-gray-700 focus:outline-none" 
+                  value={endDate} 
+                  onChange={(e) => setEndDate(e.target.value)} 
+                />
               </div>
             )}
           </div>

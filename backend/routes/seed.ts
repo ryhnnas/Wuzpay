@@ -818,7 +818,7 @@ seedRouter.get("/full-setup", async (c) => {
         return mongoose.connection.db.collection("products").insertOne({
           _id,
           name:           p.n,
-          sku:            `WUZ-${cat.code}-${String(index + 1).padStart(3, "0")}`,
+          sku:            String(index + 1).padStart(3, "0"),
           price:          p.p,
           cost_price:     calculatedCost,
           recipe,

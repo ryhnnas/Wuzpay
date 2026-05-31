@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DeleteConfirmationDialog } from '@/app/components/ui/DeleteConfirmationDialog';
 import { 
   Plus, Search, Edit2, Trash2, Layers, 
   Loader2, AlertCircle 
@@ -26,6 +27,8 @@ const KategoriManagement = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [formData, setFormData] = useState({ name: '', description: '' });
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -81,16 +84,23 @@ const KategoriManagement = () => {
     }
   };
 
-  const handleDelete = async (category: any) => {
-    const targetId = category._id || category.id;
-    if (!confirm(`Hapus kategori "${category.name}"? Produk di kategori ini mungkin akan kehilangan labelnya.`)) return;
-    
+  const handleDelete = (category: any) => {
+    setDeleteTarget(category);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const targetId = deleteTarget._id || deleteTarget.id;
+    setIsDeleting(true);
     try {
       await categoriesAPI.delete(targetId);
       toast.success("Kategori telah dihapus");
       fetchCategories();
     } catch (error) {
       toast.error("Gagal menghapus kategori");
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -236,6 +246,16 @@ const KategoriManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* DIALOG KONFIRMASI HAPUS */}
+      <DeleteConfirmationDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Hapus Kategori"
+        description={`Kategori "${deleteTarget?.name}" akan dihapus. Produk di kategori ini mungkin akan kehilangan labelnya.`}
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

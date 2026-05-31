@@ -13,6 +13,7 @@ import { Hono } from "npm:hono";
 import productRoutes from "../../routes/products.ts";
 import { Product } from "../../models/Product.ts";
 import { Category } from "../../models/Category.ts";
+import * as XLSX from "npm:xlsx";
 
 function createApp() {
   const app = new Hono();
@@ -253,6 +254,75 @@ Deno.test({
       });
 
       assertEquals(res.status, 401);
+    });
+
+    // ==================== EXPORT & IMPORT ====================
+
+    await t.step("GET /api/products/export - should export products with filters", async () => {
+      await clearTestDB();
+      const catA = await Category.create({ name: "Makanan" });
+      const catB = await Category.create({ name: "Minuman" });
+      await Product.create({ name: "Nasi Pecel", price: 12000, category_id: catA._id });
+      await Product.create({ name: "Es Teh", price: 3000, category_id: catB._id });
+
+      // Export all
+      const resAll = await app.request("/api/products/export");
+      assertEquals(resAll.status, 200);
+      assertEquals(resAll.headers.get("Content-Type"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+      // Export filtered by category
+      const resFiltered = await app.request(`/api/products/export?category_id=${catA._id}`);
+      assertEquals(resFiltered.status, 200);
+    });
+
+    await t.step("POST /api/products/import - should import and map custom headers", async () => {
+      await clearTestDB();
+      const user = await createTestUser();
+
+      // Create a mock workbook using sheetjs
+      const mockData = [
+        ["Nama Produk", "SKU", "Kategori", "Harga Jual", "Harga Beli (HPP)", "Stok Sisa", "Deskripsi"],
+        ["Es Jeruk", "MNK-001", "Minuman Dingin", 5000, 2000, 45, "Segar dan nikmat"]
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(mockData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+      const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "buffer" });
+
+      const file = new File([excelBuffer], "test.xlsx", {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      });
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const headers = authHeaders(user);
+      delete headers["Content-Type"];
+
+      const req = new Request("http://localhost/api/products/import", {
+        method: "POST",
+        headers,
+        body: formData
+      });
+
+      const res = await app.fetch(req);
+
+      assertEquals(res.status, 200);
+      const body = await res.json();
+      assertEquals(body.success, true);
+      assertEquals(body.results.added, 1);
+
+      // Verify DB records
+      const product = await Product.findOne({ sku: "MNK-001" }).populate("category_id");
+      assertExists(product);
+      assertEquals(product.name, "Es Jeruk");
+      assertEquals(product.price, 5000);
+      assertEquals(product.cost_price, 2000);
+      assertEquals(product.stock_quantity, 45);
+      assertEquals(product.description, "Segar dan nikmat");
+      assertExists(product.category_id);
+      assertEquals((product.category_id as any).name, "Minuman Dingin");
     });
 
     // ==================== CLEANUP ====================

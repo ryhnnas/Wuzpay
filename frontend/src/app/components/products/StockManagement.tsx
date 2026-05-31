@@ -131,7 +131,7 @@ export function StockManagement() {
           <button
             onClick={() => setSelectedCategory('all')}
             className={cn(
-              "px-6 h-10 rounded-full text-[10px] font-black uppercase transition-all border",
+              "px-4 h-9 rounded-full text-[8px] font-black uppercase transition-all border",
               selectedCategory === 'all' ? "bg-orange-600 text-white border-orange-600 shadow-lg shadow-orange-100" : "bg-white text-gray-400 border-gray-100"
             )}
           >Semua</button>
@@ -140,7 +140,7 @@ export function StockManagement() {
               key={cat._id || cat.id}
               onClick={() => setSelectedCategory(cat._id || cat.id)}
               className={cn(
-                "px-6 h-10 rounded-full text-[10px] font-black uppercase transition-all border",
+                "px-4 h-9 rounded-full text-[8px] font-black uppercase transition-all border",
                 selectedCategory === (cat._id || cat.id) ? "bg-orange-600 text-white border-orange-600 shadow-lg shadow-orange-100" : "bg-white text-gray-400 border-gray-100 hover:border-orange-200"
               )}
             >{cat.name}</button>

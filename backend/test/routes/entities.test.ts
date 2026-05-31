@@ -100,6 +100,8 @@ Deno.test({
       assertEquals(res.status, 200);
       const body = await res.json();
       assertEquals(body.supplier.name, "PT Supplier Jaya");
+      assertEquals(body.supplier.phone, "021-123456");
+      assertEquals(body.supplier.office_address, "Jakarta");
     });
 
     // ==================== DISCOUNTS ====================
@@ -129,6 +131,7 @@ Deno.test({
         headers: authHeaders(user),
         body: JSON.stringify({
           name: "Diskon Member",
+          description: "Khusus member setia WuzPay",
           value_type: "percentage",
           value: 10,
           scope: "transaction",
@@ -139,6 +142,7 @@ Deno.test({
       const body = await res.json();
       assertEquals(body.success, true);
       assertEquals(body.discount.name, "Diskon Member");
+      assertEquals(body.discount.description, "Khusus member setia WuzPay");
       assertEquals(body.discount.value, 10);
     });
 
@@ -161,6 +165,72 @@ Deno.test({
       const body = await res.json();
       assertEquals(body.discount.value_type, "fixed");
       assertEquals(body.discount.value, 5000);
+    });
+
+    // ==================== PUT/UPDATE ENTITIES ====================
+
+    await t.step("PUT /api/entities/customers/:id - should update customer", async () => {
+      await clearTestDB();
+      const user = await createTestUser();
+      const customer = await Customer.create({ name: "Lama", phone: "08123" });
+
+      const res = await app.request(`/api/entities/customers/${customer._id}`, {
+        method: "PUT",
+        headers: authHeaders(user),
+        body: JSON.stringify({ name: "Baru", phone: "08124" }),
+      });
+
+      assertEquals(res.status, 200);
+      const body = await res.json();
+      assertEquals(body.customer.name, "Baru");
+      assertEquals(body.customer.phone, "08124");
+    });
+
+    await t.step("PUT /api/entities/suppliers/:id - should update supplier", async () => {
+      await clearTestDB();
+      const user = await createTestUser();
+      const supplier = await Supplier.create({ name: "Supplier Lama" });
+
+      const res = await app.request(`/api/entities/suppliers/${supplier._id}`, {
+        method: "PUT",
+        headers: authHeaders(user),
+        body: JSON.stringify({ name: "Supplier Baru", phone: "1234" }),
+      });
+
+      assertEquals(res.status, 200);
+      const body = await res.json();
+      assertEquals(body.supplier.name, "Supplier Baru");
+      assertEquals(body.supplier.phone, "1234");
+    });
+
+    await t.step("PUT /api/entities/discounts/:id - should update discount", async () => {
+      await clearTestDB();
+      const user = await createTestUser();
+      const discount = await Discount.create({
+        name: "Diskon Lama",
+        value_type: "percentage",
+        value: 10,
+        scope: "transaction",
+      });
+
+      const res = await app.request(`/api/entities/discounts/${discount._id}`, {
+        method: "PUT",
+        headers: authHeaders(user),
+        body: JSON.stringify({
+          name: "Diskon Baru",
+          description: "Promo diperbarui",
+          value_type: "percentage",
+          value: 15,
+          scope: "transaction",
+        }),
+      });
+
+      assertEquals(res.status, 200);
+      const body = await res.json();
+      assertEquals(body.success, true);
+      assertEquals(body.discount.name, "Diskon Baru");
+      assertEquals(body.discount.description, "Promo diperbarui");
+      assertEquals(body.discount.value, 15);
     });
 
     // ==================== GENERIC DELETE ====================

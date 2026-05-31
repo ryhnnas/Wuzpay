@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DeleteConfirmationDialog } from '@/app/components/ui/DeleteConfirmationDialog';
 import { Plus, Search, Edit, Trash2, Upload, Download, Users, Loader2 } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -35,6 +36,8 @@ export function CustomerManagement() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -142,20 +145,27 @@ export function CustomerManagement() {
     }
   };
 
-  const handleDelete = async (item: any) => {
-    const targetId = item._id || item.id;
-    if (confirm(`Yakin ingin menghapus ${item.name} dari WuzPay?`)) {
-      try {
-        if (activeTab === 'customers') {
-          await customersAPI.delete(targetId);
-        } else {
-          await suppliersAPI.delete(targetId);
-        }
-        toast.success('Kontak berhasil dihapus');
-        loadData();
-      } catch (error) {
-        toast.error('Gagal menghapus data');
+  const handleDelete = (item: any) => {
+    setDeleteTarget(item);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const targetId = deleteTarget._id || deleteTarget.id;
+    setIsDeleting(true);
+    try {
+      if (activeTab === 'customers') {
+        await customersAPI.delete(targetId);
+      } else {
+        await suppliersAPI.delete(targetId);
       }
+      toast.success('Kontak berhasil dihapus');
+      loadData();
+    } catch (error) {
+      toast.error('Gagal menghapus data');
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -367,6 +377,16 @@ export function CustomerManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* DIALOG KONFIRMASI HAPUS */}
+      <DeleteConfirmationDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title={`Hapus ${activeTab === 'customers' ? 'Pelanggan' : 'Supplier'}`}
+        description={`"${deleteTarget?.name}" akan dihapus permanen dari database WuzPay. Data yang dihapus tidak bisa dikembalikan.`}
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
