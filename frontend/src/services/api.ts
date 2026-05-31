@@ -77,6 +77,7 @@ const API_ENDPOINTS = {
   ai: {
     chat: '/api/ai/chat',
     insights: '/api/ai/insights',
+    businessInsights: '/api/ai/business-insights',
     processReceipt: '/api/ai/process-receipt',
     scanReceiptOCR: '/api/ai/scan-receipt-ocr',
     scanReceiptVision: '/api/ai/scan-receipt-vision',
@@ -359,9 +360,20 @@ export const productsAPI = {
     });
   },
 
-  export: () => {
+  export: (filters?: { category_id?: string; search?: string }) => {
     const base = API_BASE_URL.replace(/\/$/, '');
-    window.open(`${base}${API_ENDPOINTS.products.exportExcel}`, '_blank');
+    const params = new URLSearchParams();
+    if (filters?.category_id && filters.category_id !== 'all') {
+      params.append('category_id', filters.category_id);
+    }
+    if (filters?.search) {
+      params.append('search', filters.search);
+    }
+    const query = params.toString();
+    const finalEndpoint = query 
+      ? `${API_ENDPOINTS.products.exportExcel}?${query}`
+      : API_ENDPOINTS.products.exportExcel;
+    window.open(`${base}${finalEndpoint}`, '_blank');
   },
 };
 
@@ -654,18 +666,21 @@ export const aiAPI = {
       const eventName = eventLine ? eventLine.replace('event:', '').trim() : 'message';
       const dataText = dataLine ? dataLine.replace('data:', '').trim() : '{}';
 
+      let payload: any = {};
       try {
-        const payload = JSON.parse(dataText);
-        if (eventName === 'stage') handlers.onStage?.(payload.stage, payload.message);
-        if (eventName === 'chunk') handlers.onChunk(payload.text || '');
-        if (eventName === 'done') handlers.onDone?.(payload);
-        if (eventName === 'error') {
-          const msg = payload.message || 'Terjadi kesalahan streaming AI.';
-          handlers.onError?.(msg);
-          streamError = msg;
-        }
+        payload = JSON.parse(dataText);
       } catch {
         // ignore malformed event payload
+        return;
+      }
+
+      if (eventName === 'stage') handlers.onStage?.(payload.stage, payload.message);
+      if (eventName === 'chunk') handlers.onChunk(payload.text || '');
+      if (eventName === 'done') handlers.onDone?.(payload);
+      if (eventName === 'error') {
+        const msg = payload.message || 'Terjadi kesalahan streaming AI.';
+        streamError = msg;
+        handlers.onError?.(msg);
       }
     };
 
@@ -684,6 +699,7 @@ export const aiAPI = {
     }
   },
   getInsights: async () => apiRequest(API_ENDPOINTS.ai.insights),
+  getBusinessInsights: async () => apiRequest<any>(API_ENDPOINTS.ai.businessInsights),
   processReceipt: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -710,8 +726,8 @@ export const settingsAPI = {
       const res: any = await apiRequest(API_ENDPOINTS.receipt_settings.base);
       const data = Array.isArray(res) ? res[0] : res;
       return {
-        store_name: data?.store_name || 'WUZPAY SINDANGSARI',
-        address: data?.address || 'Jl. Sindangsari No. 01',
+        store_name: data?.store_name || 'WUZPAY',
+        address: data?.address || 'Bandung, Indonesia',
         footer_text: data?.footer_text || 'Terima Kasih!',
         logo_url: data?.logo_url || null,
         show_logo: data?.show_logo ?? false,
@@ -724,7 +740,7 @@ export const settingsAPI = {
         margin_b: data?.margin_b || 20
       };
     } catch (e) {
-      return { store_name: 'WUZPAY SINDANGSARI', paper_size: '58mm' };
+      return { store_name: 'WUZPAY', paper_size: '58mm' };
     }
   },
   updateReceiptSettings: async (config: any) => apiRequest(API_ENDPOINTS.receipt_settings.base, {
@@ -775,5 +791,22 @@ export const ingredientsAPI = {
     return apiRequest(`/api/ingredients/${id}`, {
       method: 'DELETE'
     });
-  }
+  },
+  matchOcrEmbedding: async (items: { nama_barang: string }[], threshold: number = 0.75) => {
+    return apiRequest<{
+      success: boolean;
+      threshold_used: number;
+      matches: Array<{
+        ocr_name: string;
+        matched_id: string | null;
+        matched_name: string | null;
+        confidence: number;
+        confidence_label: 'TINGGI' | 'SEDANG' | 'RENDAH' | 'TIDAK_COCOK';
+        method: 'embedding' | 'string_fallback';
+      }>;
+    }>('/api/ingredients/match-ocr-embedding', {
+      method: 'POST',
+      body: JSON.stringify({ items, threshold }),
+    });
+  },
 };

@@ -19,8 +19,11 @@ const validateCustomer = zValidator('json', customerSchema, (result, c) => {
 
 const supplierSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  contact_person: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
+  office_address: z.string().optional(),
+  contact_info: z.string().optional(),
+  contact_person: z.string().optional(),
   address: z.string().optional()
 });
 
@@ -30,6 +33,7 @@ const validateSupplier = zValidator('json', supplierSchema, (result, c) => {
 
 const discountSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  description: z.string().optional().nullable(),
   value: z.union([z.string(), z.number()]).transform(v => Number(v)),
   value_type: z.enum(['percentage', 'fixed']),
   scope: z.enum(['product', 'category', 'transaction']),
@@ -146,6 +150,7 @@ entities.post("/discounts", validateDiscount, async (c) => {
     // Siapkan data bersih
     const discountData: any = {
       name: body.name,
+      description: body.description,
       value: body.value,
       value_type: body.value_type,
       scope: body.scope,
@@ -169,6 +174,98 @@ entities.post("/discounts", validateDiscount, async (c) => {
     return c.json({ error: error.message || 'Gagal membuat diskon' }, 500);
   }
 });
+
+// PUT Customers
+entities.put("/customers/:id", validateCustomer, async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization') || null;
+    const sessionId = c.req.header('X-Session-ID') || null;
+    const { error: authError } = await verifyAuth(authHeader, sessionId);
+    if (authError) return c.json({ error: authError }, 401);
+
+    const id = c.req.param('id');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return c.json({ error: 'Invalid Customer ID' }, 400);
+    }
+
+    const body = c.req.valid('json');
+    const customer = await Customer.findByIdAndUpdate(id, body, { new: true });
+    if (!customer) return c.json({ error: 'Customer not found' }, 404);
+
+    return c.json({ customer });
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to update customer' }, 500);
+  }
+});
+
+// PUT Suppliers
+entities.put("/suppliers/:id", validateSupplier, async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization') || null;
+    const sessionId = c.req.header('X-Session-ID') || null;
+    const { error: authError } = await verifyAuth(authHeader, sessionId);
+    if (authError) return c.json({ error: authError }, 401);
+
+    const id = c.req.param('id');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return c.json({ error: 'Invalid Supplier ID' }, 400);
+    }
+
+    const body = c.req.valid('json');
+    const supplier = await Supplier.findByIdAndUpdate(id, body, { new: true });
+    if (!supplier) return c.json({ error: 'Supplier not found' }, 404);
+
+    return c.json({ supplier });
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to update supplier' }, 500);
+  }
+});
+
+// PUT Discounts
+entities.put("/discounts/:id", validateDiscount, async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization') || null;
+    const sessionId = c.req.header('X-Session-ID') || null;
+    const { error: authError } = await verifyAuth(authHeader, sessionId);
+    if (authError) return c.json({ error: authError }, 401);
+
+    const id = c.req.param('id');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return c.json({ error: 'Invalid Discount ID' }, 400);
+    }
+
+    const body = c.req.valid('json');
+    const discountData: any = {
+      name: body.name,
+      description: body.description,
+      value: body.value,
+      value_type: body.value_type,
+      scope: body.scope,
+      is_active: body.is_active ?? true,
+      product_id: null,
+      category_id: null
+    };
+
+    if (body.scope === 'product' && mongoose.Types.ObjectId.isValid(body.product_id)) {
+      discountData.product_id = body.product_id;
+    }
+
+    if (body.scope === 'category' && mongoose.Types.ObjectId.isValid(body.category_id)) {
+      discountData.category_id = body.category_id;
+    }
+
+    const discount = await Discount.findByIdAndUpdate(id, discountData, { new: true })
+      .populate('product_id', 'name')
+      .populate('category_id', 'name');
+    if (!discount) return c.json({ error: 'Discount not found' }, 404);
+
+    return c.json({ success: true, discount });
+  } catch (error: any) {
+    console.error("EROR UPDATE DISKON:", error.message);
+    return c.json({ error: error.message || 'Gagal mengubah diskon' }, 500);
+  }
+});
+
 
 // DELETE Generic (Bisa dipakai buat customer/supplier/discount)
 entities.delete("/:type/:id", validateTypeAndId, async (c) => {

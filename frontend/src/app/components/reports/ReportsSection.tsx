@@ -437,7 +437,7 @@ export function ReportsSection() {
           </div>
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total SKU Aktif: {productSales.length} | WuzPay Cloud Sync: 100%</p>
         </div>
-        <p className="text-[9px] font-black text-gray-300 uppercase tracking-[0.5em] italic mt-4 md:mt-0">© 2026 WuzPay POS Sindangsari v3.0.4</p>
+        <p className="text-[9px] font-black text-gray-300 uppercase tracking-[0.5em] italic mt-4 md:mt-0">© 2026 WuzPay POS v3.0.4</p>
       </div>
 
       {/* MODAL EDITOR INTEGRATION */}

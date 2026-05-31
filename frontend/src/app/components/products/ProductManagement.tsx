@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DeleteConfirmationDialog } from '@/app/components/ui/DeleteConfirmationDialog';
 import {
   Plus, Search, Edit, Trash2, Upload, Download, Package,
   AlertCircle, Loader2, Save, ChevronLeft, ChevronRight, Image as ImageIcon,
@@ -40,6 +41,8 @@ export function ProductManagement() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState<any>({
     name: '', sku: '', description: '', category_id: '',
@@ -92,7 +95,33 @@ export function ProductManagement() {
   // --- ACTIONS: PRODUCT ---
   const handleAddProduct = () => {
     setEditingProduct(null);
-    setFormData({ name: '', sku: '', description: '', category_id: '', price: 0, cost_price: 0, image_url: '', recipe: [] });
+
+    // Auto-generate next numeric SKU
+    let nextSkuNum = 1;
+    if (products.length > 0) {
+      const skuNums = products
+        .map(p => {
+          const cleanSku = (p.sku || '').replace(/\D/g, ''); // Ambil hanya angka
+          return cleanSku ? parseInt(cleanSku, 10) : 0;
+        })
+        .filter(n => !isNaN(n) && n > 0);
+      
+      if (skuNums.length > 0) {
+        nextSkuNum = Math.max(...skuNums) + 1;
+      }
+    }
+    const autoSku = String(nextSkuNum).padStart(3, '0');
+
+    setFormData({ 
+      name: '', 
+      sku: autoSku, 
+      description: '', 
+      category_id: '', 
+      price: 0, 
+      cost_price: 0, 
+      image_url: '', 
+      recipe: [] 
+    });
     setShowProductDialog(true);
   };
 
@@ -176,15 +205,23 @@ export function ProductManagement() {
     }
   };
 
-  const handleDelete = async (product: any) => {
-    const targetId = product._id || product.id;
-    if (!confirm(`Hapus menu "${product.name}" secara permanen?`)) return;
+  const handleDelete = (product: any) => {
+    setDeleteTarget(product);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const targetId = deleteTarget._id || deleteTarget.id;
+    setIsDeleting(true);
     try {
       await productsAPI.delete(targetId);
       toast.success('Produk dihapus dari sistem');
       loadData();
     } catch (error) {
       toast.error('Gagal menghapus produk');
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -198,7 +235,10 @@ export function ProductManagement() {
   const handleExportExcel = () => {
     try {
       toast.info("Menyiapkan file excel...");
-      productsAPI.export();
+      productsAPI.export({
+        category_id: selectedCategory,
+        search: searchQuery
+      });
     } catch (error) {
       toast.error("Gagal mendownload data produk");
     }
@@ -268,7 +308,7 @@ export function ProductManagement() {
           <button
             onClick={() => setSelectedCategory('all')}
             className={cn(
-              "px-6 h-11 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+              "px-4 h-9 rounded-full text-[8px] font-black uppercase tracking-widest transition-all",
               selectedCategory === 'all' ? "bg-orange-600 text-white shadow-lg shadow-orange-100" : "bg-gray-100 text-gray-400 hover:bg-orange-50 hover:text-orange-600"
             )}
           >Semua</button>
@@ -277,7 +317,7 @@ export function ProductManagement() {
               key={cat._id || cat.id}
               onClick={() => setSelectedCategory(cat._id || cat.id)}
               className={cn(
-                "px-6 h-11 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+                "px-4 h-9 rounded-full text-[8px] font-black uppercase tracking-widest transition-all",
                 selectedCategory === (cat._id || cat.id) ? "bg-orange-600 text-white shadow-lg shadow-orange-100" : "bg-gray-100 text-gray-400 hover:bg-orange-50 hover:text-orange-600"
               )}
             >{cat.name}</button>
@@ -445,7 +485,7 @@ export function ProductManagement() {
             <DialogTitle className="uppercase font-black tracking-tighter text-3xl italic underline decoration-orange-500 decoration-4">
               {editingProduct ? 'Update' : 'Registrasi'} <span className="text-orange-600">Menu</span>
             </DialogTitle>
-            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">Integrasi Database WuzPay Sindangsari</p>
+            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">Integrasi Database WuzPay Cloud</p>
           </DialogHeader>
 
           <ScrollArea className="max-h-[65vh] w-full overflow-x-hidden">
@@ -459,7 +499,7 @@ export function ProductManagement() {
                 </div>
                 <div className="space-y-1.5 min-w-0">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">SKU / Kode Unik</Label>
-                  <Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} className="w-full rounded-2xl bg-gray-50/50 border-gray-100 h-14 font-black px-6 focus:ring-2 focus:ring-orange-600 transition-all italic text-orange-600" placeholder="WUZ-001..." />
+                  <Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} className="w-full rounded-2xl bg-gray-50/50 border-gray-100 h-14 font-black px-6 focus:ring-2 focus:ring-orange-600 transition-all italic text-orange-600" placeholder="001..." />
                 </div>
               </div>
 
@@ -578,12 +618,22 @@ export function ProductManagement() {
 
           <DialogFooter className="mt-8 flex gap-4">
             <Button variant="ghost" onClick={() => setShowProductDialog(false)} className="rounded-2xl font-black text-[10px] uppercase h-14 flex-1 tracking-widest text-gray-300">Batal</Button>
-            <Button onClick={handleSaveProduct} className="bg-orange-600 hover:bg-orange-600 text-white rounded-2xl font-black shadow-2xl flex-[2] h-14 uppercase tracking-widest text-xs transition-all active:scale-95">
+            <Button onClick={handleSaveProduct} className="bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black shadow-2xl flex-[2] h-14 uppercase tracking-widest text-xs transition-all active:scale-95">
               KONFIRMASI & SIMPAN MENU
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* DIALOG KONFIRMASI HAPUS */}
+      <DeleteConfirmationDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Hapus Menu"
+        description={`Menu "${deleteTarget?.name}" akan dihapus permanen dari katalog WuzPay. Data yang dihapus tidak bisa dikembalikan.`}
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

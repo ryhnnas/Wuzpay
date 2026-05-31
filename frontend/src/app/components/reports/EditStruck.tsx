@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { DeleteConfirmationDialog } from '@/app/components/ui/DeleteConfirmationDialog';
 import { X, Pencil, Trash2, Check, Printer, Save, Download, Eye, Loader2 } from 'lucide-react';
 import { toJpeg } from 'html-to-image';
 import { Button } from '@/app/components/ui/button';
@@ -19,6 +20,7 @@ export function EditStruk({ transactionId, onClose }: { transactionId: string, o
   const [receiptConfig, setReceiptConfig] = useState<any>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteItemTarget, setDeleteItemTarget] = useState<any>(null);
 
   // ==================== 1. LOAD SETTING & DATA ====================
   useEffect(() => {
@@ -202,9 +204,7 @@ export function EditStruk({ transactionId, onClose }: { transactionId: string, o
                               <Pencil className="size-4" />
                             </Button>
                             <Button size="icon" variant="ghost" className="size-9 text-red-400 bg-red-50 hover:bg-red-500 hover:text-white rounded-xl transition-all" onClick={() => {
-                                if(confirm('Hapus menu ini dari struk?')) {
-                                  setItems(items.filter(it => (it._id || it.id) !== itemId));
-                                }
+                                setDeleteItemTarget(item);
                               }}
                             >
                               <Trash2 className="size-4" />
@@ -274,6 +274,21 @@ export function EditStruk({ transactionId, onClose }: { transactionId: string, o
         </div>
 
       </div>
+
+      {/* DIALOG KONFIRMASI HAPUS ITEM STRUK */}
+      <DeleteConfirmationDialog
+        open={!!deleteItemTarget}
+        onOpenChange={(open) => !open && setDeleteItemTarget(null)}
+        title="Hapus Item Struk"
+        description={`Menu "${deleteItemTarget?.product_name || 'Item'}" akan dihapus dari struk ini.`}
+        onConfirm={() => {
+          if (deleteItemTarget) {
+            const targetId = deleteItemTarget._id || deleteItemTarget.id;
+            setItems(items.filter(it => (it._id || it.id) !== targetId));
+            setDeleteItemTarget(null);
+          }
+        }}
+      />
     </div>
   );
 }

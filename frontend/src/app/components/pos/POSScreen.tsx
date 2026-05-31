@@ -25,6 +25,8 @@ import { handleGlobalPrint } from '@/app/components/utils/printHandler';
 import { SuccessTransactionPage } from './SuccessTransactionPage';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 
+import { useGlobalStore } from '@/store/useGlobalStore';
+
 // HELPER GLOBAL AGAR BISA DIAKSES SEMUA KOMPONEN DI FILE INI
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat('id-ID', { 
@@ -36,12 +38,10 @@ const formatRupiah = (amount: number) => {
 
 // MENERIMA PROPS DARI APP.TSX
 export function POSScreen({ 
-  pendingOrders = [], 
-  setPendingOrders, 
   showPendingListDialog, 
   setShowPendingListDialog,
-  refreshPendingOrders 
 }: any) {
+  const { pendingOrders, setPendingOrders, loadPendingOrders: refreshPendingOrders } = useGlobalStore();
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [ingredients, setIngredients] = useState<any[]>([]);
@@ -131,7 +131,7 @@ export function POSScreen({
     setIsLoading(true);
     try {
       const [productsData, categoriesData, discountsData, ingredientsData] = await Promise.all([
-        productsAPI.getAll(),
+        productsAPI.getAll({ includeRecipe: true }),
         categoriesAPI.getAll(),
         discountsAPI.getAll(),
         ingredientsAPI.getAll()
@@ -175,7 +175,7 @@ export function POSScreen({
         const amountNeeded = Number(r.amount_needed) || 1;
         const ing = r.ingredient_id?._id
           ? r.ingredient_id
-          : ingredients.find((i: any) => (i._id || i.id) === r.ingredient_id);
+          : ingredients.find((i: any) => String(i._id || i.id) === String(r.ingredient_id));
 
         if (!ing) { minPortions = 0; break; }
         const stock = Number(ing.stock_quantity ?? ing.stock ?? 0);
@@ -304,12 +304,30 @@ export function POSScreen({
                           product.sku?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   })
-  .sort((a, b) => a.name.localeCompare(b.name));
+  .sort((a, b) => {
+    const countA = calculateAvailability(a).count;
+    const countB = calculateAvailability(b).count;
+    const isOutOfStockA = countA === 0;
+    const isOutOfStockB = countB === 0;
+
+    if (isOutOfStockA && !isOutOfStockB) return 1;
+    if (!isOutOfStockA && isOutOfStockB) return -1;
+    return a.name.localeCompare(b.name);
+  });
 
   const addToCart = (product: any) => {
     const pId = product._id || product.id;
     const { price: effectivePrice } = getEffectivePrice(product);
     const existingItem = cart.find(item => (item._id || item.id) === pId);
+    
+    // Check available stock
+    const { count } = calculateAvailability(product);
+    const currentQty = existingItem ? existingItem.quantity : 0;
+    
+    if (currentQty >= count) {
+      toast.error(`Stok ${product.name} tidak mencukupi!`);
+      return;
+    }
     
     if (existingItem) {
       setCart(cart.map(item =>
@@ -332,6 +350,16 @@ export function POSScreen({
     setCart(cart.map(item => {
       const pId = item._id || item.id;
       if (pId === productId) {
+        if (delta > 0) {
+          const product = products.find(p => (p._id || p.id) === productId);
+          if (product) {
+            const { count } = calculateAvailability(product);
+            if (item.quantity + delta > count) {
+              toast.error(`Stok ${product.name} tidak mencukupi!`);
+              return item;
+            }
+          }
+        }
         const newQty = Math.max(1, item.quantity + delta);
         return { ...item, quantity: newQty, subtotal: newQty * item.price };
       }
@@ -405,7 +433,7 @@ const processPayment = async () => {
         change_amount: transactionPayload.change_amount,
         discount_name: currentDiscountName,    
         discount_amount: currentDiscountAmount,
-        store_name: "SEBLAK MLEDAK"
+        store_name: "WUZPAY"
       });
 
       setShowPaymentDialog(false);
@@ -440,7 +468,7 @@ const processPayment = async () => {
       <div className="h-[calc(100vh-4rem)] w-full flex flex-col items-center justify-center gap-4 bg-white">
         <Loader2 className="size-10 text-orange-600 animate-spin" />
         <p className="font-bold text-gray-400 uppercase text-xs tracking-widest animate-pulse">
-          Sinkronisasi Menu Seblak...
+          Sinkronisasi Menu...
         </p>
       </div>
     );
@@ -551,14 +579,23 @@ const processPayment = async () => {
             ) : filteredProducts.map(product => {
               const discInfo = getEffectivePrice(product);
               const productId = product._id || product.id;
+              const { count, type } = calculateAvailability(product);
+              const isOutOfStock = count === 0;
               return (
                 <Card 
                   key={productId} 
                   className={cn(
-                    "group flex overflow-hidden border-none shadow-sm hover:shadow-md transition-all cursor-pointer ring-1 ring-gray-100 bg-white relative",
-                    viewMode === 'grid' ? "flex-col" : "flex-row h-24"
+                    "group flex overflow-hidden border-none shadow-sm transition-all ring-1 ring-gray-100 bg-white relative",
+                    viewMode === 'grid' ? "flex-col" : "flex-row h-24",
+                    isOutOfStock 
+                      ? "opacity-50 cursor-not-allowed select-none" 
+                      : "cursor-pointer hover:shadow-md"
                   )}
-                  onClick={() => addToCart(product)}
+                  onClick={() => {
+                    if (!isOutOfStock) {
+                      addToCart(product);
+                    }
+                  }}
                 >
                   {discInfo.hasDiscount && (
                     <div className="absolute top-2 right-2 z-50">
@@ -571,7 +608,13 @@ const processPayment = async () => {
                     "relative overflow-hidden bg-gray-50",
                     viewMode === 'grid' ? "aspect-square" : "h-full aspect-square w-24"
                   )}>
-                    <ImageWithFallback src={product.image_url || 'https://placehold.co/150'} className="size-full object-cover group-hover:scale-105 transition-transform" />
+                    <ImageWithFallback 
+                      src={product.image_url || 'https://placehold.co/150'} 
+                      className={cn(
+                        "size-full object-cover transition-transform",
+                        !isOutOfStock && "group-hover:scale-105"
+                      )} 
+                    />
                   </div>
                   <CardContent className={cn(
                     "p-2 flex-1 flex flex-col justify-center",
@@ -588,20 +631,15 @@ const processPayment = async () => {
                       )}
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
                         <span className="text-orange-600 font-black text-sm">{formatRupiah(discInfo.price)}</span>
-                        {(() => {
-                          const { count, type } = calculateAvailability(product);
-                          return (
-                            <div className="flex flex-col items-end">
-                              <Badge variant={count === 0 ? "destructive" : "outline"} className={cn(
-                                "text-[8px] px-1.5 py-0 h-4 font-black border-none",
-                                count === 0 ? "bg-red-500 text-white" : count <= 5 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
-                              )}>
-                                {count === 0 ? 'HABIS' : count}
-                              </Badge>
-                              <span className="text-[7px] font-bold text-gray-400 uppercase mt-0.5">{type}</span>
-                            </div>
-                          );
-                        })()}
+                        <div className="flex flex-col items-end">
+                          <Badge variant={isOutOfStock ? "destructive" : "outline"} className={cn(
+                            "text-[8px] px-1.5 py-0 h-4 font-black border-none",
+                            isOutOfStock ? "bg-red-500 text-white" : count <= 5 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+                          )}>
+                            {isOutOfStock ? 'HABIS' : `Sisa ${count}`}
+                          </Badge>
+                          <span className="text-[7px] font-bold text-gray-400 uppercase mt-0.5">{type}</span>
+                        </div>
                       </div>
                     </div>
                   </CardContent>

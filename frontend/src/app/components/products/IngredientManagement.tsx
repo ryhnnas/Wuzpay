@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DeleteConfirmationDialog } from '@/app/components/ui/DeleteConfirmationDialog';
 import {
     Search, Plus, Minus, Save, RefreshCw, Loader2, ChevronLeft, ChevronRight, ScanLine, Wheat, Trash2, Edit
 } from 'lucide-react';
@@ -31,6 +32,8 @@ export function IngredientManagement() {
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
     const [editForm, setEditForm] = useState({ name: '', unit: '', cost_per_unit: 0 });
+    const [deleteTarget, setDeleteTarget] = useState<any>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -98,15 +101,23 @@ export function IngredientManagement() {
         }
     };
 
-    const handleDelete = async (item: any) => {
-        const id = item._id || item.id;
-        if (!confirm(`Yakin ingin menghapus bahan baku "${item.name}"? Data yang dihapus tidak bisa dikembalikan.`)) return;
+    const handleDelete = (item: any) => {
+        setDeleteTarget(item);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+        const id = deleteTarget._id || deleteTarget.id;
+        setIsDeleting(true);
         try {
             await ingredientsAPI.delete(id);
-            toast.success(`Bahan baku "${item.name}" berhasil dihapus`);
+            toast.success(`Bahan baku "${deleteTarget.name}" berhasil dihapus`);
             await fetchData();
         } catch (error) {
             toast.error('Gagal menghapus bahan baku');
+        } finally {
+            setIsDeleting(false);
+            setDeleteTarget(null);
         }
     };
 
@@ -303,6 +314,16 @@ export function IngredientManagement() {
                 onOpenChange={setShowScanModal}
                 onSaveSuccess={fetchData}
                 ingredients={ingredients}
+            />
+
+            {/* DIALOG KONFIRMASI HAPUS */}
+            <DeleteConfirmationDialog
+                open={!!deleteTarget}
+                onOpenChange={(open) => !open && setDeleteTarget(null)}
+                title="Hapus Bahan Baku"
+                description={`Bahan baku "${deleteTarget?.name}" akan dihapus permanen. Data yang dihapus tidak bisa dikembalikan.`}
+                onConfirm={confirmDelete}
+                isLoading={isDeleting}
             />
         </div>
     );

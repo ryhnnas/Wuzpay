@@ -220,7 +220,7 @@ export function Dashboard() {
   if (isLoading) return (
     <div className="h-[80vh] w-full flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-slate-50 via-slate-50 to-orange-50">
       <Loader2 className="size-10 text-orange-600 animate-spin" />
-      <p className="font-black text-gray-400 uppercase text-xs tracking-widest animate-pulse">Sinkronisasi Data Mledak...</p>
+      <p className="font-black text-gray-400 uppercase text-xs tracking-widest animate-pulse">Sinkronisasi Data...</p>
     </div>
   );
 
@@ -422,7 +422,7 @@ export function Dashboard() {
                   {(() => {
                     const hour = parseInt(peakHour);
                     if (hour >= 11 && hour <= 14) return <span><span className="text-orange-500 font-black">🔥 PEAK HOUR MAKAN SIANG!</span> Persiapan topping & bumbu harus matang 30 menit lebih awal.</span>;
-                    if (hour >= 16 && hour <= 20) return <span><span className="text-orange-500 font-black">🚀 WAR SEBLAK DIMULAI!</span> Optimalkan stok ceker sekarang menyambut lonjakan pesanan.</span>;
+                    if (hour >= 16 && hour <= 20) return <span><span className="text-orange-500 font-black">🚀 JAM SIBUK DIMULAI!</span> Optimalkan stok sekarang menyambut lonjakan pesanan.</span>;
                     return <span><span className="text-orange-500 font-black">📊 TREN MENINGKAT!</span> Waktu yang tepat untuk melakukan pengecekan ketersediaan stok bahan baku utama.</span>;
                   })()}
                 </p>

@@ -62,7 +62,7 @@ export default function SettingPrint() {
       receipt_number: "WUZ-TEST-001",
       created_at: new Date().toISOString(),
       items: [
-        { product_name: "WUZ TEST SEBLAK", quantity: 1, price_at_sale: 15000 },
+        { product_name: "WUZ TEST PRODUCT", quantity: 1, price_at_sale: 15000 },
         { product_name: "TOPPING TEST", quantity: 1, price_at_sale: 5000 },
       ],
       total_amount: 20000,

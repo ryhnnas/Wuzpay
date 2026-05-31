@@ -58,7 +58,7 @@ Buat file env di dalam direktori `backend/`:
 ```bash
 MONGODB_URI=your_mongodb_connection_string
 PORT=8000
-JWT_SECRET=seblak_mledak_rahasia_2026
+JWT_SECRET=wuzpay_super_secret_key_2026
 ```
 
 ### 4. Menjalankan Aplikasi Utama (Satu Klik!)

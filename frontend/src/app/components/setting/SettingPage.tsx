@@ -239,7 +239,7 @@ export default function SettingsPage({ onLogout }: SettingsPageProps) {
         <div className="inline-flex items-center gap-4 px-6 py-2 bg-gray-100 rounded-full mb-4">
            <div className="size-2 bg-orange-600 rounded-full animate-ping" />
            <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.6em] italic">
-             WuzPay Ecosystem • Sindangsari Sindangsari Edition
+             WuzPay Ecosystem • Professional Edition
            </p>
         </div>
       </div>

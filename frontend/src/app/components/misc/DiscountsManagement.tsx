@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DeleteConfirmationDialog } from '@/app/components/ui/DeleteConfirmationDialog';
 import { Plus, Edit, Trash2, Tag, Layers, Package, Loader2, Info, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
@@ -40,6 +41,8 @@ export function DiscountsManagement() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState<any>({
     name: '',
@@ -133,15 +136,23 @@ export function DiscountsManagement() {
     }
   };
 
-  const handleDelete = async (discount: any) => {
-    const targetId = discount._id || discount.id;
-    if (!confirm(`Hapus promo "${discount.name}" secara permanen?`)) return;
+  const handleDelete = (discount: any) => {
+    setDeleteTarget(discount);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const targetId = deleteTarget._id || deleteTarget.id;
+    setIsDeleting(true);
     try {
       await discountsAPI.delete(targetId);
       toast.success('Promo dihapus dari sistem');
       loadData();
     } catch (error) {
       toast.error('Gagal menghapus diskon');
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -232,7 +243,7 @@ export function DiscountsManagement() {
             <DialogTitle className="uppercase font-black tracking-tighter text-center text-3xl italic">
               {editingDiscount ? 'Update' : 'Konfigurasi'} <span className="text-orange-600">Promo</span>
             </DialogTitle>
-            <p className="text-center text-[10px] font-black uppercase tracking-widest text-gray-300 mt-2">Strategi Diskon WuzPay Sindangsari</p>
+            <p className="text-center text-[10px] font-black uppercase tracking-widest text-gray-300 mt-2">Strategi Diskon WuzPay POS</p>
           </DialogHeader>
 
           <div className="space-y-6">
@@ -356,14 +367,24 @@ export function DiscountsManagement() {
           </div>
 
           <DialogFooter className="mt-10 flex gap-4">
-            <Button variant="ghost" onClick={() => setShowDialog(false)} className="bg-orange-600 rounded-2xl font-black uppercase text-[10px] tracking-widest h-14 px-8 flex-1">Batal</Button>
-            <Button onClick={handleSave} disabled={isSaving} className="bg-orange-600 hover:bg-orange-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl h-14 flex-[2] transition-all">
+            <Button variant="ghost" onClick={() => setShowDialog(false)} className="rounded-2xl font-black uppercase text-[10px] tracking-widest h-14 px-8 flex-1 text-gray-400">Batal</Button>
+            <Button onClick={handleSave} disabled={isSaving} className="bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl h-14 flex-[2] transition-all">
               {isSaving ? <Loader2 className="animate-spin size-4" /> : <CheckCircle2 className="mr-2 size-4" />}
               AKTIFKAN PROMO
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* DIALOG KONFIRMASI HAPUS */}
+      <DeleteConfirmationDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Hapus Promo"
+        description={`Promo "${deleteTarget?.name}" akan dihapus permanen dari sistem WuzPay.`}
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
