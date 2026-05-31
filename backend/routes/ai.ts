@@ -12,6 +12,8 @@ import { toWIBDateString } from "../lib/date.ts";
 
 const ai = new Hono();
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const MAX_PROMPT_LENGTH = 2000;
 const MAX_AGENT_STEPS = 4;
 

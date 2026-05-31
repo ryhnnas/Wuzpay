@@ -40,8 +40,8 @@ type Step = 'method' | 'upload' | 'processing' | 'results' | 'confirm-new' | 'sa
 type ScanMethod = 'ocr' | 'vision';
 
 export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredients }: ScanReceiptModalProps) {
-  const [step, setStep] = useState<Step>('method');
-  const [method, setMethod] = useState<ScanMethod | null>(null);
+  const [step, setStep] = useState<Step>('upload');
+  const [method, setMethod] = useState<ScanMethod | null>('vision');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
@@ -58,8 +58,8 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
   useEffect(() => {
     if (!open) {
       setTimeout(() => {
-        setStep('method');
-        setMethod(null);
+        setStep('upload');
+        setMethod('vision');
         setSelectedFile(null);
         setPreviewUrl(null);
         setScannedItems([]);
@@ -433,14 +433,14 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
   const renderUploadStep = () => (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-2">
-        <Button
+        {/* <Button
           variant="ghost"
           size="sm"
           onClick={() => { setStep('method'); setSelectedFile(null); setPreviewUrl(null); }}
           className="rounded-xl h-9 px-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-orange-600"
         >
           <ArrowLeft className="size-3 mr-1.5" /> Kembali
-        </Button>
+        </Button> */}
         <Badge className="bg-orange-100 text-orange-700 border-none font-black text-[10px] uppercase tracking-wider px-3 py-1 rounded-lg">
           {method === 'ocr' ? 'OCR Engine' : 'LLM Vision'}
         </Badge>
@@ -560,7 +560,7 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
         </Button>
       </div>
 
-      {/* Threshold Slider */}
+      {/* Threshold Slider
       <div className="p-4 rounded-2xl bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-100">
         <div className="flex items-center justify-between mb-2">
           <div>
@@ -584,6 +584,7 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
           <span>0.95 (Ketat)</span>
         </div>
       </div>
+      */}
 
       {rawData?.data?.tanggal && (
         <div className="p-3 rounded-2xl bg-gray-50 flex items-center gap-3">
@@ -622,7 +623,7 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
                   {item.matched_product_name && (
                     <p className="text-[8px] font-black text-emerald-600 mt-0.5 px-2 uppercase tracking-wide">
                       ✓ {item.matched_product_name}
-                      {item.match_method === 'embedding' && <span className="text-violet-400 ml-1">[AI]</span>}
+                      {/* {item.match_method === 'embedding' && <span className="text-violet-400 ml-1">[AI]</span>} */}
                     </p>
                   )}
                   {item.is_new && item.nama_barang && (
@@ -830,7 +831,7 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-[32px] border-none shadow-2xl bg-white p-8">
         <DialogHeader>
           <DialogTitle className="font-black text-xs uppercase tracking-[0.3em] text-gray-300">
-            {step === 'method' && 'SCAN RESI'}
+            {/* {step === 'method' && 'SCAN RESI'} */}
             {step === 'upload' && 'UPLOAD STRUK'}
             {step === 'processing' && 'MEMPROSES'}
             {step === 'results' && 'HASIL SCAN'}
@@ -843,7 +844,7 @@ export function ScanReceiptModal({ open, onOpenChange, onSaveSuccess, ingredient
           </DialogDescription>
         </DialogHeader>
 
-        {step === 'method' && renderMethodStep()}
+        {/* {step === 'method' && renderMethodStep()} */}
         {step === 'upload' && renderUploadStep()}
         {step === 'processing' && renderProcessingStep()}
         {step === 'results' && renderResultsStep()}

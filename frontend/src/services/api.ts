@@ -666,18 +666,21 @@ export const aiAPI = {
       const eventName = eventLine ? eventLine.replace('event:', '').trim() : 'message';
       const dataText = dataLine ? dataLine.replace('data:', '').trim() : '{}';
 
+      let payload: any = {};
       try {
-        const payload = JSON.parse(dataText);
-        if (eventName === 'stage') handlers.onStage?.(payload.stage, payload.message);
-        if (eventName === 'chunk') handlers.onChunk(payload.text || '');
-        if (eventName === 'done') handlers.onDone?.(payload);
-        if (eventName === 'error') {
-          const msg = payload.message || 'Terjadi kesalahan streaming AI.';
-          handlers.onError?.(msg);
-          streamError = msg;
-        }
+        payload = JSON.parse(dataText);
       } catch {
         // ignore malformed event payload
+        return;
+      }
+
+      if (eventName === 'stage') handlers.onStage?.(payload.stage, payload.message);
+      if (eventName === 'chunk') handlers.onChunk(payload.text || '');
+      if (eventName === 'done') handlers.onDone?.(payload);
+      if (eventName === 'error') {
+        const msg = payload.message || 'Terjadi kesalahan streaming AI.';
+        streamError = msg;
+        handlers.onError?.(msg);
       }
     };
 
