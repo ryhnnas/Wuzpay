@@ -49,18 +49,25 @@ const validateAddStock = zValidator('json', addStockSchema, (result, c) => {
 const products = new Hono();
 
 // ==================== GET ALL PRODUCTS ====================
-products.get("/", validatePagination, async (c) => {
+products.get("/", async (c) => {
   try {
-    const { page, limit } = c.req.valid('query');
-    const skip = (page - 1) * limit;
+    const pageStr = c.req.query("page");
+    const limitStr = c.req.query("limit");
+    const hasPage = pageStr !== undefined;
+    const hasLimit = limitStr !== undefined;
     const includeRecipe = c.req.query("include_recipe") === "true";
 
     const total = await Product.countDocuments();
-    const query = Product.find()
+    let query = Product.find()
       .populate('category_id', 'name')
-      .sort({ name: 1 })
-      .skip(skip)
-      .limit(limit);
+      .sort({ name: 1 });
+
+    if (hasPage || hasLimit) {
+      const page = parseInt(pageStr || "1") || 1;
+      const limit = parseInt(limitStr || "50") || 50;
+      const skip = (page - 1) * limit;
+      query = query.skip(skip).limit(limit);
+    }
 
     if (!includeRecipe) {
       query.select("-recipe");
@@ -70,13 +77,16 @@ products.get("/", validatePagination, async (c) => {
 
     const productsData = await query.lean();
 
+    const finalPage = hasPage ? (parseInt(pageStr || "1") || 1) : 1;
+    const finalLimit = hasLimit ? (parseInt(limitStr || "50") || 50) : total;
+
     return c.json({ 
       products: productsData || [],
       meta: {
         total,
-        current_page: page,
-        total_pages: Math.ceil(total / limit),
-        limit
+        current_page: finalPage,
+        total_pages: hasLimit ? Math.ceil(total / finalLimit) : 1,
+        limit: finalLimit
       }
     });
   } catch (error) {

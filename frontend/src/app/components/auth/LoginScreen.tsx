@@ -75,7 +75,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
     } catch (error: any) {
       if (isNetworkError(error)) {
-        toast.error("Tidak bisa login saat offline. Sambungkan internet lalu coba lagi.");
+        toast.error(error.message || "Tidak bisa login saat offline. Sambungkan internet lalu coba lagi.");
       } else {
         // Error sekarang diambil dari response JSON backend (errorData.error)
         toast.error(error.message || "Akses ditolak. Cek email/password.");

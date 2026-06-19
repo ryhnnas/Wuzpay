@@ -59,9 +59,9 @@ export default function SettingsPage({ onLogout }: SettingsPageProps) {
         <button 
           onClick={handleSaveAll}
           disabled={isSaving}
-          className="bg-orange-600 hover:bg-orange-600 text-white px-8 py-4 rounded-[22px] flex items-center gap-3 font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 shadow-2xl shadow-gray-200"
+          className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-4 rounded-[22px] flex items-center gap-3 font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 shadow-2xl shadow-gray-200"
         >
-          {isSaving ? <span className="animate-spin text-lg">●</span> : <Save className="size-5 text-orange-500" />}
+          {isSaving ? <span className="animate-spin text-lg">●</span> : <Save className="size-5 text-white" />}
           Commit All Changes
         </button>
       </div>
@@ -95,15 +95,15 @@ export default function SettingsPage({ onLogout }: SettingsPageProps) {
             {/* QUICK LINK KE PRINTER */}
             <div className="mt-6 p-6 bg-orange-600 rounded-[32px] flex items-center justify-between group cursor-pointer hover:bg-orange-700 transition-all shadow-xl shadow-gray-200">
                <div className="flex items-center gap-5">
-                  <div className="p-4 bg-orange-600 rounded-2xl text-white shadow-lg shadow-orange-600/20 group-hover:scale-110 transition-transform">
+                  <div className="p-4 bg-orange-700 rounded-2xl text-white shadow-lg shadow-orange-800/20 group-hover:scale-110 transition-transform">
                     <Printer className="size-6" />
                   </div>
                   <div>
                     <p className="text-white font-black text-sm uppercase italic">Hardware Interface</p>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-1">Thermal Printer Setup</p>
+                    <p className="text-orange-100 text-[10px] font-bold uppercase tracking-widest mt-1">Thermal Printer Setup</p>
                   </div>
                </div>
-               <ChevronRight className="text-gray-700 group-hover:text-white transition-colors size-6" />
+               <ChevronRight className="text-orange-200 group-hover:text-white transition-colors size-6" />
             </div>
           </div>
 
@@ -220,7 +220,7 @@ export default function SettingsPage({ onLogout }: SettingsPageProps) {
               value={config.n8nWebhook}
               onChange={(e) => setConfig({...config, n8nWebhook: e.target.value})}
               placeholder="https://n8n.wuzpay.id/webhook/..."
-              className="w-full rounded-[32px] border-none bg-orange-600 text-orange-400 px-8 py-6 text-xs font-mono outline-none focus:ring-4 focus:ring-orange-600/20 shadow-2xl"
+              className="w-full rounded-[32px] border border-gray-100 bg-gray-50 text-gray-800 px-8 py-6 text-xs font-mono outline-none focus:ring-4 focus:ring-orange-600/20 shadow-inner placeholder:text-gray-300 transition-all"
             />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

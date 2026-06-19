@@ -104,7 +104,7 @@ export default function SettingPrint() {
         <Card className="rounded-[40px] border-none shadow-[0_8px_40px_rgba(0,0,0,0.04)] overflow-hidden bg-white">
           <CardHeader className="bg-orange-600 text-white p-8">
             <CardTitle className="text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3">
-              <Settings2 className="size-5 text-orange-600" /> Link Protocol
+              <Settings2 className="size-5 text-white" /> Link Protocol
             </CardTitle>
           </CardHeader>
           <CardContent className="p-8 space-y-4">
@@ -202,16 +202,16 @@ export default function SettingPrint() {
         <Button 
           variant="ghost"
           onClick={handleTestPrint}
-          className="flex-1 h-20 rounded-[32px] border-2 border-gray-100 bg-white font-black text-[11px] uppercase tracking-[0.3em] text-gray-500 hover:bg-orange-600 hover:text-white transition-all shadow-sm"
+          className="flex-1 h-20 rounded-[32px] border-2 border-gray-100 bg-white font-black text-[11px] uppercase tracking-[0.3em] text-gray-500 hover:bg-orange-600 hover:text-white transition-all shadow-sm group"
         >
-          <Printer className="mr-3 size-5 text-orange-600" /> Dispatch Test Unit
+          <Printer className="mr-3 size-5 text-orange-600 group-hover:text-white transition-colors" /> Dispatch Test Unit
         </Button>
         <Button 
           onClick={handleSave}
           disabled={isLoading}
-          className="flex-[1.5] h-20 bg-orange-600 hover:bg-orange-600 text-white rounded-[32px] font-black text-[11px] uppercase tracking-[0.3em] shadow-2xl transition-all active:scale-95"
+          className="flex-[1.5] h-20 bg-orange-600 hover:bg-orange-700 text-white rounded-[32px] font-black text-[11px] uppercase tracking-[0.3em] shadow-2xl transition-all active:scale-95"
         >
-          {isLoading ? <RefreshCw className="animate-spin mr-3 size-5" /> : <CheckCircle2 className="mr-3 size-5 text-orange-500" />}
+          {isLoading ? <RefreshCw className="animate-spin mr-3 size-5" /> : <CheckCircle2 className="mr-3 size-5 text-white" />}
           Commit Configuration
         </Button>
       </div>

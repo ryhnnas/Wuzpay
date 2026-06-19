@@ -1,9 +1,11 @@
 {
   "version": "5",
   "specifiers": {
-    "npm:@hono/zod-validator@*": "0.7.6_hono@4.12.9_zod@4.3.6",
+    "npm:@hono/zod-validator@*": "0.2.2_hono@4.12.9_zod@3.25.76",
+    "npm:@hono/zod-validator@0.2": "0.2.2_hono@4.12.9_zod@3.25.76",
     "npm:@supabase/supabase-js@2": "2.95.3",
     "npm:@xenova/transformers@*": "2.17.2",
+    "npm:@xenova/transformers@^2.17.2": "2.17.2",
     "npm:bcryptjs@*": "2.4.3",
     "npm:bcryptjs@^2.4.3": "2.4.3",
     "npm:dotenv@*": "17.4.1",
@@ -16,11 +18,12 @@
     "npm:mongoose@8": "8.23.0",
     "npm:xlsx@*": "0.18.5",
     "npm:xlsx@0.18": "0.18.5",
-    "npm:zod@*": "4.3.6"
+    "npm:zod@*": "3.25.76",
+    "npm:zod@3": "3.25.76"
   },
   "npm": {
-    "@hono/zod-validator@0.7.6_hono@4.12.9_zod@4.3.6": {
-      "integrity": "sha512-Io1B6d011Gj1KknV4rXYz4le5+5EubcWEU/speUjuw9XMMIaP3n78yXLhjd2A3PXaXaUwEAluOiAyLqhBEJgsw==",
+    "@hono/zod-validator@0.2.2_hono@4.12.9_zod@3.25.76": {
+      "integrity": "sha512-dSDxaPV70Py8wuIU2QNpoVEIOSzSXZ/6/B/h4xA7eOMz7+AarKTSGV8E6QwrdcCbBLkpqfJ4Q2TmBO0eP1tCBQ==",
       "dependencies": [
         "hono",
         "zod"
@@ -169,7 +172,7 @@
     "bare-events@2.8.2": {
       "integrity": "sha512-riJjyv1/mHLIPX4RwiK+oW9/4c3TEUeORHKefKAKnZ5kyslbN+HXowtbaVEqt4IMUB7OXlfixcs6gsFeo/jhiQ=="
     },
-    "bare-fs@4.7.1": {
+    "bare-fs@4.7.1_bare-events@2.8.2": {
       "integrity": "sha512-WDRsyVN52eAx/lBamKD6uyw8H4228h/x0sGGGegOamM2cd7Pag88GfMQalobXI+HaEUxpCkbKQUDOQqt9wawRw==",
       "dependencies": [
         "bare-events",
@@ -868,8 +871,8 @@
         "pend"
       ]
     },
-    "zod@4.3.6": {
-      "integrity": "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="
+    "zod@3.25.76": {
+      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="
     }
   },
   "remote": {
@@ -910,16 +913,26 @@
   },
   "workspace": {
     "dependencies": [
+      "npm:@hono/zod-validator@0.2",
+      "npm:@xenova/transformers@^2.17.2",
       "npm:bcryptjs@^2.4.3",
       "npm:hono@4",
       "npm:jsonwebtoken@9",
       "npm:mongodb-memory-server@10",
       "npm:mongoose@8",
-      "npm:xlsx@0.18"
+      "npm:xlsx@0.18",
+      "npm:zod@3"
     ],
     "packageJson": {
       "dependencies": [
-        "npm:mongoose@8"
+        "npm:@hono/zod-validator@0.2",
+        "npm:@xenova/transformers@^2.17.2",
+        "npm:bcryptjs@^2.4.3",
+        "npm:hono@4",
+        "npm:jsonwebtoken@9",
+        "npm:mongoose@8",
+        "npm:xlsx@~0.18.5",
+        "npm:zod@3"
       ]
     }
   }

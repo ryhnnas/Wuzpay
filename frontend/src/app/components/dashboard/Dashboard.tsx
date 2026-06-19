@@ -24,13 +24,18 @@ export function Dashboard() {
   const [ingredients, setIngredients] = useState<any[]>([]);
   const [summaryData, setSummaryData] = useState({ totalRevenue: 0, totalProfit: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(false);
 
   useEffect(() => {
-    loadDashboardData();
+    loadDashboardData(transactions.length === 0 && products.length === 0);
   }, [dateRange, startDate, endDate]);
 
-  const loadDashboardData = async () => {
-    setIsLoading(true);
+  const loadDashboardData = async (isInitial = false) => {
+    if (isInitial) {
+      setIsLoading(true);
+    } else {
+      setIsDataLoading(true);
+    }
     try {
       const user = JSON.parse(localStorage.getItem('user_data') || '{}');
       const entityId = user.entity_id;
@@ -56,7 +61,11 @@ export function Dashboard() {
         sStr = toLocalDate(firstDay);
         eStr = toLocalDate(lastDay);
       } else if (dateRange === 'custom') {
-        if (!startDate || !endDate) { setIsLoading(false); return; }
+        if (!startDate || !endDate) { 
+          setIsLoading(false); 
+          setIsDataLoading(false);
+          return; 
+        }
         sStr = startDate; // sudah format yyyy-MM-dd dari input
         eStr = endDate;
       }
@@ -90,6 +99,7 @@ export function Dashboard() {
       toast.error("Gagal sinkronisasi data");
     } finally {
       setIsLoading(false);
+      setIsDataLoading(false);
     }
   };
 
@@ -252,6 +262,9 @@ export function Dashboard() {
             <p className="text-gray-500 text-sm italic underline decoration-orange-300">Data Real-Time Transaksi</p>
           </div> */}
           <div className="flex items-center bg-white/70 backdrop-blur-md p-2 rounded-2xl shadow-md border border-gray-200/50 gap-2 flex-wrap justify-end ml-auto">
+            {isDataLoading && (
+              <Loader2 className="size-4 text-orange-600 animate-spin mr-2" />
+            )}
             <Select value={dateRange} onValueChange={setDateRange}>
               <SelectTrigger className="w-45 border-none bg-gray-50/50 font-black text-[10px] rounded-xl hover:bg-gray-100/50 transition-colors">
                 <Calendar className="mr-2 size-3 text-orange-600" />

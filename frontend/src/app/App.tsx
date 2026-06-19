@@ -35,12 +35,8 @@ const SettingAkses = lazy(() => import('./components/setting/SettingAkses'));
 const IngredientManagement = lazy(() => import('./components/products/IngredientManagement').then(m => ({ default: m.IngredientManagement })));
 
 const sendDebugLog = (payload: Record<string, unknown>) => {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-  fetch('http://127.0.0.1:7803/ingest/bf88b2af-7fcc-4dce-92b2-66169c85c570', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b291df' },
-    body: JSON.stringify(payload),
-  }).catch(() => {});
+  // Disabled to prevent ERR_CONNECTION_REFUSED in local development
+  return;
 };
 
 function App() {

@@ -134,7 +134,7 @@ export default function SettingStruk() {
         <Card className="rounded-[40px] border-none shadow-[0_8px_40px_rgba(0,0,0,0.04)] overflow-hidden bg-white">
           <CardHeader className="bg-orange-600 text-white p-8">
             <CardTitle className="text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3">
-              <Printer className="size-5 text-orange-600" /> System Branding & Hardware Link
+              <Printer className="size-5 text-white" /> System Branding & Hardware Link
             </CardTitle>
           </CardHeader>
           
@@ -153,7 +153,7 @@ export default function SettingStruk() {
                     <input type="file" ref={fileInputRef} hidden onChange={handleLogoChange} />
                   </div>
                   <div className="flex flex-col items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} className="h-8 rounded-xl font-black text-[9px] uppercase bg-orange-600 text-white hover:bg-orange-600 transition-all">
+                    <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} className="h-8 rounded-xl font-black text-[9px] uppercase bg-orange-600 text-white hover:bg-orange-700 transition-all">
                       Update Logo
                     </Button>
                     <div className="flex items-center gap-3 mt-1">
@@ -272,9 +272,9 @@ export default function SettingStruk() {
             <Button 
               onClick={handleSave} 
               disabled={loading}
-              className="w-full h-20 bg-orange-600 hover:bg-orange-600 text-white rounded-[28px] font-black uppercase tracking-[0.3em] shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-4 mt-4"
+              className="w-full h-20 bg-orange-600 hover:bg-orange-700 text-white rounded-[28px] font-black uppercase tracking-[0.3em] shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-4 mt-4"
             >
-              {loading ? <Loader2 className="animate-spin size-6" /> : <Save className="size-6 text-orange-500" />}
+              {loading ? <Loader2 className="animate-spin size-6" /> : <Save className="size-6 text-white" />}
               Push Configuration to Cloud
             </Button>
           </CardContent>
@@ -289,7 +289,7 @@ export default function SettingStruk() {
                 <div className="size-3 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
                 <span className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Live Feed Preview</span>
              </div>
-             <Printer className="size-5 text-gray-600" />
+             <Printer className="size-5 text-orange-100" />
           </div>
 
           <div className="bg-gray-100 p-10 border-x border-gray-200 min-h-[500px] flex justify-center overflow-hidden">

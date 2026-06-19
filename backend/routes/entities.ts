@@ -59,25 +59,35 @@ const validateTypeAndId = zValidator('param', typeAndIdSchema, (result, c) => {
 const entities = new Hono();
 
 // ==================== CUSTOMERS ====================
-entities.get("/customers", validatePagination, async (c) => {
+entities.get("/customers", async (c) => {
   try {
-    const { page, limit } = c.req.valid('query');
-    const skip = (page - 1) * limit;
+    const pageStr = c.req.query("page");
+    const limitStr = c.req.query("limit");
+    const hasPage = pageStr !== undefined;
+    const hasLimit = limitStr !== undefined;
 
     const total = await Customer.countDocuments();
-    const customers = await Customer.find()
-      .sort({ name: 1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    let query = Customer.find().sort({ name: 1 });
+
+    if (hasPage || hasLimit) {
+      const page = parseInt(pageStr || "1") || 1;
+      const limit = parseInt(limitStr || "50") || 50;
+      const skip = (page - 1) * limit;
+      query = query.skip(skip).limit(limit);
+    }
+
+    const customers = await query.lean();
+
+    const finalPage = hasPage ? (parseInt(pageStr || "1") || 1) : 1;
+    const finalLimit = hasLimit ? (parseInt(limitStr || "50") || 50) : total;
 
     return c.json({
       customers: customers || [],
       meta: {
         total,
-        current_page: page,
-        total_pages: Math.ceil(total / limit),
-        limit
+        current_page: finalPage,
+        total_pages: hasLimit ? Math.ceil(total / finalLimit) : 1,
+        limit: finalLimit
       }
     });
   } catch (error) {
