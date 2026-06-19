@@ -57,7 +57,7 @@ export function SuccessTransactionPage({ transaction, onBackToPOS }: any) {
 
           <div className="flex flex-col gap-4">
             <Button 
-              onClick={() => handleGlobalPrint({ ...transaction, store_name: "WUZPAY SINDANGSARI" })}
+              onClick={() => handleGlobalPrint({ ...transaction, store_name: "WUZPAY" })}
               className="h-20 bg-white hover:bg-gray-50 text-orange-600 border-2 border-gray-100 rounded-[28px] font-black text-xl shadow-sm flex gap-4 transition-all active:scale-95 group"
             >
               <Printer className="size-7 text-orange-600 group-hover:rotate-12 transition-transform" />
@@ -88,7 +88,7 @@ export function SuccessTransactionPage({ transaction, onBackToPOS }: any) {
                 </div>
                 <h2 className="font-black text-2xl tracking-tighter uppercase italic">WUZ<span className="text-orange-600">PAY</span></h2>
                 <p className="text-[10px] leading-tight text-gray-400 uppercase font-bold tracking-tighter">
-                  SINDANGSARI - KOTA BANDUNG <br />
+                  KOTA BANDUNG <br />
                   WA: 0812-XXXX-XXXX
                 </p>
               </div>
@@ -144,8 +144,8 @@ export function SuccessTransactionPage({ transaction, onBackToPOS }: any) {
               </div>
 
               <div className="mt-12 pt-8 border-t border-dashed border-gray-100 text-center space-y-2">
-                <p className="font-black uppercase tracking-[0.3em] text-xs">WuzPay Sindangsari</p>
-                <p className="text-[10px] text-gray-300 italic font-bold">"Nikmati seblaknya, rasakan ledakannya!"</p>
+                <p className="font-black uppercase tracking-[0.3em] text-xs">WuzPay POS</p>
+                <p className="text-[10px] text-gray-300 italic font-bold">"Solusi Pembayaran Cerdas & Cepat"</p>
               </div>
             </CardContent>
             

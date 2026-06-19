@@ -15,6 +15,7 @@ import { invalidateCache } from "../lib/ai/utils/cache.ts";
 const invalidateIngredientCache = () => {
   invalidateCache("ingredient_list");
   invalidateCache("low_stock_ingredients");
+  invalidateCache("ocr_ingredient_emb:"); // [OCR Embedding] hapus cache vektor saat ingredient berubah
 };
 
 IngredientSchema.post('save', invalidateIngredientCache);

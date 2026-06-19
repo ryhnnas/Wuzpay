@@ -1,35 +1,38 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Loader2 } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Toaster } from '@/app/components/ui/sonner';
 import { toast } from 'sonner';
 import { Sidebar } from '@/app/components/layout/Sidebar';
 import { Header } from '@/app/components/layout/Header';
-import { Dashboard } from '@/app/components/dashboard/Dashboard';
-import { POSScreen } from '@/app/components/pos/POSScreen';
-import KategoriManagement from './components/products/KategoriManagement';
-import { ProductManagement } from '@/app/components/products/ProductManagement';
-import { CustomerManagement } from '@/app/components/customers/CustomerManagement';
-import { ProductSalesReport } from '@/app/components/reports/ProductSalesReport';
-import { CategorySalesReport } from '@/app/components/reports/CategorySalesReport';
-import { QrisReportPage } from '@/app/components/reports/QrisReportPage';
-import { ReportsSection } from '@/app/components/reports/ReportsSection';
-import { AIAssistant } from '@/app/components/ai/AIAssistant';
-import { AIInsights } from '@/app/components/ai/AIInsights';
-import { DiscountsManagement } from '@/app/components/misc/DiscountsManagement';
-import { CashDrawer } from '@/app/components/misc/CashDrawer';
 import { LoginScreen } from '@/app/components/auth/LoginScreen';
 import { User } from '@/types';
-import { StockManagement } from './components/products/StockManagement';
-import SettingsPage from './components/setting/SettingPage';
-import SettingStruk from './components/setting/SettingStruk';
-import SettingPrint from './components/setting/SettingPrint';
-import SettingAkses from './components/setting/SettingAkses';
-import { APIRequestError, authAPI, isNetworkError, isUnauthorizedError, pendingOrdersAPI, permissionsAPI, transactionsAPI } from '@/services/api';
-import { IngredientManagement } from './components/products/IngredientManagement';
+import { APIRequestError, authAPI, isNetworkError, isUnauthorizedError, permissionsAPI, transactionsAPI } from '@/services/api';
 import { OfflineBanner } from './components/ui/OfflineBanner';
 import db from '@/services/db';
+import { useGlobalStore } from '@/store/useGlobalStore';
+
+// Lazy loaded page components
+const Dashboard = lazy(() => import('@/app/components/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
+const POSScreen = lazy(() => import('@/app/components/pos/POSScreen').then(m => ({ default: m.POSScreen })));
+const KategoriManagement = lazy(() => import('./components/products/KategoriManagement'));
+const ProductManagement = lazy(() => import('@/app/components/products/ProductManagement').then(m => ({ default: m.ProductManagement })));
+const CustomerManagement = lazy(() => import('@/app/components/customers/CustomerManagement').then(m => ({ default: m.CustomerManagement })));
+const ProductSalesReport = lazy(() => import('@/app/components/reports/ProductSalesReport').then(m => ({ default: m.ProductSalesReport })));
+const CategorySalesReport = lazy(() => import('@/app/components/reports/CategorySalesReport').then(m => ({ default: m.CategorySalesReport })));
+const QrisReportPage = lazy(() => import('@/app/components/reports/QrisReportPage').then(m => ({ default: m.QrisReportPage })));
+const ReportsSection = lazy(() => import('@/app/components/reports/ReportsSection').then(m => ({ default: m.ReportsSection })));
+const AIAssistant = lazy(() => import('@/app/components/ai/AIAssistant').then(m => ({ default: m.AIAssistant })));
+const AIInsights = lazy(() => import('@/app/components/ai/AIInsights').then(m => ({ default: m.AIInsights })));
+const DiscountsManagement = lazy(() => import('@/app/components/misc/DiscountsManagement').then(m => ({ default: m.DiscountsManagement })));
+const CashDrawer = lazy(() => import('@/app/components/misc/CashDrawer').then(m => ({ default: m.CashDrawer })));
+const StockManagement = lazy(() => import('./components/products/StockManagement').then(m => ({ default: m.StockManagement })));
+const SettingsPage = lazy(() => import('./components/setting/SettingPage'));
+const SettingStruk = lazy(() => import('./components/setting/SettingStruk'));
+const SettingPrint = lazy(() => import('./components/setting/SettingPrint'));
+const SettingAkses = lazy(() => import('./components/setting/SettingAkses'));
+const IngredientManagement = lazy(() => import('./components/products/IngredientManagement').then(m => ({ default: m.IngredientManagement })));
 
 const sendDebugLog = (payload: Record<string, unknown>) => {
   // Disabled to prevent ERR_CONNECTION_REFUSED in local development
@@ -42,25 +45,12 @@ function App() {
 
   const [currentUser, setCurrentUser] = useState<User | null>(authAPI.getCachedUser());
   const [isCheckingAuth, setIsCheckingAuth] = useState(!authAPI.getCachedUser());
-  const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [showPendingListDialog, setShowPendingListDialog] = useState(false);
 
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [isPermsLoading, setIsPermsLoading] = useState(true);
 
-  // --- FUNGSI LOAD DATA ---
-  const loadPendingOrdersFromDB = useCallback(async () => {
-    try {
-      const orders = await pendingOrdersAPI.getAll();
-      setPendingOrders(orders);
-    } catch (err) {
-      if (err instanceof APIRequestError && err.code === 'NO_OFFLINE_CACHE') {
-        toast.info('Antrean offline belum tersedia. Buka halaman ini sekali saat online untuk sinkron awal.');
-        return;
-      }
-      console.error("Gagal load antrean", err);
-    }
-  }, []);
+  const { pendingOrders, loadPendingOrders } = useGlobalStore();
 
   const loadUserPermissions = useCallback(async (role: string) => {
     if (!role) {
@@ -117,7 +107,7 @@ function App() {
         if (user.role && location.pathname === '/login') {
           navigate(user.role === 'kasir' ? '/pos' : '/dashboard', { replace: true });
         }
-        loadPendingOrdersFromDB();
+        loadPendingOrders();
 
       } catch (error) {
         if (isUnauthorizedError(error)) {
@@ -135,7 +125,7 @@ function App() {
             if (location.pathname === '/login') {
               navigate(cachedUser.role === 'kasir' ? '/pos' : '/dashboard', { replace: true });
             }
-            loadPendingOrdersFromDB();
+            loadPendingOrders();
             toast.warning('Mode offline aktif. Menggunakan sesi tersimpan.');
             return;
           }
@@ -165,7 +155,7 @@ function App() {
         // #region agent log
         sendDebugLog({sessionId:'b291df',runId:'post-fix',hypothesisId:'H1',location:'frontend/src/app/App.tsx:125',message:'pending orders polling executed',data:{pathname:location.pathname},timestamp:Date.now()});
         // #endregion
-        loadPendingOrdersFromDB();
+        loadPendingOrders();
       } else {
         // #region agent log
         sendDebugLog({sessionId:'b291df',runId:'post-fix',hypothesisId:'H1',location:'frontend/src/app/App.tsx:130',message:'pending orders polling skipped',data:{pathname:location.pathname,isPosPage,isVisible},timestamp:Date.now()});
@@ -174,7 +164,7 @@ function App() {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [loadPendingOrdersFromDB, loadUserPermissions, location.pathname]);
+  }, [loadPendingOrders, loadUserPermissions, location.pathname]);
 
   // --- HANDLERS ---
   const handleLoginSuccess = async (user: User) => {
@@ -280,32 +270,39 @@ function App() {
     }
 
     return (
-      <Routes>
-        <Route path="/" element={<Navigate to={currentUser?.role === 'kasir' ? '/pos' : '/dashboard'} replace />} />
-        <Route path="/login" element={<Navigate to={currentUser?.role === 'kasir' ? '/pos' : '/dashboard'} replace />} />
-        
-        <Route path="/pos" element={<POSScreen pendingOrders={pendingOrders} setPendingOrders={setPendingOrders} showPendingListDialog={showPendingListDialog} setShowPendingListDialog={setShowPendingListDialog} refreshPendingOrders={loadPendingOrdersFromDB} />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/ingredients" element={<IngredientManagement />} />
-        <Route path="/products" element={<ProductManagement />} />
-        <Route path="/stock" element={<StockManagement />} />
-        <Route path="/contacts" element={<CustomerManagement />} />
-        <Route path="/discounts" element={<DiscountsManagement />} />
-        <Route path="/cash-drawer" element={<CashDrawer />} />
-        <Route path="/kategories" element={<KategoriManagement />} />
-        <Route path="/product-sales" element={<ProductSalesReport />} />
-        <Route path="/category-sales" element={<CategorySalesReport />} />
-        <Route path="/qris-reports" element={<QrisReportPage />} />
-        <Route path="/reports" element={<ReportsSection />} />
-        <Route path="/ai-insights" element={<AIInsights />} />
-        <Route path="/ai-assistant" element={<AIAssistant />} />
-        <Route path="/settings" element={<SettingsPage onLogout={handleLogout} />} />
-        <Route path="/setting-struk" element={<SettingStruk />} />
-        <Route path="/setting-print" element={<SettingPrint />} />
-        <Route path="/setting-akses" element={<SettingAkses />} />
-        
-        <Route path="*" element={<Navigate to={currentUser?.role === 'kasir' ? '/pos' : '/dashboard'} replace />} />
-      </Routes>
+      <Suspense fallback={
+        <div className="flex h-full flex-col items-center justify-center bg-white">
+          <Loader2 className="h-10 w-10 animate-spin text-orange-600" />
+          <p className="mt-4 text-xs font-black uppercase tracking-widest text-gray-400 animate-pulse">Memuat Halaman...</p>
+        </div>
+      }>
+        <Routes>
+          <Route path="/" element={<Navigate to={currentUser?.role === 'kasir' ? '/pos' : '/dashboard'} replace />} />
+          <Route path="/login" element={<Navigate to={currentUser?.role === 'kasir' ? '/pos' : '/dashboard'} replace />} />
+          
+          <Route path="/pos" element={<POSScreen showPendingListDialog={showPendingListDialog} setShowPendingListDialog={setShowPendingListDialog} />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/ingredients" element={<IngredientManagement />} />
+          <Route path="/products" element={<ProductManagement />} />
+          <Route path="/stock" element={<StockManagement />} />
+          <Route path="/contacts" element={<CustomerManagement />} />
+          <Route path="/discounts" element={<DiscountsManagement />} />
+          <Route path="/cash-drawer" element={<CashDrawer />} />
+          <Route path="/kategories" element={<KategoriManagement />} />
+          <Route path="/product-sales" element={<ProductSalesReport />} />
+          <Route path="/category-sales" element={<CategorySalesReport />} />
+          <Route path="/qris-reports" element={<QrisReportPage />} />
+          <Route path="/reports" element={<ReportsSection />} />
+          <Route path="/ai-insights" element={<AIInsights />} />
+          <Route path="/ai-assistant" element={<AIAssistant />} />
+          <Route path="/settings" element={<SettingsPage onLogout={handleLogout} />} />
+          <Route path="/setting-struk" element={<SettingStruk />} />
+          <Route path="/setting-print" element={<SettingPrint />} />
+          <Route path="/setting-akses" element={<SettingAkses />} />
+          
+          <Route path="*" element={<Navigate to={currentUser?.role === 'kasir' ? '/pos' : '/dashboard'} replace />} />
+        </Routes>
+      </Suspense>
     );
   };
 
@@ -338,7 +335,6 @@ function App() {
         <Header
           user={currentUser}
           currentPage={activeMenu}
-          pendingCount={pendingOrders.length}
           onOpenPendingOrders={() => setShowPendingListDialog(true)}
         />
         <main className="flex-1 overflow-auto bg-white/50">

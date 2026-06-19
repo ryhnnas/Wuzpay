@@ -54,12 +54,56 @@ cd Wuzpay
 ```
 
 ### 3. Konfigurasi Environment (`.env`)
-Buat file env di dalam direktori `backend/`:
+
+Untuk memudahkan konfigurasi, kami telah menyediakan template `.env.example` di setiap direktori penting. Silakan salin file `.env.example` tersebut menjadi `.env` menggunakan terminal dengan mengikuti instruksi langkah demi langkah (berurutan) di bawah ini:
+
+#### Langkah A: Konfigurasi Backend (`backend/`)
+Buka terminal baru, pastikan Anda berada di folder utama proyek `Wuzpay/`, lalu masuk ke folder `backend` untuk menyalin file konfigurasi:
 ```bash
-MONGODB_URI=your_mongodb_connection_string
-PORT=8000
-JWT_SECRET=seblak_mledak_rahasia_2026
+# 1. Pindah ke direktori backend
+cd backend
+
+# 2. Salin template .env
+cp .env.example .env
 ```
+Setelah disalin, buka file `backend/.env` menggunakan editor teks (seperti VS Code atau Notepad) dan isi variabel berikut:
+* `MONGO_URI`: String koneksi database MongoDB Atlas atau MongoDB lokal Anda.
+* `PORT`: Port server backend Deno (default: `5000`).
+* `GROQ_API_KEY`: API Key layanan Groq untuk fitur AI Chatbot & Agent.
+* `GROQ_API_URL`: URL Endpoint Groq (default: `https://api.groq.com/openai/v1`).
+* `GROQ_MODEL`: Model LLM yang digunakan (contoh: `llama-3.3-70b-versatile`).
+* `OPENAI_API_KEY` & `OPENAI_API_URL`: Digunakan untuk model LLM Vision (Groq) saat memindai struk belanja secara otomatis.
+* `JWT_SECRET`: Kunci rahasia untuk enkripsi token otentikasi kasir.
+
+#### Langkah B: Konfigurasi Frontend (`frontend/`)
+Kembali ke folder utama (`Wuzpay/`), kemudian masuk ke folder `frontend` untuk menyalin konfigurasinya:
+```bash
+# 1. Kembali ke folder utama
+cd ..
+
+# 2. Pindah ke direktori frontend
+cd frontend
+
+# 3. Salin template .env
+cp .env.example .env
+```
+Setelah disalin, buka file `frontend/.env` dan isi variabel berikut:
+* `VITE_API_URL`: Alamat URL dari API Backend WuzPay (default untuk lokal: `http://localhost:5000`).
+
+#### Langkah C: Konfigurasi Deployment Staging/Docker (`/` - Folder Root - Opsional)
+Kembali ke folder utama proyek (`Wuzpay/`) jika Anda ingin men-deploy sistem menggunakan Docker Compose di server produksi/staging:
+```bash
+# 1. Kembali ke folder utama proyek Wuzpay/
+cd ..
+
+# 2. Salin template .env di root
+cp .env.example .env
+```
+Isi konfigurasi pada file `.env` di folder root:
+* `OPENAI_API_KEY`: API Key Groq untuk container OCR Service agar dapat mengekstrak struk belanja secara otomatis.
+* `OPENAI_API_URL`: Endpoint Groq (default: `https://api.groq.com/openai/v1`).
+
+
 
 ### 4. Menjalankan Aplikasi Utama (Satu Klik!)
 Sistem sudah dirangkai menggunakan modul `concurrently` di folder *root*. Anda tidak perlu membuka banyak terminal.
@@ -73,5 +117,32 @@ npm run dev
 
 > **Catatan Server Python:** Perintah `npm run dev` otomatis akan mencoba menyematkan library AI jika mesin belum memilikinya lewat fitur *virtual environment*.
 
-### 5. Tim Pengembang
+### 5. Inisialisasi & Auto-Seeding Database
+
+WuzPay menggunakan **MongoDB (NoSQL)** sebagai media penyimpanan data. Untuk memudahkan pengisian data awal pengujian (seperti produk, bahan baku resep, pelanggan, diskon, dan 300+ data transaksi historis untuk analitik dashboard), kami menyediakan endpoint migrasi otomatis:
+
+1. Pastikan server API backend sudah menyala (`npm run dev`).
+2. Jalankan seeding database dengan mengakses endpoint berikut di browser atau via `curl`:
+   ```bash
+   curl http://localhost:5000/api/seed/full-setup
+   ```
+3. Jika Anda men-deploy menggunakan Docker Compose, jalankan seeding melalui URL port staging:
+   ```bash
+   curl http://localhost:1111/api/seed/full-setup
+   ```
+
+Setelah proses seeding selesai, database akan terisi dengan data transaksi historis lengkap untuk mensimulasikan operasional kasir secara nyata.
+
+### 6. Akun Login Default Kasir & Owner (Kredensial Uji Coba)
+
+Setelah melakukan seeding database, Anda dapat login menggunakan kredensial default berikut untuk masing-masing role:
+
+| Role | Username / Email | Password | Hak Akses Utama |
+| :--- | :--- | :--- | :--- |
+| **Owner** | `owner@wuzpay.com` | `owner123` | Akses penuh: Dashboard Keuangan, Analitik Penjualan, Manajemen Produk/Bahan Baku, Pengaturan Akses & Kasir, AI Assistant. |
+| **Kasir** | `kasir@wuzpay.com` | `kasir123` | Akses operasional kasir: Layar POS Utama, Tambah Pesanan/Antrean, Transaksi Kasir, Simulasi Pembayaran QRIS/Tunai, Manajemen Bahan Baku Produk. |
+
+### 7. Tim Pengembang
+
 Ali, Dani, Farhan, Raja, Reyhan, Zacky.
+

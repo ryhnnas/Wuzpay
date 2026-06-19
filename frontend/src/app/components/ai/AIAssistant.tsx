@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Upload, Sparkles, Loader2, Zap } from 'lucide-react';
+import { Send, Bot, User, Upload, Sparkles, Loader2, Zap, MessageSquare, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from '@/app/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { aiAPI } from '@/services/api';
 import { toast } from 'sonner';
+import { cn } from '@/app/components/ui/utils';
 import { AIChart, ChartConfig } from './AIChart';
 
 interface Message {
@@ -17,7 +18,12 @@ interface Message {
   charts?: ChartConfig[];
 }
 
-const CHAT_STORAGE_KEY = 'wuzpay_ai_chat_history_v1';
+interface ChatSession {
+  id: string;
+  title: string;
+  messages: Message[];
+  updatedAt: Date;
+}
 
 const DEFAULT_GREETING: Message = {
   id: '1',
@@ -84,26 +90,53 @@ function renderAssistantContent(content: string) {
 }
 
 export function AIAssistant() {
-  const [messages, setMessages] = useState<Message[]>(() => {
+  const [sessions, setSessions] = useState<ChatSession[]>(() => {
     try {
-      const raw = localStorage.getItem(CHAT_STORAGE_KEY);
-      if (!raw) return [DEFAULT_GREETING];
+      const raw = localStorage.getItem('wuzpay_ai_chat_sessions_v1');
+      if (!raw) return [{
+        id: 'session-default',
+        title: 'Obrolan Utama',
+        messages: [DEFAULT_GREETING],
+        updatedAt: new Date(),
+      }];
       const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed) || parsed.length === 0) return [DEFAULT_GREETING];
-      return parsed.map((m: any) => ({
-        ...m,
-        timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+      if (!Array.isArray(parsed) || parsed.length === 0) return [{
+        id: 'session-default',
+        title: 'Obrolan Utama',
+        messages: [DEFAULT_GREETING],
+        updatedAt: new Date(),
+      }];
+      return parsed.map((s: any) => ({
+        ...s,
+        updatedAt: s.updatedAt ? new Date(s.updatedAt) : new Date(),
+        messages: s.messages.map((m: any) => ({
+          ...m,
+          timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+        }))
       }));
     } catch {
-      return [DEFAULT_GREETING];
+      return [{
+        id: 'session-default',
+        title: 'Obrolan Utama',
+        messages: [DEFAULT_GREETING],
+        updatedAt: new Date(),
+      }];
     }
   });
+
+  const [activeSessionId, setActiveSessionId] = useState<string>(() => {
+    return localStorage.getItem('wuzpay_ai_active_session_id_v1') || 'session-default';
+  });
+
   const [inputMessage, setInputMessage] = useState('');
   const [activeTab, setActiveTab] = useState('chat');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState('analyzing');
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0];
+  const messages = activeSession?.messages || [DEFAULT_GREETING];
 
   // Auto scroll ke pesan terbaru
   useEffect(() => {
@@ -113,8 +146,39 @@ export function AIAssistant() {
   }, [messages, isLoading]);
 
   useEffect(() => {
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
-  }, [messages]);
+    localStorage.setItem('wuzpay_ai_chat_sessions_v1', JSON.stringify(sessions));
+  }, [sessions]);
+
+  useEffect(() => {
+    localStorage.setItem('wuzpay_ai_active_session_id_v1', activeSessionId);
+  }, [activeSessionId]);
+
+  const handleCreateNewSession = () => {
+    const newSessionId = `session-${Date.now()}`;
+    const newSession: ChatSession = {
+      id: newSessionId,
+      title: 'Obrolan Baru',
+      messages: [DEFAULT_GREETING],
+      updatedAt: new Date(),
+    };
+    setSessions(prev => [newSession, ...prev]);
+    setActiveSessionId(newSessionId);
+    toast.success('Sesi chat baru dibuat');
+  };
+
+  const handleDeleteSession = (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (sessions.length <= 1) {
+      toast.error('Wajib menyisakan minimal satu sesi chat.');
+      return;
+    }
+    const updatedSessions = sessions.filter(s => s.id !== sessionId);
+    setSessions(updatedSessions);
+    if (activeSessionId === sessionId) {
+      setActiveSessionId(updatedSessions[0].id);
+    }
+    toast.info('Sesi chat dihapus');
+  };
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -135,7 +199,25 @@ export function AIAssistant() {
     };
 
     const historySnapshot = [...messages];
-    setMessages(prev => [...prev, userMessage, placeholderAssistant]);
+    
+    // Simpan pesan di state sessions
+    setSessions(prev => prev.map(s => {
+      if (s.id === activeSessionId) {
+        const nextMessages = [...s.messages, userMessage, placeholderAssistant];
+        let nextTitle = s.title;
+        if (s.title === 'Obrolan Utama' || s.title === 'Obrolan Baru') {
+          nextTitle = inputMessage.substring(0, 20) + (inputMessage.length > 20 ? '...' : '');
+        }
+        return {
+          ...s,
+          title: nextTitle,
+          messages: nextMessages,
+          updatedAt: new Date(),
+        };
+      }
+      return s;
+    }));
+
     const currentInput = inputMessage;
     setInputMessage('');
     setIsLoading(true);
@@ -147,19 +229,35 @@ export function AIAssistant() {
         onStage: (stage) => setLoadingStage(stage || 'analyzing'),
         onChunk: (chunk) => {
           if (!chunk) return;
-          setMessages(prev => prev.map(msg => (
-            msg.id === assistantMessageId
-              ? { ...msg, content: `${msg.content}${chunk}` }
-              : msg
-          )));
+          setSessions(prev => prev.map(s => {
+            if (s.id === activeSessionId) {
+              return {
+                ...s,
+                messages: s.messages.map(msg => (
+                  msg.id === assistantMessageId
+                    ? { ...msg, content: `${msg.content}${chunk}` }
+                    : msg
+                ))
+              };
+            }
+            return s;
+          }));
         },
         onDone: ({ response, suggested_questions, charts }) => {
           if (response) {
-            setMessages(prev => prev.map(msg => (
-              msg.id === assistantMessageId
-                ? { ...msg, content: response, charts }
-                : msg
-            )));
+            setSessions(prev => prev.map(s => {
+              if (s.id === activeSessionId) {
+                return {
+                  ...s,
+                  messages: s.messages.map(msg => (
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: response, charts }
+                      : msg
+                  ))
+                };
+              }
+              return s;
+            }));
           }
           setSuggestedQuestions(Array.isArray(suggested_questions) ? suggested_questions.slice(0, 3) : []);
         },
@@ -170,17 +268,33 @@ export function AIAssistant() {
     } catch (error: any) {
       try {
         const fallback = await aiAPI.chat(currentInput, historySnapshot);
-        setMessages(prev => prev.map(msg => (
-          msg.id === assistantMessageId
-            ? { ...msg, content: fallback || 'WuzPay AI sedang sibuk. Coba lagi nanti.' }
-            : msg
-        )));
+        setSessions(prev => prev.map(s => {
+          if (s.id === activeSessionId) {
+            return {
+              ...s,
+              messages: s.messages.map(msg => (
+                msg.id === assistantMessageId
+                  ? { ...msg, content: fallback || 'WuzPay AI sedang sibuk. Coba lagi nanti.' }
+                  : msg
+              ))
+            };
+          }
+          return s;
+        }));
       } catch {
-        setMessages(prev => prev.map(msg => (
-          msg.id === assistantMessageId
-            ? { ...msg, content: 'WuzPay AI sedang sibuk. Coba lagi nanti.' }
-            : msg
-        )));
+        setSessions(prev => prev.map(s => {
+          if (s.id === activeSessionId) {
+            return {
+              ...s,
+              messages: s.messages.map(msg => (
+                msg.id === assistantMessageId
+                  ? { ...msg, content: 'WuzPay AI sedang sibuk. Coba lagi nanti.' }
+                  : msg
+              ))
+            };
+          }
+          return s;
+        }));
       }
       toast.error(error.message || 'WuzPay AI sedang sibuk. Coba lagi nanti.');
     } finally {
@@ -208,7 +322,7 @@ export function AIAssistant() {
               const statusRes = await aiAPI.getOcrStatus(result.task_id);
               status = statusRes.status;
               if (status === 'completed') {
-                result = statusRes.result; // hasil dari ocr-service
+                result = statusRes.result;
               } else if (status === 'failed') {
                 throw new Error(statusRes.error_message || 'Gagal memproses OCR di worker');
               }
@@ -250,8 +364,17 @@ export function AIAssistant() {
             timestamp: new Date(),
           };
           
-          setMessages(prev => [...prev, fileMessage, aiMessage]);
-          setActiveTab('chat'); // pindahkan user kembali ke tab chat
+          setSessions(prev => prev.map(s => {
+            if (s.id === activeSessionId) {
+              return {
+                ...s,
+                messages: [...s.messages, fileMessage, aiMessage],
+                updatedAt: new Date(),
+              };
+            }
+            return s;
+          }));
+          setActiveTab('chat');
         } catch (error) {
           toast.error('Gagal memproses nota', { id: toastId });
         } finally {
@@ -266,7 +389,7 @@ export function AIAssistant() {
     'Bagaimana performa penjualan hari ini?',
     'Sebutkan produk paling laris bulan ini',
     'Produk apa yang stoknya hampir habis?',
-    'Berikan saran strategi promo seblak',
+    'Berikan saran strategi promo menu baru',
   ];
 
   return (
@@ -293,8 +416,49 @@ export function AIAssistant() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsContent value="chat" className="mt-0 space-y-4">
-          <Card className="h-[calc(100vh-18rem)] rounded-[32px] border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col">
-            <CardContent className="flex-1 flex flex-col p-6 overflow-hidden">
+          <Card className="h-[calc(100vh-18rem)] rounded-[32px] border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] overflow-hidden flex flex-row">
+            
+            {/* SISI KIRI: SIDEBAR CHAT SESSIONS */}
+            <div className="w-64 bg-gray-50/50 border-r border-gray-100 p-4 flex flex-col justify-between hidden md:flex shrink-0">
+              <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
+                <Button 
+                  onClick={handleCreateNewSession}
+                  className="w-full bg-orange-50 border border-orange-200 text-orange-600 hover:bg-orange-100 rounded-xl font-black text-xs uppercase py-3 flex items-center justify-center gap-2"
+                >
+                  <Plus className="size-4" /> Obrolan Baru
+                </Button>
+                
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-2 mb-2">Riwayat Percakapan</p>
+                  {sessions.map(s => (
+                    <div
+                      key={s.id}
+                      onClick={() => setActiveSessionId(s.id)}
+                      className={cn(
+                        "group w-full p-3 rounded-xl text-left transition-all flex items-center justify-between cursor-pointer border border-transparent",
+                        s.id === activeSessionId
+                          ? "bg-orange-50/80 border-orange-100 text-orange-600 font-bold"
+                          : "hover:bg-gray-100/50 text-gray-600"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <MessageSquare className={cn("size-4 shrink-0", s.id === activeSessionId ? "text-orange-600" : "text-gray-400")} />
+                        <span className="text-xs truncate pr-2">{s.title}</span>
+                      </div>
+                      <button
+                        onClick={(e) => handleDeleteSession(s.id, e)}
+                        className="opacity-0 group-hover:opacity-100 hover:text-red-600 p-0.5 rounded transition-all shrink-0"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* SISI KANAN: CHAT CONTENT */}
+            <CardContent className="flex-1 flex flex-col p-6 overflow-hidden bg-white">
               <div className="flex-1 overflow-y-auto pr-2" style={{ scrollBehavior: 'smooth' }}>
                 <div className="space-y-6 pb-2">
                   {messages.map(message => (
@@ -354,7 +518,7 @@ export function AIAssistant() {
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-gray-50">
+              <div className="mt-4 pt-4 border-t border-gray-50 bg-white">
                 {/* Quick Questions */}
                 <div className="mb-4 flex flex-wrap gap-2">
                   {quickQuestions.map((q, i) => (
@@ -399,7 +563,7 @@ export function AIAssistant() {
                   <Button 
                     onClick={handleSendMessage} 
                     disabled={isLoading}
-                    className="bg-orange-600 hover:bg-orange-700 text-white rounded-full size-11 p-0 shadow-lg shadow-orange-100"
+                    className="bg-orange-600 hover:bg-orange-700 text-white rounded-full size-11 p-0 shadow-lg shadow-orange-100 shrink-0"
                   >
                     <Send className="size-4" />
                   </Button>

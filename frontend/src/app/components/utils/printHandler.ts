@@ -110,7 +110,7 @@ export const handleGlobalPrint = async (transaction: any) => {
           <div class="text-center">
             ${settings.show_logo && settings.logo_url ? `<img src="${settings.logo_url}" class="logo" />` : ''}
             <div class="font-bold uppercase" style="font-size: ${Math.min((settings.font_size || 10) + 2, 14)}px;">
-              ${settings.store_name || 'WUZPAY SINDANGSARI'}
+              ${settings.store_name || 'WUZPAY'}
             </div>
             <div style="font-size: ${Math.max((settings.font_size || 10) - 2, 7)}px;">
               ${settings.address || ''}
@@ -183,7 +183,7 @@ export const handleGlobalPrint = async (transaction: any) => {
           </div>
 
           <div class="wuzpay-watermark uppercase">
-            WUZPAY POS • SINDANGSARI
+            WUZPAY POS • DIGITAL RECEIPT
           </div>
 
           <div class="feed-area"></div>
