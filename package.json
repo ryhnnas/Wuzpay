@@ -8,8 +8,8 @@
     "dev": "concurrently -n \"BACKEND,FRONTEND,OCR\" -c \"blue,green,yellow\" \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:ocr\"",
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:backend": "cd backend && deno run -A --env-file=.env --unstable-detect-cjs --watch index.tsx",
-    "dev:ocr": "cd backend/ocr-service && ./ocr/bin/python main.py",
-    "install-all": "npm install && npm install --prefix frontend && npm install --prefix backend && cd backend/ocr-service && python3 -m venv ocr && ./ocr/bin/pip install -r requirements.txt"
+    "dev:ocr": "node -e \"const exec = require('child_process').execSync; const py = process.platform === 'win32' ? 'ocr\\\\Scripts\\\\python.exe' : './ocr/bin/python'; exec('cd backend/ocr-service && ' + py + ' main.py', {stdio: 'inherit'})\"",
+    "install-all": "npm install && npm install --prefix frontend && npm install --prefix backend && cd backend/ocr-service && node -e \"const exec = require('child_process').execSync; try { exec('python -m venv ocr'); } catch { exec('python3 -m venv ocr'); }\" && node -e \"const exec = require('child_process').execSync; const pip = process.platform === 'win32' ? 'ocr\\\\Scripts\\\\pip.exe' : './ocr/bin/pip'; exec('cd backend/ocr-service && ' + pip + ' install -r requirements.txt', {stdio: 'inherit'})\""
   },
   "devDependencies": {
     "nodemon": "^3.0.0"

@@ -8,9 +8,6 @@ export function ImageWithFallback(props: React.ImgHTMLAttributes<HTMLImageElemen
   const { src, alt, style, className, ...rest } = props
 
   const handleError = () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7803/ingest/bf88b2af-7fcc-4dce-92b2-66169c85c570',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b291df'},body:JSON.stringify({sessionId:'b291df',runId:'post-fix',hypothesisId:'H6',location:'frontend/src/app/components/figma/ImageWithFallback.tsx:11',message:'image load error',data:{src:String(src || ''),alt:String(alt || '')},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     setDidError(true)
   }
 

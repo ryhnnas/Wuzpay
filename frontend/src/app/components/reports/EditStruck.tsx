@@ -120,8 +120,8 @@ export function EditStruk({ transactionId, onClose }: { transactionId: string, o
   };
 
   return (
-    <div className="fixed inset-0 bg-orange-600/90 backdrop-blur-lg z-[100] flex items-center justify-center p-6 animate-in fade-in duration-500 font-sans">
-      <div className="bg-white w-full max-w-6xl h-[85vh] rounded-[48px] overflow-hidden flex shadow-2xl border border-white/10">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-500 font-sans">
+      <div className="bg-white w-full max-w-6xl h-[85vh] rounded-[48px] overflow-hidden flex shadow-2xl border border-gray-100">
         
         {/* PANEL KIRI: LIST ITEM EDITOR */}
         <div className="flex-[1.2] flex flex-col border-r border-gray-100 bg-white relative">

@@ -158,12 +158,8 @@ const getFromApiWithOfflineCache = async <T>(cacheKey: string, loader: () => Pro
 };
 
 const sendDebugLog = (payload: Record<string, unknown>) => {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-  fetch('http://127.0.0.1:7803/ingest/bf88b2af-7fcc-4dce-92b2-66169c85c570', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b291df' },
-    body: JSON.stringify(payload),
-  }).catch(() => {});
+  // Disabled to prevent ERR_CONNECTION_REFUSED in local development
+  return;
 };
 
 // ==================== CORE REQUEST HANDLER ====================
@@ -199,6 +195,14 @@ async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T>
   try {
     response = await fetch(finalUrl, { ...options, headers });
   } catch (error) {
+    const isLocalhost = finalUrl.includes('localhost') || finalUrl.includes('127.0.0.1');
+    if (isLocalhost) {
+      throw new APIRequestError(
+        'Gagal terhubung ke backend lokal (localhost:5000). Harap jalankan server backend terlebih dahulu dengan perintah "npm run dev" di terminal root.',
+        undefined,
+        'NETWORK_ERROR'
+      );
+    }
     throw new APIRequestError('Koneksi internet terputus. Periksa jaringan lalu coba lagi.', undefined, 'NETWORK_ERROR');
   }
   // #region agent log

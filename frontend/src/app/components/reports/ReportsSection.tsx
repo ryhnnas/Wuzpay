@@ -39,6 +39,7 @@ export function ReportsSection() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   // --- FILTER STATES ---
@@ -65,11 +66,15 @@ export function ReportsSection() {
   };
 
   useEffect(() => {
-    loadData();
+    loadData(transactions.length === 0 && products.length === 0);
   }, [dateFrom, dateTo]);
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = async (isInitial = false) => {
+    if (isInitial) {
+      setIsLoading(true);
+    } else {
+      setIsDataLoading(true);
+    }
     try {
       const [tData, pData] = await Promise.all([
         transactionsAPI.getAll({ startDate: dateFrom, endDate: dateTo }),
@@ -81,6 +86,7 @@ export function ReportsSection() {
       toast.error('Koneksi WuzPay Cloud terputus');
     } finally {
       setIsLoading(false);
+      setIsDataLoading(false);
     }
   };
 
@@ -272,7 +278,7 @@ export function ReportsSection() {
       </div>
 
       {/* SECTION 3: KEY PERFORMANCE INDICATORS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {[
           { label: 'Volume Sales', val: summary.count, icon: ShoppingBag, col: 'text-orange-600', bg: 'bg-orange-50', unit: ' Orders' },
           { label: 'Gross Revenue', val: formatRupiah(summary.revenue), icon: DollarSign, col: 'text-orange-600', bg: 'bg-orange-50', unit: '' },
@@ -280,15 +286,15 @@ export function ReportsSection() {
           { label: 'Avg Ticket', val: formatRupiah(summary.count > 0 ? summary.revenue / summary.count : 0), icon: CreditCard, col: 'text-orange-600', bg: 'bg-orange-50', unit: '' },
         ].map((s, i) => (
           <Card key={i} className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-[32px] overflow-hidden group hover:shadow-xl transition-all">
-            <CardContent className="p-8 flex items-center gap-6">
-              <div className={cn("p-5 rounded-[22px] transition-transform group-hover:scale-110 group-hover:rotate-6", s.bg, s.col)}>
-                <s.icon className="size-7" />
+            <CardContent className="p-3 sm:p-5 lg:p-6 flex items-center gap-2 sm:gap-3 lg:gap-4">
+              <div className={cn("p-2.5 sm:p-3.5 lg:p-4 rounded-[14px] sm:rounded-[18px] transition-transform group-hover:scale-110 group-hover:rotate-6", s.bg, s.col)}>
+                <s.icon className="size-4 sm:size-5 lg:size-6" />
               </div>
-              <div>
-                <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">{s.label}</p>
-                <div className="flex items-baseline gap-1">
-                  <p className={cn("text-2xl font-black tracking-tighter mt-1", s.col)}>{s.val}</p>
-                  <span className="text-[9px] font-bold text-gray-300 uppercase whitespace-nowrap">{s.unit}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[8px] sm:text-[9px] font-black uppercase text-gray-400 tracking-widest truncate">{s.label}</p>
+                <div className="flex items-baseline gap-1 flex-wrap">
+                  <p className={cn("text-[10px] sm:text-xs md:text-sm lg:text-base xl:text-lg font-black tracking-tighter mt-1 truncate max-w-full", s.col)}>{s.val}</p>
+                  <span className="text-[8px] sm:text-[9px] font-bold text-gray-300 uppercase whitespace-nowrap">{s.unit}</span>
                 </div>
               </div>
             </CardContent>
@@ -341,7 +347,14 @@ export function ReportsSection() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {currentTransactions.length === 0 ? (
+                    {isDataLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-32">
+                          <Loader2 className="size-8 text-orange-600 animate-spin mx-auto" />
+                          <p className="text-[10px] font-black uppercase text-gray-400 mt-2">Memuat data...</p>
+                        </TableCell>
+                      </TableRow>
+                    ) : currentTransactions.length === 0 ? (
                       <TableRow><TableCell colSpan={5} className="text-center py-32 text-gray-300 font-black uppercase tracking-widest italic text-[10px]">Tidak ada transaksi ditemukan.</TableCell></TableRow>
                     ) : currentTransactions.map(t => (
                       <TableRow 
@@ -397,7 +410,14 @@ export function ReportsSection() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {productSales.length === 0 ? (
+                    {isDataLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-32">
+                          <Loader2 className="size-8 text-orange-600 animate-spin mx-auto" />
+                          <p className="text-[10px] font-black uppercase text-gray-400 mt-2">Memuat data...</p>
+                        </TableCell>
+                      </TableRow>
+                    ) : productSales.length === 0 ? (
                       <TableRow><TableCell colSpan={4} className="text-center py-32 text-gray-300 font-black uppercase tracking-widest italic text-[10px]">Data produk belum tersedia.</TableCell></TableRow>
                     ) : productSales.map((p: any, i) => (
                       <tr key={i} className="hover:bg-orange-50/20 transition-all group border-b border-gray-50">

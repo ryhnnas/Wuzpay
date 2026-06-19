@@ -117,6 +117,31 @@ export function POSScreen({
   }, []);
 
   // 2. TAMBAHKAN EFFECT KEDUA UNTUK MONITORING PERUBAHAN
+  // Recalculate cart item prices whenever selected discount, products, or discounts list change
+  useEffect(() => {
+    setCart(prevCart => {
+      let changed = false;
+      const newCart = prevCart.map(item => {
+        const originalProduct = products.find(p => (p._id || p.id) === (item._id || item.id));
+        if (!originalProduct) return item;
+        const { price: effectivePrice, originalPrice } = getEffectivePrice(originalProduct);
+        const resolvedOriginal = originalPrice || originalProduct.price;
+        if (item.price !== effectivePrice || item.originalPrice !== resolvedOriginal) {
+          changed = true;
+          return {
+            ...item,
+            price: effectivePrice,
+            originalPrice: resolvedOriginal,
+            subtotal: item.quantity * effectivePrice
+          };
+        }
+        return item;
+      });
+      return changed ? newCart : prevCart;
+    });
+  }, [selectedDiscountId, products, discounts]);
+
+  // Backup cart changes to localStorage
   useEffect(() => {
     if (cart.length > 0) {
       localStorage.setItem('nex_pos_backup_cart', JSON.stringify(cart));
@@ -269,13 +294,19 @@ export function POSScreen({
     const activeDiscount = discounts.find(d => {
       const dId = d._id || d.id;
       const isSelected = dId === selectedDiscountId;
-      
+      if (!isSelected) return false;
+
+      const dProdId = d.product_id?._id || d.product_id;
+      const dCatId = d.category_id?._id || d.category_id;
+      const prodId = product._id || product.id;
+      const prodCatId = product.category_id?._id || product.category_id;
+
       const isProductMatch = (d.scope === 'product' || d.scope === 'item') && 
-                            (d.product_id === pId || d.productId === pId);
+                            (dProdId && prodId && String(dProdId) === String(prodId));
       const isCategoryMatch = d.scope === 'category' && 
-                              (d.category_id === (product.category_id?._id || product.category_id));
+                              (dCatId && prodCatId && String(dCatId) === String(prodCatId));
       
-      return isSelected && (isProductMatch || isCategoryMatch);
+      return isProductMatch || isCategoryMatch;
     });
 
     if (!activeDiscount) return { price: product.price, hasDiscount: false };
@@ -317,7 +348,7 @@ export function POSScreen({
 
   const addToCart = (product: any) => {
     const pId = product._id || product.id;
-    const { price: effectivePrice } = getEffectivePrice(product);
+    const { price: effectivePrice, originalPrice } = getEffectivePrice(product);
     const existingItem = cart.find(item => (item._id || item.id) === pId);
     
     // Check available stock
@@ -331,7 +362,13 @@ export function POSScreen({
     
     if (existingItem) {
       setCart(cart.map(item =>
-        (item._id || item.id) === pId ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * effectivePrice } : item
+        (item._id || item.id) === pId ? { 
+          ...item, 
+          quantity: item.quantity + 1, 
+          price: effectivePrice,
+          originalPrice: originalPrice || product.price,
+          subtotal: (item.quantity + 1) * effectivePrice 
+        } : item
       ));
     } else {
       setCart([...cart, { 
@@ -339,6 +376,7 @@ export function POSScreen({
         _id: pId, 
         id: pId, 
         price: effectivePrice, 
+        originalPrice: originalPrice || product.price,
         quantity: 1, 
         subtotal: effectivePrice 
       }]);
