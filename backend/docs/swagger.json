@@ -2,17 +2,21 @@
   "openapi": "3.0.0",
   "info": {
     "title": "WuzPay POS API",
-    "description": "API documentation for WuzPay Point of Sale system",
-    "version": "1.0.0"
+    "description": "Dokumentasi lengkap API untuk sistem Point of Sale WuzPay.\n\nLogin di `/auth/login` untuk mendapatkan `access_token` (Bearer JWT) dan `session_id`. Masukkan keduanya di header request berikutnya.",
+    "version": "2.0.0",
+    "contact": {
+      "name": "WuzPay Team",
+      "url": "https://wuzpay.ngetech.studio"
+    }
   },
   "servers": [
     {
       "url": "http://localhost:8000/api",
-      "description": "Local server"
+      "description": "Local Development Server"
     },
     {
       "url": "https://api.wuzpay.ngetech.studio/api",
-      "description": "Production server"
+      "description": "Production Server"
     }
   ],
   "components": {
@@ -20,54 +24,528 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "JWT"
+        "bearerFormat": "JWT",
+        "description": "JWT dari /auth/login"
+      },
+      "sessionId": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Session-ID",
+        "description": "Session ID dari /auth/login"
       }
     },
     "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Pesan error"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "Budi Santoso"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "budi@wuzpay.com"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "kasir"
+            ],
+            "example": "kasir"
+          }
+        }
+      },
       "Product": {
         "type": "object",
         "properties": {
-          "_id": { "type": "string" },
-          "name": { "type": "string" },
-          "description": { "type": "string" },
-          "sku": { "type": "string" },
-          "price": { "type": "number" },
-          "cost_price": { "type": "number" },
-          "stock_quantity": { "type": "number" },
-          "category_id": { "type": "string" },
-          "image_url": { "type": "string" }
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "Kopi Susu"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string",
+            "example": "KPI-001"
+          },
+          "price": {
+            "type": "number",
+            "example": 18000
+          },
+          "cost_price": {
+            "type": "number",
+            "example": 8000
+          },
+          "stock_quantity": {
+            "type": "number",
+            "example": 100
+          },
+          "category_id": {
+            "type": "object",
+            "description": "Populated kategori"
+          },
+          "image_url": {
+            "type": "string"
+          },
+          "recipe": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ingredient_id": {
+                  "type": "string"
+                },
+                "amount_needed": {
+                  "type": "number"
+                }
+              }
+            }
+          }
         }
       },
       "Category": {
         "type": "object",
         "properties": {
-          "_id": { "type": "string" },
-          "name": { "type": "string" },
-          "description": { "type": "string" }
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "Minuman"
+          },
+          "description": {
+            "type": "string"
+          }
         }
       },
       "Transaction": {
         "type": "object",
         "properties": {
-          "_id": { "type": "string" },
-          "transaction_id": { "type": "string" },
+          "_id": {
+            "type": "string"
+          },
+          "receipt_number": {
+            "type": "string",
+            "example": "WUZ-20240601-AB12"
+          },
           "items": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "product_id": { "type": "string" },
-                "quantity": { "type": "number" },
-                "price": { "type": "number" },
-                "subtotal": { "type": "number" }
+                "product_id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                },
+                "price_at_sale": {
+                  "type": "number"
+                },
+                "total_amount": {
+                  "type": "number"
+                },
+                "category_name": {
+                  "type": "string"
+                }
               }
             }
           },
-          "total_amount": { "type": "number" },
-          "payment_method": { "type": "string" },
-          "payment_amount": { "type": "number" },
-          "change_amount": { "type": "number" },
-          "status": { "type": "string" }
+          "total_amount": {
+            "type": "number",
+            "example": 36000
+          },
+          "total_real_amount": {
+            "type": "number",
+            "example": 40000
+          },
+          "discount_amount": {
+            "type": "number",
+            "example": 4000
+          },
+          "profit": {
+            "type": "number",
+            "example": 20000
+          },
+          "payment_method": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "qris",
+              "transfer"
+            ],
+            "example": "cash"
+          },
+          "status": {
+            "type": "string",
+            "example": "completed"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CashDrawer": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "staffname": {
+            "type": "string",
+            "example": "Budi"
+          },
+          "starting_cash": {
+            "type": "number",
+            "example": 500000
+          },
+          "ending_cash": {
+            "type": "number",
+            "example": 1200000,
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "example": "open"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "Customer": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "Andi"
+          },
+          "phone": {
+            "type": "string",
+            "example": "081234567890"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "address": {
+            "type": "string"
+          }
+        }
+      },
+      "Supplier": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "CV. Bahan Segar"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "office_address": {
+            "type": "string"
+          },
+          "contact_person": {
+            "type": "string"
+          },
+          "contact_info": {
+            "type": "string"
+          }
+        }
+      },
+      "Discount": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "Diskon Weekend 10%"
+          },
+          "description": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "example": 10
+          },
+          "value_type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "product",
+              "category",
+              "transaction"
+            ]
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "product_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "category_id": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "Ingredient": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "Gula Pasir"
+          },
+          "unit": {
+            "type": "string",
+            "example": "kg"
+          },
+          "stock_quantity": {
+            "type": "number",
+            "example": 50
+          },
+          "cost_per_unit": {
+            "type": "number",
+            "example": 14000
+          }
+        }
+      },
+      "PendingOrder": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "customer_name": {
+            "type": "string",
+            "example": "Meja 3"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "subtotal": {
+            "type": "number",
+            "example": 50000
+          },
+          "discount_amount": {
+            "type": "number",
+            "example": 5000
+          },
+          "discount_name": {
+            "type": "string"
+          },
+          "selected_discount_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "total_amount": {
+            "type": "number",
+            "example": 45000
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReceiptSetting": {
+        "type": "object",
+        "properties": {
+          "store_name": {
+            "type": "string",
+            "example": "Warung Kopi Santai"
+          },
+          "address": {
+            "type": "string"
+          },
+          "footer_text": {
+            "type": "string",
+            "example": "Terima kasih!"
+          },
+          "logo_url": {
+            "type": "string"
+          },
+          "show_logo": {
+            "type": "boolean"
+          },
+          "paper_size": {
+            "type": "string",
+            "example": "80mm"
+          },
+          "auto_print": {
+            "type": "boolean"
+          },
+          "max_chars": {
+            "type": "number",
+            "example": 40
+          },
+          "font_family": {
+            "type": "string",
+            "example": "monospace"
+          },
+          "font_size": {
+            "type": "number",
+            "example": 12
+          },
+          "margin_h": {
+            "type": "number",
+            "example": 4
+          },
+          "margin_b": {
+            "type": "number",
+            "example": 8
+          }
+        }
+      },
+      "Permission": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "role_name": {
+            "type": "string",
+            "example": "kasir"
+          },
+          "allowed_menus": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "kasir",
+              "transactions",
+              "products"
+            ]
+          }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer"
+          },
+          "current_page": {
+            "type": "integer"
+          },
+          "total_pages": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
         }
       }
     }
@@ -75,25 +553,98 @@
   "security": [
     {
       "bearerAuth": []
+    },
+    {
+      "sessionId": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "System",
+      "description": "Health check dan status server"
+    },
+    {
+      "name": "Auth",
+      "description": "Autentikasi dan manajemen user"
+    },
+    {
+      "name": "Products",
+      "description": "Manajemen produk, stok, ekspor/impor, dan resep BOM"
+    },
+    {
+      "name": "Categories",
+      "description": "Manajemen kategori produk"
+    },
+    {
+      "name": "Transactions",
+      "description": "Proses transaksi penjualan dengan logika BOM otomatis"
+    },
+    {
+      "name": "Cash Drawer",
+      "description": "Manajemen sesi kas harian (buka/tutup)"
+    },
+    {
+      "name": "Analytics",
+      "description": "Laporan penjualan, profit, dan analitik bisnis"
+    },
+    {
+      "name": "Customers",
+      "description": "Manajemen data pelanggan"
+    },
+    {
+      "name": "Suppliers",
+      "description": "Manajemen data pemasok/supplier"
+    },
+    {
+      "name": "Discounts",
+      "description": "Manajemen diskon dan promo"
+    },
+    {
+      "name": "Ingredients",
+      "description": "Manajemen bahan baku (Bill of Materials) dan stok fisik"
+    },
+    {
+      "name": "Pending Orders",
+      "description": "Antrian pesanan yang belum diproses"
+    },
+    {
+      "name": "Permissions",
+      "description": "Konfigurasi hak akses menu per role"
+    },
+    {
+      "name": "Receipt Settings",
+      "description": "Konfigurasi tampilan struk pembayaran"
     }
   ],
   "paths": {
     "/health": {
       "get": {
-        "summary": "Health check",
-        "tags": ["System"],
+        "summary": "Health Check",
+        "description": "Memeriksa status server dan koneksi database.",
+        "tags": [
+          "System"
+        ],
         "security": [],
         "responses": {
           "200": {
-            "description": "System is healthy",
+            "description": "Server normal",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "string" },
-                    "database": { "type": "string" },
-                    "time": { "type": "string" }
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "database": {
+                      "type": "string",
+                      "example": "connected"
+                    },
+                    "time": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
                   }
                 }
               }
@@ -102,10 +653,13 @@
         }
       }
     },
-    "/auth/login": {
+    "/auth/register": {
       "post": {
-        "summary": "User Login",
-        "tags": ["Auth"],
+        "summary": "Daftar User Baru",
+        "description": "Mendaftarkan pengguna baru. Role default: kasir.",
+        "tags": [
+          "Auth"
+        ],
         "security": [],
         "requestBody": {
           "required": true,
@@ -113,9 +667,35 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "email",
+                  "password",
+                  "name"
+                ],
                 "properties": {
-                  "email": { "type": "string" },
-                  "password": { "type": "string" }
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "user@wuzpay.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6,
+                    "example": "password123"
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "Kasir Baru"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "owner",
+                      "admin",
+                      "kasir"
+                    ],
+                    "example": "kasir"
+                  }
                 }
               }
             }
@@ -123,20 +703,144 @@
         },
         "responses": {
           "200": {
-            "description": "Login successful",
+            "description": "Registrasi berhasil",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "token": { "type": "string" },
                     "user": {
-                      "type": "object",
-                      "properties": {
-                        "id": { "type": "string" },
-                        "name": { "type": "string" },
-                        "email": { "type": "string" },
-                        "role": { "type": "string" }
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Login",
+        "description": "Autentikasi pengguna. Kembalikan access_token (Bearer JWT) dan session_id.",
+        "tags": [
+          "Auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "owner@wuzpay.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    },
+                    "access_token": {
+                      "type": "string",
+                      "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    },
+                    "session_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Email atau password salah",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Get Current User",
+        "description": "Data user yang sedang login berdasarkan token.",
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Data user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/users": {
+      "get": {
+        "summary": "Get All Users",
+        "description": "Daftar semua user. Hanya role owner atau admin.",
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "users": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/User"
                       }
                     }
                   }
@@ -145,30 +849,98 @@
             }
           },
           "401": {
-            "description": "Invalid credentials"
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/auth/users/{id}": {
+      "delete": {
+        "summary": "Hapus User",
+        "description": "Hapus user berdasarkan ID. Akun owner tidak bisa dihapus.",
+        "tags": [
+          "Auth"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User dihapus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           }
         }
       }
     },
     "/products": {
       "get": {
-        "summary": "Get all products",
-        "tags": ["Products"],
+        "summary": "Get All Products",
+        "description": "Daftar produk dengan pagination opsional. Tambahkan include_recipe=true untuk data resep BOM.",
+        "tags": [
+          "Products"
+        ],
+        "security": [],
         "parameters": [
           {
             "name": "page",
             "in": "query",
-            "schema": { "type": "integer" }
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
           },
           {
             "name": "limit",
             "in": "query",
-            "schema": { "type": "integer" }
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "include_recipe",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Sertakan resep bahan baku"
           }
         ],
         "responses": {
           "200": {
-            "description": "List of products",
+            "description": "Daftar produk",
             "content": {
               "application/json": {
                 "schema": {
@@ -176,10 +948,12 @@
                   "properties": {
                     "products": {
                       "type": "array",
-                      "items": { "$ref": "#/components/schemas/Product" }
+                      "items": {
+                        "$ref": "#/components/schemas/Product"
+                      }
                     },
                     "meta": {
-                      "type": "object"
+                      "$ref": "#/components/schemas/Meta"
                     }
                   }
                 }
@@ -189,34 +963,332 @@
         }
       },
       "post": {
-        "summary": "Create a new product",
-        "tags": ["Products"],
+        "summary": "Tambah Produk Baru",
+        "description": "Buat produk baru. Field recipe untuk Bill of Materials (BOM).",
+        "tags": [
+          "Products"
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "name",
+                  "price"
+                ],
                 "properties": {
-                  "name": { "type": "string" },
-                  "price": { "type": "number" },
-                  "cost_price": { "type": "number" },
-                  "category_id": { "type": "string" }
-                },
-                "required": ["name", "price"]
+                  "name": {
+                    "type": "string",
+                    "example": "Kopi Susu"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "sku": {
+                    "type": "string",
+                    "example": "KPI-001"
+                  },
+                  "price": {
+                    "type": "number",
+                    "example": 18000
+                  },
+                  "cost_price": {
+                    "type": "number",
+                    "example": 8000
+                  },
+                  "category_id": {
+                    "type": "string"
+                  },
+                  "image_url": {
+                    "type": "string"
+                  },
+                  "recipe": {
+                    "type": "array",
+                    "description": "Bill of Materials per porsi",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "ingredient_id": {
+                          "type": "string"
+                        },
+                        "amount_needed": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Product created",
+            "description": "Produk dibuat",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "product": { "$ref": "#/components/schemas/Product" }
+                    "product": {
+                      "$ref": "#/components/schemas/Product"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/products/export": {
+      "get": {
+        "summary": "Export Produk ke Excel",
+        "description": "Download data produk dalam format .xlsx.",
+        "tags": [
+          "Products"
+        ],
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Cari berdasarkan nama atau SKU"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File Excel",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products/import": {
+      "post": {
+        "summary": "Import Produk dari Excel",
+        "description": "Import atau update produk dari file .xlsx. Kolom: Nama Produk, SKU, Harga Jual, Harga Beli (HPP), Stok Sisa, Kategori, Deskripsi.",
+        "tags": [
+          "Products"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Import selesai",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "results": {
+                      "type": "object",
+                      "properties": {
+                        "added": {
+                          "type": "integer"
+                        },
+                        "updated": {
+                          "type": "integer"
+                        },
+                        "skipped": {
+                          "type": "integer"
+                        },
+                        "errors": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products/stock/logs": {
+      "get": {
+        "summary": "Get Stock Logs",
+        "description": "50 log perubahan stok terakhir.",
+        "tags": [
+          "Products"
+        ],
+        "responses": {
+          "200": {
+            "description": "Log stok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "logs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "type": "string"
+                          },
+                          "product_id": {
+                            "type": "object"
+                          },
+                          "user_id": {
+                            "type": "string"
+                          },
+                          "previous_stock": {
+                            "type": "number"
+                          },
+                          "added_stock": {
+                            "type": "number"
+                          },
+                          "current_stock": {
+                            "type": "number"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "addition",
+                              "reduction",
+                              "initial"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products/bulk-add-stock": {
+      "post": {
+        "summary": "Tambah Stok Produk Massal",
+        "description": "Update stok beberapa produk sekaligus. is_new: true untuk produk baru.",
+        "tags": [
+          "Products"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "product_id": {
+                          "type": "string"
+                        },
+                        "product_name": {
+                          "type": "string"
+                        },
+                        "amount": {
+                          "type": "number",
+                          "example": 10
+                        },
+                        "price": {
+                          "type": "number"
+                        },
+                        "cost": {
+                          "type": "number"
+                        },
+                        "is_new": {
+                          "type": "boolean",
+                          "default": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stok diperbarui",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "results": {
+                      "type": "object",
+                      "properties": {
+                        "updated": {
+                          "type": "integer"
+                        },
+                        "created": {
+                          "type": "integer"
+                        },
+                        "errors": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -227,44 +1299,56 @@
     },
     "/products/{id}": {
       "get": {
-        "summary": "Get a product by ID",
-        "tags": ["Products"],
+        "summary": "Get Produk by ID",
+        "tags": [
+          "Products"
+        ],
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Product details",
+            "description": "Detail produk",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "product": { "$ref": "#/components/schemas/Product" }
+                    "product": {
+                      "$ref": "#/components/schemas/Product"
+                    }
                   }
                 }
               }
             }
           },
           "404": {
-            "description": "Product not found"
+            "$ref": "#/components/responses/NotFound"
           }
         }
       },
       "put": {
-        "summary": "Update a product",
-        "tags": ["Products"],
+        "summary": "Update Produk",
+        "tags": [
+          "Products"
+        ],
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
           }
         ],
         "requestBody": {
@@ -274,136 +1358,30 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "name": { "type": "string" },
-                  "price": { "type": "number" },
-                  "cost_price": { "type": "number" },
-                  "category_id": { "type": "string" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Product updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "product": { "$ref": "#/components/schemas/Product" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "summary": "Delete a product",
-        "tags": ["Products"],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Product deleted"
-          }
-        }
-      }
-    },
-    "/categories": {
-      "get": {
-        "summary": "Get all categories",
-        "tags": ["Categories"],
-        "responses": {
-          "200": {
-            "description": "List of categories",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "categories": {
-                      "type": "array",
-                      "items": { "$ref": "#/components/schemas/Category" }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "summary": "Create a new category",
-        "tags": ["Categories"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": { "type": "string" },
-                  "description": { "type": "string" }
-                },
-                "required": ["name"]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Category created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "category": { "$ref": "#/components/schemas/Category" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/transactions": {
-      "get": {
-        "summary": "Get all transactions",
-        "tags": ["Transactions"],
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": { "type": "integer" }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": { "type": "integer" }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of transactions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "transactions": {
-                      "type": "array",
-                      "items": { "$ref": "#/components/schemas/Transaction" }
-                    },
-                    "meta": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "sku": {
+                    "type": "string"
+                  },
+                  "price": {
+                    "type": "number"
+                  },
+                  "cost_price": {
+                    "type": "number"
+                  },
+                  "category_id": {
+                    "type": "string"
+                  },
+                  "image_url": {
+                    "type": "string"
+                  },
+                  "recipe": {
+                    "type": "array",
+                    "items": {
                       "type": "object"
                     }
                   }
@@ -411,11 +1389,220 @@
               }
             }
           }
+        },
+        "responses": {
+          "200": {
+            "description": "Produk diupdate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "product": {
+                      "$ref": "#/components/schemas/Product"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Hapus Produk",
+        "tags": [
+          "Products"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Produk dihapus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/products/{id}/add-stock": {
+      "post": {
+        "summary": "Tambah/Kurangi Stok Produk Manual",
+        "description": "Update stok manual. Nilai negatif untuk pengurangan.",
+        "tags": [
+          "Products"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amount"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "number",
+                    "example": 20,
+                    "description": "Positif untuk tambah, negatif untuk kurang"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stok diperbarui",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "newStock": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/categories": {
+      "get": {
+        "summary": "Get All Categories",
+        "tags": [
+          "Categories"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Daftar kategori",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Category"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       },
       "post": {
-        "summary": "Create a new transaction",
-        "tags": ["Transactions"],
+        "summary": "Tambah Kategori",
+        "tags": [
+          "Categories"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Minuman"
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kategori dibuat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "category": {
+                      "$ref": "#/components/schemas/Category"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/categories/{id}": {
+      "put": {
+        "summary": "Update Kategori",
+        "tags": [
+          "Categories"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -423,34 +1610,2315 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "items": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "product_id": { "type": "string" },
-                        "quantity": { "type": "number" },
-                        "price": { "type": "number" }
-                      }
-                    }
+                  "name": {
+                    "type": "string"
                   },
-                  "payment_method": { "type": "string" },
-                  "payment_amount": { "type": "number" }
-                },
-                "required": ["items", "payment_method", "payment_amount"]
+                  "description": {
+                    "type": "string"
+                  }
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Transaction completed",
+            "description": "Kategori diupdate",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "transaction": { "$ref": "#/components/schemas/Transaction" }
+                    "category": {
+                      "$ref": "#/components/schemas/Category"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Hapus Kategori",
+        "tags": [
+          "Categories"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Kategori dihapus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/transactions": {
+      "get": {
+        "summary": "Get All Transactions",
+        "description": "Daftar transaksi dengan pagination dan filter tanggal.",
+        "tags": [
+          "Transactions"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-06-01"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-06-30"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar transaksi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Transaction"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "summary": "Buat Transaksi Baru",
+        "description": "Proses transaksi penjualan. Stok bahan baku otomatis dikurangi sesuai resep BOM produk.",
+        "tags": [
+          "Transactions"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "quantity"
+                      ],
+                      "properties": {
+                        "product_id": {
+                          "type": "string",
+                          "example": "664f1a2b3c4d5e6f7a8b9c0d"
+                        },
+                        "id": {
+                          "type": "string",
+                          "description": "Alias untuk product_id"
+                        },
+                        "name": {
+                          "type": "string",
+                          "example": "Kopi Susu"
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "example": 2
+                        },
+                        "price_at_sale": {
+                          "type": "number",
+                          "example": 18000
+                        },
+                        "category_name": {
+                          "type": "string",
+                          "example": "Minuman"
+                        }
+                      }
+                    }
+                  },
+                  "total_real_amount": {
+                    "type": "number",
+                    "example": 40000,
+                    "description": "Subtotal sebelum diskon"
+                  },
+                  "discount_amount": {
+                    "type": "number",
+                    "example": 4000
+                  },
+                  "payment_method": {
+                    "type": "string",
+                    "enum": [
+                      "cash",
+                      "qris",
+                      "transfer"
+                    ],
+                    "example": "cash"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transaksi berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "transaction": {
+                      "$ref": "#/components/schemas/Transaction"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/transactions/{id}": {
+      "get": {
+        "summary": "Get Transaksi by ID",
+        "tags": [
+          "Transactions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail transaksi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Transaction"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/transactions/{id}/items": {
+      "put": {
+        "summary": "Update Item Transaksi",
+        "description": "Update item dalam transaksi yang sudah ada (koreksi pesanan).",
+        "tags": [
+          "Transactions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "total_amount",
+                  "items"
+                ],
+                "properties": {
+                  "total_amount": {
+                    "type": "number"
+                  },
+                  "total_real_amount": {
+                    "type": "number"
+                  },
+                  "profit": {
+                    "type": "number"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transaksi diupdate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Transaction"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/cash-drawer": {
+      "get": {
+        "summary": "Get All Cash Drawer Sessions",
+        "description": "Semua sesi kas, terbaru duluan.",
+        "tags": [
+          "Cash Drawer"
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar sesi kas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cashDrawers": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CashDrawer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "summary": "Buka Sesi Kas Baru",
+        "description": "Buka sesi kas baru. Isi ending_cash sekaligus untuk langsung menutup sesi.",
+        "tags": [
+          "Cash Drawer"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "starting_cash"
+                ],
+                "properties": {
+                  "starting_cash": {
+                    "type": "number",
+                    "example": 500000
+                  },
+                  "ending_cash": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "staffname": {
+                    "type": "string",
+                    "example": "Budi"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "example": "Shift pagi"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sesi kas dibuka",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "drawer": {
+                      "$ref": "#/components/schemas/CashDrawer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/cash-drawer/{id}": {
+      "put": {
+        "summary": "Update / Tutup Sesi Kas",
+        "description": "Update sesi kas. Isi ending_cash untuk menutup sesi.",
+        "tags": [
+          "Cash Drawer"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "starting_cash": {
+                    "type": "number"
+                  },
+                  "ending_cash": {
+                    "type": "number",
+                    "example": 1200000
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "staffname": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sesi kas diupdate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "drawer": {
+                      "$ref": "#/components/schemas/CashDrawer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Hapus Sesi Kas",
+        "tags": [
+          "Cash Drawer"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sesi dihapus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/reports/sales": {
+      "get": {
+        "summary": "Laporan Penjualan per Hari",
+        "description": "Jumlah transaksi dan pendapatan per hari dalam rentang tanggal.",
+        "tags": [
+          "Analytics"
+        ],
+        "parameters": [
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-06-01"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-06-30"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Laporan harian",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "report": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "date": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "transactions": {
+                            "type": "integer"
+                          },
+                          "revenue": {
+                            "type": "number"
+                          },
+                          "avgTransaction": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/analytics/reports/summary": {
+      "get": {
+        "summary": "Ringkasan Keuangan",
+        "description": "Total pendapatan bruto, pendapatan bersih, profit, dan diskon.",
+        "tags": [
+          "Analytics"
+        ],
+        "parameters": [
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-06-01"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-06-30"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ringkasan keuangan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "totalGrossRevenue": {
+                          "type": "number"
+                        },
+                        "totalRevenue": {
+                          "type": "number"
+                        },
+                        "totalProfit": {
+                          "type": "number"
+                        },
+                        "totalDiscount": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/reports/product-sales": {
+      "get": {
+        "summary": "Laporan Penjualan per Produk",
+        "description": "Jumlah terjual, pendapatan, dan profit per produk.",
+        "tags": [
+          "Analytics"
+        ],
+        "parameters": [
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-06-01"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-06-30"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Laporan produk",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "qty": {
+                            "type": "integer"
+                          },
+                          "revenue": {
+                            "type": "number"
+                          },
+                          "profit": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/reports/category-sales": {
+      "get": {
+        "summary": "Laporan Penjualan per Kategori",
+        "description": "Jumlah terjual, pendapatan, dan profit per kategori.",
+        "tags": [
+          "Analytics"
+        ],
+        "parameters": [
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-06-01"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-06-30"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Laporan kategori",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "category": {
+                            "type": "string"
+                          },
+                          "qty": {
+                            "type": "integer"
+                          },
+                          "revenue": {
+                            "type": "number"
+                          },
+                          "profit": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/reports/qris": {
+      "get": {
+        "summary": "Laporan Transaksi QRIS",
+        "description": "Daftar dan ringkasan transaksi dengan metode pembayaran QRIS.",
+        "tags": [
+          "Analytics"
+        ],
+        "parameters": [
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-06-01"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-06-30"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data QRIS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Transaction"
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "totalAmount": {
+                          "type": "number"
+                        },
+                        "count": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/ai/insights": {
+      "get": {
+        "summary": "AI Business Insights",
+        "description": "Insight bisnis otomatis: peringatan stok menipis, performa hari ini, dll.",
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar insight",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "insights": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "warning",
+                              "trend",
+                              "info"
+                            ]
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "date": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/entities/customers": {
+      "get": {
+        "summary": "Get All Customers",
+        "tags": [
+          "Customers"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar pelanggan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "customers": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Customer"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Tambah Pelanggan",
+        "tags": [
+          "Customers"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Andi"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "address": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pelanggan dibuat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "customer": {
+                      "$ref": "#/components/schemas/Customer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/entities/customers/{id}": {
+      "put": {
+        "summary": "Update Pelanggan",
+        "tags": [
+          "Customers"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pelanggan diupdate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "customer": {
+                      "$ref": "#/components/schemas/Customer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/entities/suppliers": {
+      "get": {
+        "summary": "Get All Suppliers",
+        "tags": [
+          "Suppliers"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Daftar supplier",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "suppliers": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Supplier"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Tambah Supplier",
+        "tags": [
+          "Suppliers"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "CV. Segar"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "office_address": {
+                    "type": "string"
+                  },
+                  "contact_person": {
+                    "type": "string"
+                  },
+                  "contact_info": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Supplier dibuat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "supplier": {
+                      "$ref": "#/components/schemas/Supplier"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/entities/suppliers/{id}": {
+      "put": {
+        "summary": "Update Supplier",
+        "tags": [
+          "Suppliers"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "office_address": {
+                    "type": "string"
+                  },
+                  "contact_person": {
+                    "type": "string"
+                  },
+                  "contact_info": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Supplier diupdate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "supplier": {
+                      "$ref": "#/components/schemas/Supplier"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/entities/discounts": {
+      "get": {
+        "summary": "Get All Discounts",
+        "tags": [
+          "Discounts"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Daftar diskon",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "discounts": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Discount"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Tambah Diskon",
+        "tags": [
+          "Discounts"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "value",
+                  "value_type",
+                  "scope"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Promo Weekend"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number",
+                    "example": 10
+                  },
+                  "value_type": {
+                    "type": "string",
+                    "enum": [
+                      "percentage",
+                      "fixed"
+                    ]
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "product",
+                      "category",
+                      "transaction"
+                    ]
+                  },
+                  "is_active": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "product_id": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Wajib jika scope=product"
+                  },
+                  "category_id": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Wajib jika scope=category"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Diskon dibuat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "discount": {
+                      "$ref": "#/components/schemas/Discount"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/entities/discounts/{id}": {
+      "put": {
+        "summary": "Update Diskon",
+        "tags": [
+          "Discounts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "value",
+                  "value_type",
+                  "scope"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "value_type": {
+                    "type": "string",
+                    "enum": [
+                      "percentage",
+                      "fixed"
+                    ]
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "product",
+                      "category",
+                      "transaction"
+                    ]
+                  },
+                  "is_active": {
+                    "type": "boolean"
+                  },
+                  "product_id": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "category_id": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Diskon diupdate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "discount": {
+                      "$ref": "#/components/schemas/Discount"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/entities/{type}/{id}": {
+      "delete": {
+        "summary": "Hapus Customer / Supplier / Discount",
+        "description": "Hapus berdasarkan tipe (customers, suppliers, discounts) dan ID.",
+        "tags": [
+          "Customers",
+          "Suppliers",
+          "Discounts"
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "customers",
+                "suppliers",
+                "discounts"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data dihapus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/ingredients": {
+      "get": {
+        "summary": "Get All Ingredients",
+        "description": "Daftar semua bahan baku.",
+        "tags": [
+          "Ingredients"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Daftar bahan baku",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Ingredient"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Tambah Bahan Baku",
+        "tags": [
+          "Ingredients"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Gula Pasir"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "example": "kg"
+                  },
+                  "stock_quantity": {
+                    "type": "number",
+                    "example": 50
+                  },
+                  "cost_per_unit": {
+                    "type": "number",
+                    "example": 14000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Bahan baku ditambahkan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Ingredient"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/ingredients/ocr-bulk": {
+      "post": {
+        "summary": "Update Stok Massal dari Scan OCR",
+        "description": "Simpan hasil scan nota belanja sekaligus. is_new: true untuk bahan baru.",
+        "tags": [
+          "Ingredients"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "ingredient_id": {
+                          "type": "string",
+                          "nullable": true,
+                          "description": "Wajib jika is_new=false"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Wajib jika is_new=true"
+                        },
+                        "unit": {
+                          "type": "string"
+                        },
+                        "amount": {
+                          "type": "number",
+                          "example": 5
+                        },
+                        "price": {
+                          "type": "number",
+                          "example": 70000
+                        },
+                        "is_new": {
+                          "type": "boolean",
+                          "default": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stok diperbarui",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "object",
+                      "properties": {
+                        "updated": {
+                          "type": "integer"
+                        },
+                        "created": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ingredients/match-ocr-embedding": {
+      "post": {
+        "summary": "Cocokkan Nama OCR ke Bahan Baku (AI Semantic)",
+        "description": "Cocokkan nama barang hasil OCR ke bahan baku database dengan AI embedding. Gunakan sebelum /ingredients/ocr-bulk.",
+        "tags": [
+          "Ingredients"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "description": "Array of string atau object dengan field nama_barang",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "nama_barang": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "threshold": {
+                    "type": "number",
+                    "default": 0.75,
+                    "minimum": 0.4,
+                    "maximum": 0.95,
+                    "description": "Ambang batas kesamaan (default 0.75)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Hasil pencocokan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "threshold_used": {
+                      "type": "number"
+                    },
+                    "matches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "string"
+                          },
+                          "matched_id": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "matched_name": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "score": {
+                            "type": "number"
+                          },
+                          "is_new": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/ingredients/{id}": {
+      "put": {
+        "summary": "Update Bahan Baku",
+        "tags": [
+          "Ingredients"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  },
+                  "stock_quantity": {
+                    "type": "number"
+                  },
+                  "cost_per_unit": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bahan baku diupdate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Ingredient"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Hapus Bahan Baku",
+        "tags": [
+          "Ingredients"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bahan baku dihapus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/ingredients/{id}/add-stock": {
+      "post": {
+        "summary": "Tambah/Kurangi Stok Bahan Baku Manual",
+        "description": "Update stok bahan baku manual dan catat di log.",
+        "tags": [
+          "Ingredients"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amount"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "number",
+                    "example": 10,
+                    "description": "Positif = tambah, negatif = kurang"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stok diperbarui",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "newStock": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/pending-orders": {
+      "get": {
+        "summary": "Get All Pending Orders",
+        "description": "Semua antrian pesanan yang belum diproses.",
+        "tags": [
+          "Pending Orders"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Daftar pending order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PendingOrder"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Buat Pending Order",
+        "description": "Buat antrian pesanan baru (pesanan meja, dll).",
+        "tags": [
+          "Pending Orders"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items",
+                  "subtotal",
+                  "total_amount"
+                ],
+                "properties": {
+                  "customer_name": {
+                    "type": "string",
+                    "example": "Meja 3"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "subtotal": {
+                    "type": "number",
+                    "example": 50000
+                  },
+                  "discount_amount": {
+                    "type": "number",
+                    "example": 5000
+                  },
+                  "discount_name": {
+                    "type": "string"
+                  },
+                  "selected_discount_id": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "total_amount": {
+                    "type": "number",
+                    "example": 45000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pending order dibuat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingOrder"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pending-orders/{id}": {
+      "put": {
+        "summary": "Update Pending Order",
+        "tags": [
+          "Pending Orders"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items",
+                  "subtotal",
+                  "total_amount"
+                ],
+                "properties": {
+                  "customer_name": {
+                    "type": "string"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "subtotal": {
+                    "type": "number"
+                  },
+                  "discount_amount": {
+                    "type": "number"
+                  },
+                  "discount_name": {
+                    "type": "string"
+                  },
+                  "selected_discount_id": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "total_amount": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pending order diupdate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingOrder"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Hapus Pending Order",
+        "description": "Hapus antrian pesanan (setelah diproses jadi transaksi).",
+        "tags": [
+          "Pending Orders"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "664f1a2b3c4d5e6f7a8b9c0d"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pending order dihapus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/permissions": {
+      "get": {
+        "summary": "Get All Permissions",
+        "description": "Konfigurasi hak akses menu untuk semua role.",
+        "tags": [
+          "Permissions"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Daftar permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Permission"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/permissions/{roleName}": {
+      "put": {
+        "summary": "Update Permission per Role",
+        "description": "Update menu yang bisa diakses oleh sebuah role. Auto-create jika role belum ada (upsert).",
+        "tags": [
+          "Permissions"
+        ],
+        "parameters": [
+          {
+            "name": "roleName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "kasir"
+            },
+            "description": "Nama role (kasir, admin, owner)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "allowed_menus"
+                ],
+                "properties": {
+                  "allowed_menus": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": [
+                      "kasir",
+                      "transactions",
+                      "products",
+                      "categories"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Permission diupdate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Permission"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/receipt-settings": {
+      "get": {
+        "summary": "Get Receipt Settings",
+        "description": "Ambil konfigurasi struk. Jika belum ada, otomatis dibuat dengan default.",
+        "tags": [
+          "Receipt Settings"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Konfigurasi struk",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptSetting"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Receipt Settings",
+        "description": "Update konfigurasi tampilan struk pembayaran.",
+        "tags": [
+          "Receipt Settings"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiptSetting"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Konfigurasi diupdate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ReceiptSetting"
+                    }
                   }
                 }
               }

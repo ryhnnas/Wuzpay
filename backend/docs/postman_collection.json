@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "WuzPay POS API",
-    "description": "Postman collection for WuzPay POS API",
+    "description": "Koleksi Postman lengkap untuk WuzPay Point of Sale API.\n\n## Cara Pakai\n1. Jalankan request **Login** di folder Auth\n2. Salin `access_token` dan `session_id` dari response\n3. Set Collection Variables: `token` = access_token, `sessionId` = session_id\n4. Semua request berikutnya akan otomatis terautentikasi\n\n## Variables\n- `baseUrl` - Base URL API (default: localhost)\n- `token` - JWT Bearer token dari login\n- `sessionId` - Session ID dari login\n- `id` - Generic MongoDB Object ID untuk request dengan parameter :id",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -11,9 +11,27 @@
       "type": "string"
     },
     {
-      "key": "token",
-      "value": "YOUR_BEARER_TOKEN_HERE",
+      "key": "prodUrl",
+      "value": "https://api.wuzpay.ngetech.studio/api",
       "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "JWT Bearer token dari /auth/login"
+    },
+    {
+      "key": "sessionId",
+      "value": "",
+      "type": "string",
+      "description": "Session ID dari /auth/login"
+    },
+    {
+      "key": "id",
+      "value": "",
+      "type": "string",
+      "description": "MongoDB Object ID untuk request dengan :id parameter"
     }
   ],
   "item": [
@@ -42,18 +60,75 @@
       "name": "Auth",
       "item": [
         {
-          "name": "Login",
+          "name": "Register User Baru",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
-                "value": "application/json"
+                "value": "application/json",
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@wuzpay.com\",\n  \"password\": \"password123\"\n}"
+              "raw": "{\n  \"email\": \"kasir@wuzpay.com\",\n  \"password\": \"password123\",\n  \"name\": \"Kasir Baru\",\n  \"role\": \"kasir\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.access_token) {",
+                  "  pm.collectionVariables.set(\"token\", res.access_token);",
+                  "  console.log(\"✅ Token saved:\", res.access_token.substring(0, 30) + \"...\");",
+                  "}",
+                  "if (res.session_id) {",
+                  "  pm.collectionVariables.set(\"sessionId\", res.session_id);",
+                  "  console.log(\"✅ Session ID saved:\", res.session_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner@wuzpay.com\",\n  \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
@@ -66,6 +141,91 @@
               ]
             }
           }
+        },
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hapus User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/users/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "users",
+                "{{id}}"
+              ]
+            }
+          }
         }
       ]
     },
@@ -75,18 +235,19 @@
         {
           "name": "Get All Products",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/products?page=1&limit=50",
               "host": [
@@ -109,28 +270,95 @@
           }
         },
         {
-          "name": "Create Product",
+          "name": "Get All Products (dengan Resep BOM)",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products?include_recipe=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
                 {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
+                  "key": "include_recipe",
+                  "value": "true"
                 }
               ]
-            },
+            }
+          }
+        },
+        {
+          "name": "Get Product by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tambah Produk Baru",
+          "request": {
             "method": "POST",
             "header": [
               {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
                 "key": "Content-Type",
-                "value": "application/json"
+                "value": "application/json",
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Kopi Susu Gula Aren\",\n  \"price\": 18000,\n  \"cost_price\": 12000,\n  \"stock_quantity\": 100\n}"
+              "raw": "{\n  \"name\": \"Kopi Susu Gula Aren\",\n  \"description\": \"Kopi susu dengan gula aren asli\",\n  \"sku\": \"KPI-001\",\n  \"price\": 18000,\n  \"cost_price\": 8000,\n  \"category_id\": \"{{id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/products",
@@ -144,28 +372,303 @@
           }
         },
         {
-          "name": "Get Product by ID",
+          "name": "Tambah Produk dengan Resep BOM",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kopi Susu Special\",\n  \"price\": 22000,\n  \"cost_price\": 0,\n  \"recipe\": [\n    {\n      \"ingredient_id\": \"{{id}}\",\n      \"amount_needed\": 0.02\n    },\n    {\n      \"ingredient_id\": \"{{id}}\",\n      \"amount_needed\": 0.1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              }
             },
-            "method": "GET",
-            "header": [],
             "url": {
-              "raw": "{{baseUrl}}/products/PRODUCT_ID_HERE",
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Produk",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kopi Susu Gula Aren Updated\",\n  \"price\": 20000,\n  \"cost_price\": 9000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{id}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "products",
-                "PRODUCT_ID_HERE"
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hapus Produk",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export Produk ke Excel",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/export?category_id=all&search=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "category_id",
+                  "value": "all"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Import Produk dari Excel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/data_produk.xlsx",
+                  "description": "File Excel (.xlsx)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "import"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Stock Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/stock/logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "stock",
+                "logs"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tambah Stok Massal (Bulk)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"product_id\": \"{{id}}\",\n      \"amount\": 10\n    },\n    {\n      \"product_name\": \"Produk Baru\",\n      \"amount\": 5,\n      \"price\": 15000,\n      \"cost\": 8000,\n      \"is_new\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/bulk-add-stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "bulk-add-stock"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tambah Stok Produk (by ID)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 20\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{id}}/add-stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{id}}",
+                "add-stock"
               ]
             }
           }
@@ -178,18 +681,19 @@
         {
           "name": "Get All Categories",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/categories",
               "host": [
@@ -202,28 +706,34 @@
           }
         },
         {
-          "name": "Create Category",
+          "name": "Tambah Kategori",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "POST",
             "header": [
               {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
                 "key": "Content-Type",
-                "value": "application/json"
+                "value": "application/json",
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Minuman\",\n  \"description\": \"Kategori untuk semua minuman\"\n}"
+              "raw": "{\n  \"name\": \"Minuman\",\n  \"description\": \"Semua jenis minuman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/categories",
@@ -232,6 +742,76 @@
               ],
               "path": [
                 "categories"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Kategori",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Minuman Segar\",\n  \"description\": \"Semua minuman segar\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hapus Kategori",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{id}}"
               ]
             }
           }
@@ -244,25 +824,725 @@
         {
           "name": "Get All Transactions",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
             "url": {
-              "raw": "{{baseUrl}}/transactions?page=1&limit=50",
+              "raw": "{{baseUrl}}/transactions?page=1&limit=20",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "transactions"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Transactions by Tanggal",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transactions?startDate=2024-06-01&endDate=2024-06-30&page=1&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-06-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-06-30"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Transaksi by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transactions/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buat Transaksi Baru",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"product_id\": \"{{id}}\",\n      \"name\": \"Kopi Susu\",\n      \"quantity\": 2,\n      \"price_at_sale\": 18000,\n      \"category_name\": \"Minuman\"\n    }\n  ],\n  \"total_real_amount\": 36000,\n  \"discount_amount\": 0,\n  \"payment_method\": \"cash\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buat Transaksi QRIS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"product_id\": \"{{id}}\",\n      \"name\": \"Kopi Susu\",\n      \"quantity\": 1,\n      \"price_at_sale\": 18000,\n      \"category_name\": \"Minuman\"\n    }\n  ],\n  \"total_real_amount\": 18000,\n  \"discount_amount\": 0,\n  \"payment_method\": \"qris\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buat Transaksi dengan Diskon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"product_id\": \"{{id}}\",\n      \"name\": \"Kopi Susu\",\n      \"quantity\": 2,\n      \"price_at_sale\": 18000,\n      \"category_name\": \"Minuman\"\n    }\n  ],\n  \"total_real_amount\": 36000,\n  \"discount_amount\": 3600,\n  \"payment_method\": \"cash\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Item Transaksi",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"total_amount\": 36000,\n  \"total_real_amount\": 40000,\n  \"profit\": 20000,\n  \"items\": [\n    {\n      \"product_id\": \"{{id}}\",\n      \"name\": \"Kopi Susu\",\n      \"quantity\": 2,\n      \"price_at_sale\": 18000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions/{{id}}/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions",
+                "{{id}}",
+                "items"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cash Drawer",
+      "item": [
+        {
+          "name": "Get All Sesi Kas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cash-drawer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cash-drawer"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buka Sesi Kas Baru",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"starting_cash\": 500000,\n  \"staffname\": \"Budi\",\n  \"notes\": \"Shift pagi\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cash-drawer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cash-drawer"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buka & Tutup Sesi Sekaligus",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"starting_cash\": 500000,\n  \"ending_cash\": 1250000,\n  \"staffname\": \"Andi\",\n  \"notes\": \"Shift siang\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cash-drawer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cash-drawer"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Sesi Kas (Tutup)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ending_cash\": 1250000,\n  \"notes\": \"Selesai shift\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cash-drawer/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cash-drawer",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hapus Sesi Kas",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cash-drawer/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cash-drawer",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Laporan Penjualan per Hari",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/reports/sales?startDate=2024-06-01&endDate=2024-06-30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "reports",
+                "sales"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-06-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-06-30"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Ringkasan Keuangan (Summary)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/reports/summary?startDate=2024-06-01&endDate=2024-06-30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "reports",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-06-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-06-30"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Laporan per Produk",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/reports/product-sales?startDate=2024-06-01&endDate=2024-06-30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "reports",
+                "product-sales"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-06-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-06-30"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Laporan per Kategori",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/reports/category-sales?startDate=2024-06-01&endDate=2024-06-30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "reports",
+                "category-sales"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-06-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-06-30"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Laporan Transaksi QRIS",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/reports/qris?startDate=2024-06-01&endDate=2024-06-30&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "reports",
+                "qris"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-06-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-06-30"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "AI Business Insights",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/ai/insights",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "ai",
+                "insights"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "Get All Customers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/entities/customers?page=1&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                "customers"
               ],
               "query": [
                 {
@@ -278,36 +1558,1145 @@
           }
         },
         {
-          "name": "Create Transaction",
+          "name": "Tambah Pelanggan",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "POST",
             "header": [
               {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
                 "key": "Content-Type",
-                "value": "application/json"
+                "value": "application/json",
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"items\": [\n    {\n      \"product_id\": \"PRODUCT_ID_HERE\",\n      \"quantity\": 2,\n      \"price\": 18000\n    }\n  ],\n  \"payment_method\": \"cash\",\n  \"payment_amount\": 50000\n}"
+              "raw": "{\n  \"name\": \"Andi Pelanggan\",\n  \"phone\": \"081234567890\",\n  \"email\": \"andi@email.com\",\n  \"address\": \"Jl. Merdeka No. 1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
-              "raw": "{{baseUrl}}/transactions",
+              "raw": "{{baseUrl}}/entities/customers",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "transactions"
+                "entities",
+                "customers"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Pelanggan",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Andi Updated\",\n  \"phone\": \"081234567890\",\n  \"email\": \"andi.baru@email.com\",\n  \"address\": \"Jl. Baru No. 2\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/entities/customers/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                "customers",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hapus Pelanggan",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/entities/customers/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                "customers",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Suppliers",
+      "item": [
+        {
+          "name": "Get All Suppliers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/entities/suppliers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                "suppliers"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tambah Supplier",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CV. Bahan Segar\",\n  \"email\": \"supplier@bahansegar.com\",\n  \"phone\": \"021-12345678\",\n  \"address\": \"Jl. Industri No. 10\",\n  \"office_address\": \"Jl. Kantor No. 5\",\n  \"contact_person\": \"Pak Budi\",\n  \"contact_info\": \"WA: 081234567890\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/entities/suppliers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                "suppliers"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Supplier",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CV. Bahan Segar Updated\",\n  \"phone\": \"021-99999999\",\n  \"contact_person\": \"Bu Sari\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/entities/suppliers/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                "suppliers",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hapus Supplier",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/entities/suppliers/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                "suppliers",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Discounts",
+      "item": [
+        {
+          "name": "Get All Discounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/entities/discounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                "discounts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tambah Diskon (Transaction)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Promo Weekend 10%\",\n  \"description\": \"Diskon 10% untuk semua transaksi di akhir pekan\",\n  \"value\": 10,\n  \"value_type\": \"percentage\",\n  \"scope\": \"transaction\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/entities/discounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                "discounts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tambah Diskon (Product)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Diskon Kopi Susu\",\n  \"value\": 2000,\n  \"value_type\": \"fixed\",\n  \"scope\": \"product\",\n  \"product_id\": \"{{id}}\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/entities/discounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                "discounts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tambah Diskon (Category)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Diskon Minuman 5%\",\n  \"value\": 5,\n  \"value_type\": \"percentage\",\n  \"scope\": \"category\",\n  \"category_id\": \"{{id}}\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/entities/discounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                "discounts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Diskon",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Promo Weekday Updated\",\n  \"value\": 15,\n  \"value_type\": \"percentage\",\n  \"scope\": \"transaction\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/entities/discounts/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                "discounts",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hapus Diskon",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/entities/discounts/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                "discounts",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ingredients (Bahan Baku)",
+      "item": [
+        {
+          "name": "Get All Ingredients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ingredients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingredients"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tambah Bahan Baku",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Gula Pasir\",\n  \"unit\": \"kg\",\n  \"stock_quantity\": 50,\n  \"cost_per_unit\": 14000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingredients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingredients"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Bahan Baku",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Gula Pasir Premium\",\n  \"unit\": \"kg\",\n  \"cost_per_unit\": 15000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingredients/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingredients",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hapus Bahan Baku",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ingredients/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingredients",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tambah Stok Bahan Baku Manual",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingredients/{{id}}/add-stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingredients",
+                "{{id}}",
+                "add-stock"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Stok Massal dari OCR",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"ingredient_id\": \"{{id}}\",\n      \"amount\": 5,\n      \"price\": 70000,\n      \"is_new\": false\n    },\n    {\n      \"name\": \"Susu UHT\",\n      \"unit\": \"liter\",\n      \"amount\": 10,\n      \"price\": 18000,\n      \"is_new\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingredients/ocr-bulk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingredients",
+                "ocr-bulk"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Match Nama OCR ke Bahan Baku (AI)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    \"Gula Pasir Premium\",\n    \"Susu Segar\",\n    \"Teh Celup\"\n  ],\n  \"threshold\": 0.75\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingredients/match-ocr-embedding",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingredients",
+                "match-ocr-embedding"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pending Orders",
+      "item": [
+        {
+          "name": "Get All Pending Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/pending-orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pending-orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buat Pending Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"Meja 3\",\n  \"items\": [\n    {\n      \"product_id\": \"{{id}}\",\n      \"name\": \"Kopi Susu\",\n      \"quantity\": 2,\n      \"price_at_sale\": 18000\n    }\n  ],\n  \"subtotal\": 36000,\n  \"discount_amount\": 0,\n  \"total_amount\": 36000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pending-orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pending-orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buat Pending Order dengan Diskon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"Meja 5\",\n  \"items\": [\n    {\n      \"product_id\": \"{{id}}\",\n      \"name\": \"Es Teh\",\n      \"quantity\": 3,\n      \"price_at_sale\": 8000\n    }\n  ],\n  \"subtotal\": 24000,\n  \"discount_amount\": 2400,\n  \"discount_name\": \"Promo Weekend 10%\",\n  \"selected_discount_id\": \"{{id}}\",\n  \"total_amount\": 21600\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pending-orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pending-orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Pending Order",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"Meja 3\",\n  \"items\": [\n    {\n      \"product_id\": \"{{id}}\",\n      \"name\": \"Kopi Susu\",\n      \"quantity\": 3,\n      \"price_at_sale\": 18000\n    }\n  ],\n  \"subtotal\": 54000,\n  \"discount_amount\": 0,\n  \"total_amount\": 54000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pending-orders/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pending-orders",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hapus Pending Order",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pending-orders/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pending-orders",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Permissions",
+      "item": [
+        {
+          "name": "Get All Permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/permissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "permissions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Permission - Kasir",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"allowed_menus\": [\n    \"kasir\",\n    \"transactions\",\n    \"products\",\n    \"categories\",\n    \"pending-orders\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/permissions/kasir",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "permissions",
+                "kasir"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Permission - Admin",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"allowed_menus\": [\n    \"kasir\",\n    \"transactions\",\n    \"products\",\n    \"categories\",\n    \"customers\",\n    \"suppliers\",\n    \"discounts\",\n    \"cash-drawer\",\n    \"analytics\",\n    \"pending-orders\",\n    \"ingredients\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/permissions/admin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "permissions",
+                "admin"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Permission - Owner",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"allowed_menus\": [\n    \"kasir\",\n    \"transactions\",\n    \"products\",\n    \"categories\",\n    \"customers\",\n    \"suppliers\",\n    \"discounts\",\n    \"cash-drawer\",\n    \"analytics\",\n    \"pending-orders\",\n    \"ingredients\",\n    \"permissions\",\n    \"users\",\n    \"receipt-settings\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/permissions/owner",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "permissions",
+                "owner"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Receipt Settings",
+      "item": [
+        {
+          "name": "Get Receipt Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/receipt-settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "receipt-settings"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Receipt Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "{{sessionId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"store_name\": \"Warung Kopi Santai\",\n  \"address\": \"Jl. Contoh No. 99, Jakarta\",\n  \"footer_text\": \"Terima kasih telah berkunjung! Sampai jumpa lagi!\",\n  \"show_logo\": false,\n  \"paper_size\": \"80mm\",\n  \"auto_print\": false,\n  \"max_chars\": 42,\n  \"font_family\": \"monospace\",\n  \"font_size\": 12,\n  \"margin_h\": 4,\n  \"margin_b\": 8\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/receipt-settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "receipt-settings"
               ]
             }
           }
