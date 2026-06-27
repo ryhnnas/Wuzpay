@@ -8,6 +8,8 @@ import mongoose from "npm:mongoose"; // Tambahkan ini
 // 1. Import Fungsi Koneksi (Kita buat di langkah selanjutnya)
 import { connectDB } from "./lib/mongodb.ts";
 import { rateLimiter } from "./middleware/rateLimiter.ts";
+import { swaggerUI } from "npm:@hono/swagger-ui";
+import swaggerDoc from "./docs/swagger.json" with { type: "json" };
 
 // Import Modular Routes
 import authRoutes from "./routes/auth.ts";
@@ -93,6 +95,10 @@ app.get("/health", (c: Context) => c.json({
   database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
   time: new Date().toISOString()
 }));
+
+// Swagger Documentation Routes
+app.get(`${BASE_PATH}/docs/swagger.json`, (c) => c.json(swaggerDoc));
+app.get(`${BASE_PATH}/docs`, swaggerUI({ url: `${BASE_PATH}/docs/swagger.json` }));
 
 // 5. Start Server
 Deno.serve({ port: process.env.PORT || 8000 }, app.fetch);
