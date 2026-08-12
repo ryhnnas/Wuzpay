@@ -23,6 +23,8 @@ COPY main.py .
 # Pre-download PaddleOCR models so the container starts fast
 RUN python -c "from paddleocr import PaddleOCR; PaddleOCR(use_textline_orientation=True, lang='en')"
 
+RUN useradd -m appuser && chown -R appuser:appuser /app /root/.paddleocr
+USER appuser
 EXPOSE 8001
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]

@@ -39,7 +39,7 @@ services:
         VITE_API_URL: https://wuzpay.ngetech.studio
     container_name: wuzpay_frontend_staging
     ports:
-      - "127.0.0.1:1112:80"
+      - "127.0.0.1:1112:3000"
     depends_on:
       - backend
     restart: unless-stopped

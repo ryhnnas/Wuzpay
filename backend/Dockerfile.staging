@@ -13,6 +13,8 @@ COPY . .
 RUN deno install --allow-scripts --entrypoint index.tsx
 
 # Expose port
+RUN chown -R deno:deno /app
+USER deno
 EXPOSE 6060
 
 # Run

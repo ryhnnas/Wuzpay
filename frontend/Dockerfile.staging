@@ -25,7 +25,8 @@ RUN npm install -g serve
 # Copy built assets from build stage
 COPY --from=build /app/dist ./dist
 
-EXPOSE 80
+USER node
+EXPOSE 3000
 
 # Run serve on port 80 and route all requests to index.html (-s flag)
-CMD ["serve", "-s", "dist", "-l", "80"]
+CMD ["serve", "-s", "dist", "-l", "3000"]
