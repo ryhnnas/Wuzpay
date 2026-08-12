@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile.staging
     container_name: wuzpay_ocr_staging
     ports:
-      - "8001:8001"
+      - "127.0.0.1:8001:8001"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_API_URL=${OPENAI_API_URL}
@@ -19,7 +19,7 @@ services:
       dockerfile: Dockerfile.staging
     container_name: wuzpay_backend_staging
     ports:
-      - "1111:5000"
+      - "127.0.0.1:1111:5000"
     environment:
       - NODE_ENV=staging
       - OCR_SERVICE_URL=http://ocr:8001
@@ -39,7 +39,7 @@ services:
         VITE_API_URL: https://wuzpay.ngetech.studio
     container_name: wuzpay_frontend_staging
     ports:
-      - "1112:80"
+      - "127.0.0.1:1112:80"
     depends_on:
       - backend
     restart: unless-stopped
